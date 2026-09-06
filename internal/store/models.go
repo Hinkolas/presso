@@ -110,6 +110,7 @@ type SiteDomain struct {
 type SiteRequestMetric struct {
 	SiteID      uuid.UUID
 	Bucket      time.Time
+	Scope       string
 	Requests    int64
 	CacheHit    int64
 	CacheMiss   int64

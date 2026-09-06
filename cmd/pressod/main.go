@@ -129,9 +129,14 @@ func runServe() error {
 		Shots: shotSvc,
 	})
 
+	// Streaming handlers (events, logs) watch this context so shutdown does
+	// not wait for browsers to hang up.
+	streamsCtx, stopStreams := context.WithCancel(context.Background())
+	defer stopStreams()
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: api.StripAPIPrefix(api.NewRouter(api.Deps{
+			Shutdown: streamsCtx,
 			Auth:     authSvc,
 			Store:    st,
 			DB:       db,
@@ -193,6 +198,7 @@ func runServe() error {
 	}
 	slog.InfoContext(ctx, "shutting down")
 	cancelLoops()
+	stopStreams()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	err = srv.Shutdown(shutdownCtx)

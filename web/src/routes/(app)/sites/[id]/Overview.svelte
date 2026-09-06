@@ -6,7 +6,14 @@
 	import { api, errorText } from '$lib/api/client';
 	import { sites as liveSites } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
-	import { formatBytes, formatDateTime, formatDuration, formatNumber, percent } from '$lib/format';
+	import {
+		cacheRatio,
+		formatBytes,
+		formatDateTime,
+		formatDuration,
+		formatNumber,
+		percent
+	} from '$lib/format';
 	import type { Job } from '$lib/types/job';
 	import type { MetricsResponse, Site, SiteAction, SiteStats } from '$lib/types/site';
 	import Alert from '$lib/components/Alert.svelte';
@@ -214,13 +221,20 @@
 			</div>
 		</Panel>
 
-		<Panel title="Last hour" class="lg:col-span-2">
+		<Panel
+			title="Last hour"
+			subtitle="Visitor traffic; wp-admin is under Metrics"
+			class="lg:col-span-2"
+		>
 			<div class="grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)]">
 				<div class="flex flex-col gap-5">
 					<Stat label="Requests" value={formatNumber(m?.requests ?? 0)} size="lg" />
 					<Stat
 						label="Served from cache"
-						value={m && m.requests ? percent(m.cache_hit + m.cache_stale, m.requests) : '–'}
+						value={m && m.requests ? cacheRatio(m) : '–'}
+						sub={m && m.cache_bypass
+							? `${percent(m.cache_bypass, m.requests)} bypassed: logged in or POST`
+							: undefined}
 						tone={m && m.requests ? 'ok' : 'ink'}
 					/>
 					<Stat

@@ -75,7 +75,7 @@ func (q *Queries) ListContainerMetrics(ctx context.Context, arg ListContainerMet
 }
 
 const listRequestMetrics = `-- name: ListRequestMetrics :many
-SELECT site_id, bucket, requests, cache_hit, cache_miss, cache_bypass, cache_stale, status_2xx, status_3xx, status_4xx, status_5xx, bytes, dur_sum_ms, dur_p50_ms, dur_p95_ms FROM site_request_metrics WHERE site_id = ? AND bucket >= ? ORDER BY bucket
+SELECT site_id, bucket, scope, requests, cache_hit, cache_miss, cache_bypass, cache_stale, status_2xx, status_3xx, status_4xx, status_5xx, bytes, dur_sum_ms, dur_p50_ms, dur_p95_ms FROM site_request_metrics WHERE site_id = ? AND bucket >= ? ORDER BY bucket
 `
 
 type ListRequestMetricsParams struct {
@@ -83,6 +83,7 @@ type ListRequestMetricsParams struct {
 	Bucket time.Time
 }
 
+// Every scope; rows for the same minute are merged by the caller.
 func (q *Queries) ListRequestMetrics(ctx context.Context, arg ListRequestMetricsParams) ([]SiteRequestMetric, error) {
 	rows, err := q.db.QueryContext(ctx, listRequestMetrics, arg.SiteID, arg.Bucket)
 	if err != nil {
@@ -95,6 +96,57 @@ func (q *Queries) ListRequestMetrics(ctx context.Context, arg ListRequestMetrics
 		if err := rows.Scan(
 			&i.SiteID,
 			&i.Bucket,
+			&i.Scope,
+			&i.Requests,
+			&i.CacheHit,
+			&i.CacheMiss,
+			&i.CacheBypass,
+			&i.CacheStale,
+			&i.Status2xx,
+			&i.Status3xx,
+			&i.Status4xx,
+			&i.Status5xx,
+			&i.Bytes,
+			&i.DurSumMs,
+			&i.DurP50Ms,
+			&i.DurP95Ms,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestMetricsByScope = `-- name: ListRequestMetricsByScope :many
+SELECT site_id, bucket, scope, requests, cache_hit, cache_miss, cache_bypass, cache_stale, status_2xx, status_3xx, status_4xx, status_5xx, bytes, dur_sum_ms, dur_p50_ms, dur_p95_ms FROM site_request_metrics WHERE site_id = ? AND bucket >= ? AND scope = ? ORDER BY bucket
+`
+
+type ListRequestMetricsByScopeParams struct {
+	SiteID uuid.UUID
+	Bucket time.Time
+	Scope  string
+}
+
+func (q *Queries) ListRequestMetricsByScope(ctx context.Context, arg ListRequestMetricsByScopeParams) ([]SiteRequestMetric, error) {
+	rows, err := q.db.QueryContext(ctx, listRequestMetricsByScope, arg.SiteID, arg.Bucket, arg.Scope)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SiteRequestMetric
+	for rows.Next() {
+		var i SiteRequestMetric
+		if err := rows.Scan(
+			&i.SiteID,
+			&i.Bucket,
+			&i.Scope,
 			&i.Requests,
 			&i.CacheHit,
 			&i.CacheMiss,
@@ -130,8 +182,13 @@ SELECT site_id,
        CAST(coalesce(sum(cache_bypass), 0) AS INTEGER) AS cache_bypass,
        CAST(coalesce(sum(cache_stale), 0) AS INTEGER)  AS cache_stale,
        CAST(coalesce(sum(status_5xx), 0) AS INTEGER)   AS status_5xx
-FROM site_request_metrics WHERE bucket >= ? GROUP BY site_id
+FROM site_request_metrics WHERE bucket >= ? AND scope = ? GROUP BY site_id
 `
+
+type SumRequestMetricsSinceParams struct {
+	Bucket time.Time
+	Scope  string
+}
 
 type SumRequestMetricsSinceRow struct {
 	SiteID      uuid.UUID
@@ -143,8 +200,8 @@ type SumRequestMetricsSinceRow struct {
 	Status5xx   int64
 }
 
-func (q *Queries) SumRequestMetricsSince(ctx context.Context, bucket time.Time) ([]SumRequestMetricsSinceRow, error) {
-	rows, err := q.db.QueryContext(ctx, sumRequestMetricsSince, bucket)
+func (q *Queries) SumRequestMetricsSince(ctx context.Context, arg SumRequestMetricsSinceParams) ([]SumRequestMetricsSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, sumRequestMetricsSince, arg.Bucket, arg.Scope)
 	if err != nil {
 		return nil, err
 	}
@@ -202,10 +259,10 @@ func (q *Queries) UpsertContainerMetric(ctx context.Context, arg UpsertContainer
 
 const upsertRequestMetric = `-- name: UpsertRequestMetric :exec
 INSERT INTO site_request_metrics (
-    site_id, bucket, requests, cache_hit, cache_miss, cache_bypass, cache_stale,
+    site_id, bucket, scope, requests, cache_hit, cache_miss, cache_bypass, cache_stale,
     status_2xx, status_3xx, status_4xx, status_5xx, bytes, dur_sum_ms, dur_p50_ms, dur_p95_ms
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (site_id, bucket) DO UPDATE SET
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (site_id, bucket, scope) DO UPDATE SET
     requests     = requests + excluded.requests,
     cache_hit    = cache_hit + excluded.cache_hit,
     cache_miss   = cache_miss + excluded.cache_miss,
@@ -224,6 +281,7 @@ ON CONFLICT (site_id, bucket) DO UPDATE SET
 type UpsertRequestMetricParams struct {
 	SiteID      uuid.UUID
 	Bucket      time.Time
+	Scope       string
 	Requests    int64
 	CacheHit    int64
 	CacheMiss   int64
@@ -243,6 +301,7 @@ func (q *Queries) UpsertRequestMetric(ctx context.Context, arg UpsertRequestMetr
 	_, err := q.db.ExecContext(ctx, upsertRequestMetric,
 		arg.SiteID,
 		arg.Bucket,
+		arg.Scope,
 		arg.Requests,
 		arg.CacheHit,
 		arg.CacheMiss,

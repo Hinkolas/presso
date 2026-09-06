@@ -13,6 +13,7 @@ import (
 
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/jobs"
+	"github.com/Hinkolas/presso/internal/observe"
 	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
 )
@@ -20,6 +21,8 @@ import (
 type siteHandlers struct {
 	sites *site.Service
 	st    *store.Store
+	// shutdown closes when the server stops; nil for non-streaming routes.
+	shutdown <-chan struct{}
 }
 
 // sitePayload is the API view plus the last-hour traffic summary.
@@ -49,7 +52,8 @@ func (h *siteHandlers) list(w http.ResponseWriter, r *http.Request) {
 		writeSiteError(r.Context(), w, err)
 		return
 	}
-	sums, _ := h.st.SumRequestMetricsSince(r.Context(), time.Now().UTC().Add(-time.Hour))
+	// The list summary is visitor traffic: what the public site is doing.
+	sums, _ := h.st.SumRequestMetricsSince(r.Context(), store.SumRequestMetricsSinceParams{Bucket: time.Now().UTC().Add(-time.Hour), Scope: observe.ScopeVisitor})
 	byID := map[uuid.UUID]*metricsSummary{}
 	for _, s := range sums {
 		byID[s.SiteID] = &metricsSummary{Requests: s.Requests, CacheHit: s.CacheHit, CacheMiss: s.CacheMiss, CacheBypass: s.CacheBypass, CacheStale: s.CacheStale, Status5xx: s.Status5xx}
@@ -425,6 +429,9 @@ func (h *siteHandlers) logs(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-h.shutdown:
+			_ = sse.Send("end", map[string]string{"reason": "engine shutting down"})
+			return
 		case <-hb.C:
 			if sse.Heartbeat() != nil {
 				return
@@ -446,7 +453,10 @@ func (h *siteHandlers) logs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET /v1/sites/{id}/metrics?range=1h|24h|7d
+// GET /v1/sites/{id}/metrics?range=1h|24h|7d&scope=visitor|admin|all
+//
+// scope defaults to visitor: public traffic without wp-admin, wp-login, the
+// REST API, wp-cron and XML-RPC, which are counted under admin.
 func (h *siteHandlers) metrics(w http.ResponseWriter, r *http.Request) {
 	id, ok := siteID(r)
 	if !ok {
@@ -470,8 +480,23 @@ func (h *siteHandlers) metrics(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, codeBadRequest, "range must be 1h, 24h or 7d")
 		return
 	}
+	scope := r.URL.Query().Get("scope")
+	switch scope {
+	case "":
+		scope = observe.ScopeVisitor
+	case observe.ScopeVisitor, observe.ScopeAdmin, "all":
+	default:
+		writeError(w, http.StatusBadRequest, codeBadRequest, "scope must be visitor, admin or all")
+		return
+	}
 	since := time.Now().UTC().Add(-span).Truncate(step)
-	reqRows, err := h.st.ListRequestMetrics(r.Context(), store.ListRequestMetricsParams{SiteID: id, Bucket: since})
+	var reqRows []store.SiteRequestMetric
+	var err error
+	if scope == "all" {
+		reqRows, err = h.st.ListRequestMetrics(r.Context(), store.ListRequestMetricsParams{SiteID: id, Bucket: since})
+	} else {
+		reqRows, err = h.st.ListRequestMetricsByScope(r.Context(), store.ListRequestMetricsByScopeParams{SiteID: id, Bucket: since, Scope: scope})
+	}
 	if err != nil {
 		writeSiteError(r.Context(), w, err)
 		return
@@ -483,10 +508,11 @@ func (h *siteHandlers) metrics(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, struct {
 		Range       string            `json:"range"`
+		Scope       string            `json:"scope"`
 		StepSeconds int               `json:"step_seconds"`
 		Requests    []requestBucket   `json:"requests"`
 		Container   []containerBucket `json:"container"`
-	}{rng, int(step / time.Second), downsampleRequests(reqRows, step), downsampleContainer(ctrRows, step)})
+	}{rng, scope, int(step / time.Second), downsampleRequests(reqRows, step), downsampleContainer(ctrRows, step)})
 }
 
 type requestBucket struct {

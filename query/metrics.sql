@@ -1,9 +1,9 @@
 -- name: UpsertRequestMetric :exec
 INSERT INTO site_request_metrics (
-    site_id, bucket, requests, cache_hit, cache_miss, cache_bypass, cache_stale,
+    site_id, bucket, scope, requests, cache_hit, cache_miss, cache_bypass, cache_stale,
     status_2xx, status_3xx, status_4xx, status_5xx, bytes, dur_sum_ms, dur_p50_ms, dur_p95_ms
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (site_id, bucket) DO UPDATE SET
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (site_id, bucket, scope) DO UPDATE SET
     requests     = requests + excluded.requests,
     cache_hit    = cache_hit + excluded.cache_hit,
     cache_miss   = cache_miss + excluded.cache_miss,
@@ -19,7 +19,11 @@ ON CONFLICT (site_id, bucket) DO UPDATE SET
     dur_p95_ms   = max(dur_p95_ms, excluded.dur_p95_ms);
 
 -- name: ListRequestMetrics :many
+-- Every scope; rows for the same minute are merged by the caller.
 SELECT * FROM site_request_metrics WHERE site_id = ? AND bucket >= ? ORDER BY bucket;
+
+-- name: ListRequestMetricsByScope :many
+SELECT * FROM site_request_metrics WHERE site_id = ? AND bucket >= ? AND scope = ? ORDER BY bucket;
 
 -- name: SumRequestMetricsSince :many
 SELECT site_id,
@@ -29,7 +33,7 @@ SELECT site_id,
        CAST(coalesce(sum(cache_bypass), 0) AS INTEGER) AS cache_bypass,
        CAST(coalesce(sum(cache_stale), 0) AS INTEGER)  AS cache_stale,
        CAST(coalesce(sum(status_5xx), 0) AS INTEGER)   AS status_5xx
-FROM site_request_metrics WHERE bucket >= ? GROUP BY site_id;
+FROM site_request_metrics WHERE bucket >= ? AND scope = ? GROUP BY site_id;
 
 -- name: UpsertContainerMetric :exec
 INSERT INTO site_container_metrics (site_id, bucket, cpu_pct, mem_bytes, mem_limit)

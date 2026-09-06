@@ -18,6 +18,8 @@ import (
 type jobHandlers struct {
 	st  *store.Store
 	hub *events.Hub
+	// shutdown closes when the server stops; nil for non-streaming routes.
+	shutdown <-chan struct{}
 }
 
 // GET /v1/jobs?limit=50&site_id=
@@ -93,6 +95,9 @@ func (h *jobHandlers) events(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-h.shutdown:
+			// The browser's EventSource reconnects once the engine is back.
 			return
 		case <-hb.C:
 			if sse.Heartbeat() != nil {

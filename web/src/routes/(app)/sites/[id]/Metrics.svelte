@@ -2,8 +2,8 @@
      refreshed every minute while shown. -->
 <script lang="ts">
 	import { api, errorText } from '$lib/api/client';
-	import { formatDuration, formatNumber, percent } from '$lib/format';
-	import type { MetricsRange, MetricsResponse } from '$lib/types/site';
+	import { cacheRatio, formatDuration, formatNumber, percent } from '$lib/format';
+	import type { MetricsRange, MetricsResponse, MetricsScope } from '$lib/types/site';
 	import Alert from '$lib/components/Alert.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import Panel from '$lib/components/Panel.svelte';
@@ -18,16 +18,22 @@
 		{ value: '7d', label: '7 days' }
 	];
 	let range = $state<MetricsRange>('1h');
+	const scopes: { value: MetricsScope; label: string }[] = [
+		{ value: 'visitor', label: 'Visitors' },
+		{ value: 'admin', label: 'Admin' },
+		{ value: 'all', label: 'All' }
+	];
+	let scope = $state<MetricsScope>('visitor');
 	let data = $state<MetricsResponse | null>(null);
 	let error = $state('');
 	let loading = $state(false);
 
-	async function load(id: string, r: MetricsRange) {
+	async function load(id: string, r: MetricsRange, sc: MetricsScope) {
 		loading = true;
 		try {
-			const res = await api.get<MetricsResponse>(`/v1/sites/${id}/metrics?range=${r}`);
-			// Ignore a stale response after the user switched ranges.
-			if (r === range) data = res;
+			const res = await api.get<MetricsResponse>(`/v1/sites/${id}/metrics?range=${r}&scope=${sc}`);
+			// Ignore a stale response after the user switched ranges or scopes.
+			if (r === range && sc === scope) data = res;
 			error = '';
 		} catch (err) {
 			error = errorText(err);
@@ -39,8 +45,9 @@
 	$effect(() => {
 		const id = siteId;
 		const r = range;
-		load(id, r);
-		const t = setInterval(() => load(id, r), 60_000);
+		const sc = scope;
+		load(id, r, sc);
+		const t = setInterval(() => load(id, r, sc), 60_000);
 		return () => clearInterval(t);
 	});
 
@@ -80,23 +87,41 @@
 
 	// Totals for the strip above the charts.
 	const totals = $derived.by(() => {
-		let requests = 0;
-		let cached = 0;
-		let errors = 0;
-		let p95 = 0;
+		const t = {
+			requests: 0,
+			cache_hit: 0,
+			cache_miss: 0,
+			cache_stale: 0,
+			cache_bypass: 0,
+			errors: 0,
+			p95: 0
+		};
 		for (const b of req) {
-			requests += b.requests;
-			cached += b.cache_hit + b.cache_stale;
-			errors += b.status_5xx;
-			if (b.requests && b.dur_p95_ms > p95) p95 = b.dur_p95_ms;
+			t.requests += b.requests;
+			t.cache_hit += b.cache_hit;
+			t.cache_miss += b.cache_miss;
+			t.cache_stale += b.cache_stale;
+			t.cache_bypass += b.cache_bypass;
+			t.errors += b.status_5xx;
+			if (b.requests && b.dur_p95_ms > t.p95) t.p95 = b.dur_p95_ms;
 		}
-		return { requests, cached, errors, p95 };
+		return t;
 	});
 </script>
 
 <div class="flex flex-col gap-5">
 	<div class="flex flex-wrap items-center gap-3">
 		<Segmented bind:value={range} options={ranges} />
+		<Segmented bind:value={scope} options={scopes} label="Traffic" />
+		<span class="text-xs text-ink-3">
+			{#if scope === 'visitor'}
+				Public pages and assets. wp-admin, wp-login, the REST API, cron and XML-RPC are under Admin.
+			{:else if scope === 'admin'}
+				wp-admin, wp-login, the REST API, cron and XML-RPC. Always served by PHP, never cached.
+			{:else}
+				Everything the edge handled for this site.
+			{/if}
+		</span>
 		{#if loading}
 			<span class="text-xs text-ink-3">Refreshing</span>
 		{/if}
@@ -111,7 +136,10 @@
 			<Stat label="Requests" value={formatNumber(totals.requests)} />
 			<Stat
 				label="Served from cache"
-				value={totals.requests ? percent(totals.cached, totals.requests) : '–'}
+				value={totals.requests ? cacheRatio(totals) : '–'}
+				sub={totals.cache_bypass
+					? `${percent(totals.cache_bypass, totals.requests)} bypassed the cache`
+					: undefined}
 				tone={totals.requests ? 'ok' : 'ink'}
 			/>
 			<Stat label="Slowest p95" value={totals.p95 ? formatDuration(totals.p95) : '–'} />

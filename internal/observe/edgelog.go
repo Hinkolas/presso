@@ -68,10 +68,35 @@ func ClassifyCacheStatus(v string) CacheOutcome {
 	return OutcomeBypass
 }
 
-// bucketKey identifies one site-minute.
+// Scopes split traffic by audience. Visitor traffic is the public site;
+// admin traffic is everything WordPress serves to operators and machines:
+// wp-admin (including admin-ajax), wp-login, the REST API, wp-cron, XML-RPC.
+const (
+	ScopeVisitor = "visitor"
+	ScopeAdmin   = "admin"
+)
+
+var adminPrefixes = []string{"/wp-admin", "/wp-login.php", "/wp-json", "/wp-cron.php", "/xmlrpc.php"}
+
+// ScopeOf classifies a request path (query string allowed).
+func ScopeOf(uri string) string {
+	path := uri
+	if i := strings.IndexAny(path, "?#"); i >= 0 {
+		path = path[:i]
+	}
+	for _, p := range adminPrefixes {
+		if path == p || strings.HasPrefix(path, p+"/") {
+			return ScopeAdmin
+		}
+	}
+	return ScopeVisitor
+}
+
+// bucketKey identifies one site-minute-scope.
 type bucketKey struct {
 	site   uuid.UUID
 	minute time.Time
+	scope  string
 }
 
 type bucketAcc struct {
@@ -124,10 +149,10 @@ func (a *Aggregator) Ingest(line string, at time.Time) bool {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	key := bucketKey{site: siteID, minute: at.UTC().Truncate(time.Minute)}
+	key := bucketKey{site: siteID, minute: at.UTC().Truncate(time.Minute), scope: ScopeOf(e.Request.URI)}
 	b := a.buckets[key]
 	if b == nil {
-		b = &bucketAcc{UpsertRequestMetricParams: store.UpsertRequestMetricParams{SiteID: siteID, Bucket: key.minute}}
+		b = &bucketAcc{UpsertRequestMetricParams: store.UpsertRequestMetricParams{SiteID: siteID, Bucket: key.minute, Scope: key.scope}}
 		a.buckets[key] = b
 	}
 	b.Requests++

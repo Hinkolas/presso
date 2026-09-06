@@ -6,7 +6,7 @@
 	import { jobs } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
 	import { runSiteAction, shownStatus } from '$lib/site-actions';
-	import { formatDuration, formatNumber, percent } from '$lib/format';
+	import { cacheRatio, formatDuration, formatNumber } from '$lib/format';
 	import type { MetricsResponse, Site, SiteAction } from '$lib/types/site';
 	import Icon from './Icon.svelte';
 	import Menu, { type MenuItem } from './Menu.svelte';
@@ -120,9 +120,7 @@
 		{#if running}{formatNumber(m?.requests ?? 0)}{:else}<span class="text-ink-3">–</span>{/if}
 	</td>
 	<td class="{td} text-right text-ink-2 num">
-		{#if running && m && m.requests}{percent(m.cache_hit + m.cache_stale, m.requests)}{:else}<span
-				class="text-ink-3">–</span
-			>{/if}
+		{#if running && m && m.requests}{cacheRatio(m)}{:else}<span class="text-ink-3">–</span>{/if}
 	</td>
 	<td class="{td} text-right text-ink-2 num">
 		{#if running && p95 !== null}{formatDuration(p95)}{:else}<span class="text-ink-3">–</span>{/if}

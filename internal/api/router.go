@@ -6,6 +6,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"strings"
@@ -43,6 +44,10 @@ type Deps struct {
 	Platform *platform.Service
 	// WebUI, when set, serves every path the API does not claim.
 	WebUI http.Handler
+	// Shutdown, when set, ends long-lived streams (events, logs) as soon as
+	// the server starts shutting down, so graceful shutdown does not wait on
+	// browsers that would otherwise hold their connections open.
+	Shutdown context.Context
 }
 
 // StripAPIPrefix serves the router both at the root and under /api, so the
@@ -148,8 +153,12 @@ func NewRouter(d Deps) http.Handler {
 		if d.Sites != nil && d.Hub != nil {
 			r.Group(func(r chi.Router) {
 				r.Use(RequireAuth(d.Auth))
-				jobH := &jobHandlers{st: d.Store, hub: d.Hub}
-				siteH := &siteHandlers{sites: d.Sites, st: d.Store}
+				stop := d.Shutdown
+				if stop == nil {
+					stop = context.Background()
+				}
+				jobH := &jobHandlers{st: d.Store, hub: d.Hub, shutdown: stop.Done()}
+				siteH := &siteHandlers{sites: d.Sites, st: d.Store, shutdown: stop.Done()}
 				r.Get("/events", jobH.events)
 				r.Get("/sites/{id}/logs", siteH.logs)
 			})

@@ -107,6 +107,8 @@ export type SiteStats = {
 };
 
 export type MetricsRange = '1h' | '24h' | '7d';
+/** visitor: the public site; admin: wp-admin, wp-login, REST, cron, XML-RPC; all: both. */
+export type MetricsScope = 'visitor' | 'admin' | 'all';
 
 export type RequestBucket = {
 	bucket: string;
@@ -133,6 +135,7 @@ export type ContainerBucket = {
 
 export type MetricsResponse = {
 	range: MetricsRange;
+	scope: MetricsScope;
 	step_seconds: number;
 	requests: RequestBucket[];
 	container: ContainerBucket[];

@@ -102,3 +102,14 @@ export function formatNumber(n: number | null | undefined): string {
 	if (n === null || n === undefined || !isFinite(n)) return '–';
 	return n.toLocaleString();
 }
+
+/** Share of cacheable requests served from the edge cache. Bypassed requests
+ *  (wp-admin, logged-in visitors, POSTs) were never candidates and are left
+ *  out of the denominator, the way CDNs report hit ratio. */
+export function cacheRatio(
+	m: { cache_hit: number; cache_miss: number; cache_stale: number } | null | undefined
+): string {
+	if (!m) return '–';
+	const cacheable = m.cache_hit + m.cache_miss + m.cache_stale;
+	return percent(m.cache_hit + m.cache_stale, cacheable);
+}

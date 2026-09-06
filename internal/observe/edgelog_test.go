@@ -3,6 +3,7 @@ package observe
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,8 +90,46 @@ func TestAggregator(t *testing.T) {
 	if rows[0].Requests != 5 || rows[0].CacheHit != 2 {
 		t.Fatalf("merge: %+v", rows[0])
 	}
-	sums, _ := st.SumRequestMetricsSince(ctx, now.Add(-time.Hour))
+	sums, _ := st.SumRequestMetricsSince(ctx, store.SumRequestMetricsSinceParams{Bucket: now.Add(-time.Hour), Scope: ScopeVisitor})
 	if len(sums) != 1 || sums[0].Requests != 5 {
 		t.Fatalf("sums: %+v", sums)
+	}
+
+	// Admin paths land in their own bucket and leave the visitor sums alone.
+	admin := strings.Replace(line(200, 0.4, "", "s.localhost"), `"uri":"/"`, `"uri":"/wp-admin/admin-ajax.php?action=heartbeat"`, 1)
+	agg.Ingest(admin, at)
+	_ = agg.Flush(ctx)
+	adminRows, _ := st.ListRequestMetricsByScope(ctx, store.ListRequestMetricsByScopeParams{SiteID: site.ID, Bucket: now.Add(-time.Hour), Scope: ScopeAdmin})
+	if len(adminRows) != 1 || adminRows[0].Requests != 1 || adminRows[0].CacheBypass != 1 {
+		t.Fatalf("admin rows: %+v", adminRows)
+	}
+	sums, _ = st.SumRequestMetricsSince(ctx, store.SumRequestMetricsSinceParams{Bucket: now.Add(-time.Hour), Scope: ScopeVisitor})
+	if sums[0].Requests != 5 {
+		t.Fatalf("visitor sums changed: %+v", sums)
+	}
+	all, _ := st.ListRequestMetrics(ctx, store.ListRequestMetricsParams{SiteID: site.ID, Bucket: now.Add(-time.Hour)})
+	if len(all) != 2 {
+		t.Fatalf("all scopes: %d rows", len(all))
+	}
+}
+
+func TestScopeOf(t *testing.T) {
+	cases := map[string]string{
+		"/":                                 ScopeVisitor,
+		"/about/":                           ScopeVisitor,
+		"/wp-content/uploads/a.jpg":         ScopeVisitor,
+		"/wp-admin/":                        ScopeAdmin,
+		"/wp-admin/admin-ajax.php?action=x": ScopeAdmin,
+		"/wp-login.php":                     ScopeAdmin,
+		"/wp-login.php?redirect_to=%2F":     ScopeAdmin,
+		"/wp-json/wp/v2/posts":              ScopeAdmin,
+		"/wp-cron.php?doing_wp_cron=1":      ScopeAdmin,
+		"/xmlrpc.php":                       ScopeAdmin,
+		"/wp-jsonish/":                      ScopeVisitor,
+	}
+	for uri, want := range cases {
+		if got := ScopeOf(uri); got != want {
+			t.Errorf("ScopeOf(%q) = %q, want %q", uri, got, want)
+		}
 	}
 }
