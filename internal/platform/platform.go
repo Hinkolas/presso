@@ -42,6 +42,7 @@ const (
 	NameMariaDB = "presso-mariadb"
 	NameRedis   = "presso-redis"
 	NameEdge    = "presso-edge"
+	NameBrowser = "presso-browser"
 
 	labelHash = "presso.config_hash"
 
@@ -147,8 +148,17 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 		info, err = s.ensureContainer(ctx, s.edgeSpec())
 		record("edge", info, s.cfg.Edge.Image, err)
+
+		if s.cfg.Shots.Enabled {
+			info, err = s.ensureContainer(ctx, s.browserSpec())
+			record("browser", info, s.cfg.Shots.Image, err)
+		}
 	} else {
-		for _, n := range []string{NameMariaDB, NameRedis, NameEdge} {
+		names := []string{NameMariaDB, NameRedis, NameEdge}
+		if s.cfg.Shots.Enabled {
+			names = append(names, NameBrowser)
+		}
+		for _, n := range names {
 			info, err := s.dk.InspectContainer(ctx, n)
 			if errors.Is(err, docker.ErrNotFound) {
 				err = nil
@@ -321,11 +331,57 @@ func (s *Service) edgeSpec() docker.Spec {
 	return spec
 }
 
+// browserSpec is the shared headless Chrome that captures site previews.
+// Chrome only binds DevTools to loopback, so (as the image's own run.sh
+// does) a socat shim exposes it on 9222; the shim is driven through bash -c
+// with a quoted "$@" because run.sh appends its arguments unquoted, which
+// would glob-expand the "*" in the resolver rule and split it on spaces. The
+// host resolver rule sends every hostname the browser visits to the edge
+// container, so a site's own URL (demo.localhost, a real domain) renders
+// through the edge with the right Host header and SNI, whatever public DNS
+// says. Certificate errors are ignored because a freshly created site may not
+// have its ACME certificate yet.
+func (s *Service) browserSpec() docker.Spec {
+	const launch = `socat TCP4-LISTEN:9222,fork,reuseaddr TCP4:127.0.0.1:9223 & ` +
+		`exec /headless-shell/headless-shell --no-sandbox --use-gl=angle --use-angle=swiftshader ` +
+		`--remote-debugging-address=127.0.0.1 --remote-debugging-port=9223 "$@"`
+	spec := docker.Spec{
+		Name:       NameBrowser,
+		Image:      s.cfg.Shots.Image,
+		Entrypoint: []string{"/bin/bash", "-c", launch, "headless-shell"},
+		Cmd: []string{
+			"--host-resolver-rules=MAP * " + NameEdge + ", EXCLUDE " + NameEdge,
+			"--ignore-certificate-errors",
+			"--window-size=1280,800",
+			"--hide-scrollbars",
+			"--disable-dev-shm-usage",
+		},
+		Labels:         managedLabels("browser"),
+		Network:        s.cfg.Network,
+		NetworkAliases: []string{"browser"},
+		MemoryBytes:    768 << 20,
+		RestartPolicy:  "unless-stopped",
+		StopTimeout:    10 * time.Second,
+		LogMaxSize:     "10m",
+		LogMaxFile:     3,
+	}
+	if hostIP, port, err := splitListen(s.cfg.Shots.Listen); err == nil {
+		spec.Ports = []docker.PortBinding{{HostIP: hostIP, HostPort: port, ContainerPort: 9222, Protocol: "tcp"}}
+	}
+	return spec
+}
+
 // specHash identifies a spec; a changed hash means recreate.
 func specHash(spec docker.Spec) string {
 	var b strings.Builder
 	b.WriteString(spec.Image)
 	b.WriteString("|")
+	// Only specs that override the entrypoint contribute it, so hashes of
+	// the existing components stay stable across engine upgrades.
+	if len(spec.Entrypoint) > 0 {
+		b.WriteString(strings.Join(spec.Entrypoint, "\x00"))
+		b.WriteString("|")
+	}
 	b.WriteString(strings.Join(spec.Cmd, "\x00"))
 	b.WriteString("|")
 	env := append([]string(nil), spec.Env...)

@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strconv"
 	"strings"
@@ -16,6 +18,9 @@ import (
 
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/edge"
+	"github.com/Hinkolas/presso/internal/events"
+	"github.com/Hinkolas/presso/internal/jobs"
+	"github.com/Hinkolas/presso/internal/shots"
 	"github.com/Hinkolas/presso/internal/store"
 	"github.com/Hinkolas/presso/internal/utils"
 )
@@ -233,6 +238,109 @@ func (s *Service) FlushObjectCache(ctx context.Context, id uuid.UUID, by string)
 	}
 	s.logActivity(ctx, by, id, "cache.flush", "Object cache flushed", nil)
 	return nil
+}
+
+// --- previews ---
+
+// Screenshot captures the front page of a running site through the edge and
+// stores it as the site's preview, returning the capture time.
+func (s *Service) Screenshot(ctx context.Context, id uuid.UUID, by string) (time.Time, error) {
+	row, err := s.Get(ctx, id)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if _, err := s.runningContainer(ctx, row); err != nil {
+		return time.Time{}, err
+	}
+	at, err := s.shots.Refresh(ctx, row.ID, siteURL(row.PrimaryDomain, row.TlsMode))
+	if err != nil {
+		return time.Time{}, err
+	}
+	s.logActivity(ctx, by, id, "site.screenshot", "Front-page preview refreshed", nil)
+	s.publishStatus(ctx, row.ID)
+	return at, nil
+}
+
+// ScreenshotFile returns the stored preview path and capture time for id.
+func (s *Service) ScreenshotFile(id uuid.UUID) (path string, at time.Time, ok bool) {
+	at, ok = s.shots.Stat(id)
+	if !ok {
+		return "", time.Time{}, false
+	}
+	return s.shots.Path(id), at, true
+}
+
+// screenshot is the non-fatal job step variant: failures are reported on the
+// job and otherwise ignored, since a missing preview never blocks a site.
+func (s *Service) screenshot(ctx context.Context, row store.Site, r *jobs.Reporter) {
+	if s.shots == nil {
+		return
+	}
+	r.Step(ctx, "preview", "Capturing a preview of the front page")
+	if _, err := s.shots.Refresh(ctx, row.ID, siteURL(row.PrimaryDomain, row.TlsMode)); err != nil {
+		r.Warn(ctx, "preview capture failed: "+err.Error())
+	}
+}
+
+// RefreshScreenshots re-captures every running site once. Errors are logged
+// per site; one broken site never stops the sweep.
+func (s *Service) RefreshScreenshots(ctx context.Context) {
+	if s.shots == nil {
+		return
+	}
+	rows, err := s.st.ListSitesByStatus(ctx, StatusRunning)
+	if err != nil {
+		slog.WarnContext(ctx, "site: list running sites for previews", "err", err)
+		return
+	}
+	for _, row := range rows {
+		if ctx.Err() != nil {
+			return
+		}
+		if _, err := s.shots.Refresh(ctx, row.ID, siteURL(row.PrimaryDomain, row.TlsMode)); err != nil {
+			slog.WarnContext(ctx, "site: preview capture", "site", row.Slug, "err", err)
+			if errors.Is(err, shots.ErrUnavailable) {
+				return // the browser is down; the rest would fail the same way
+			}
+			continue
+		}
+		s.publishStatus(ctx, row.ID)
+	}
+}
+
+// ScreenshotLoop refreshes previews on boot (after a grace period for the
+// browser container to come up) and then every interval.
+func (s *Service) ScreenshotLoop(ctx context.Context, interval time.Duration) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(2 * time.Minute):
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		s.RefreshScreenshots(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// publishStatus re-emits the site payload so live clients pick up a new
+// screenshot_at without polling.
+func (s *Service) publishStatus(ctx context.Context, id uuid.UUID) {
+	if s.hub == nil {
+		return
+	}
+	row, err := s.Get(ctx, id)
+	if err != nil {
+		return
+	}
+	if p, err := s.Payload(ctx, row); err == nil {
+		s.hub.Publish(events.TypeSiteStatus, p)
+	}
 }
 
 // --- edge ---

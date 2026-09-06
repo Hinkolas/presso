@@ -1,52 +1,34 @@
-<!-- Colored pill for site, job, health and component states. -->
+<!-- Lamp plus wording. `soft` renders the tinted 30px chip; the default is
+     lamp and text only, for dense rows. -->
 <script lang="ts">
-	let { status, label, dot = true }: { status: string; label?: string; dot?: boolean } = $props();
+	import Lamp from './Lamp.svelte';
+	import { statusLabel, toneOf, toneSoft, toneText } from './status';
 
-	const tones: Record<string, string> = {
-		running: 'bg-green-50 text-green-700 ring-green-600/20',
-		healthy: 'bg-green-50 text-green-700 ring-green-600/20',
-		succeeded: 'bg-green-50 text-green-700 ring-green-600/20',
-		ok: 'bg-green-50 text-green-700 ring-green-600/20',
-		provisioning: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-		queued: 'bg-gray-100 text-gray-700 ring-gray-500/20',
-		starting: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-		stopped: 'bg-gray-100 text-gray-600 ring-gray-500/20',
-		exited: 'bg-gray-100 text-gray-600 ring-gray-500/20',
-		none: 'bg-gray-100 text-gray-600 ring-gray-500/20',
-		unknown: 'bg-gray-100 text-gray-600 ring-gray-500/20',
-		error: 'bg-red-50 text-red-700 ring-red-600/20',
-		failed: 'bg-red-50 text-red-700 ring-red-600/20',
-		unhealthy: 'bg-red-50 text-red-700 ring-red-600/20',
-		deleting: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-		missing: 'bg-amber-50 text-amber-700 ring-amber-600/20'
-	};
-	const dots: Record<string, string> = {
-		running: 'bg-green-500',
-		healthy: 'bg-green-500',
-		succeeded: 'bg-green-500',
-		ok: 'bg-green-500',
-		provisioning: 'bg-blue-500 animate-pulse',
-		starting: 'bg-blue-500 animate-pulse',
-		queued: 'bg-gray-400',
-		stopped: 'bg-gray-400',
-		exited: 'bg-gray-400',
-		none: 'bg-gray-400',
-		unknown: 'bg-gray-400',
-		error: 'bg-red-500',
-		failed: 'bg-red-500',
-		unhealthy: 'bg-red-500',
-		deleting: 'bg-amber-500 animate-pulse',
-		missing: 'bg-amber-500'
-	};
-	const tone = $derived(tones[status] ?? 'bg-gray-100 text-gray-700 ring-gray-500/20');
-	const dotCls = $derived(dots[status] ?? 'bg-gray-400');
+	let {
+		status,
+		label,
+		soft = false,
+		class: klass = ''
+	}: { status: string; label?: string; soft?: boolean; class?: string } = $props();
+	const tone = $derived(toneOf(status));
 </script>
 
-<span
-	class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {tone}"
->
-	{#if dot}
-		<span class="size-1.5 rounded-full {dotCls}"></span>
-	{/if}
-	{label ?? status}
-</span>
+{#if soft}
+	<span
+		class="inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-xs font-semibold whitespace-nowrap {toneSoft[
+			tone
+		]} {klass}"
+	>
+		<Lamp {status} size={8} />
+		{label ?? statusLabel(status)}
+	</span>
+{:else}
+	<span
+		class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap {toneText[
+			tone
+		]} {klass}"
+	>
+		<Lamp {status} size={8} />
+		{label ?? statusLabel(status)}
+	</span>
+{/if}

@@ -125,6 +125,7 @@ func NewRouter(d Deps) http.Handler {
 					r.Get("/sites/{id}/activity", siteH.activity)
 					r.Get("/sites/{id}/stats", siteH.stats)
 					r.Get("/sites/{id}/metrics", siteH.metrics)
+					r.Get("/sites/{id}/screenshot", siteH.screenshot)
 					r.Get("/jobs", jobH.list)
 					r.Get("/jobs/{id}", jobH.get)
 

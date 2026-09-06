@@ -36,6 +36,7 @@ import (
 	"github.com/Hinkolas/presso/internal/observe"
 	"github.com/Hinkolas/presso/internal/platform"
 	"github.com/Hinkolas/presso/internal/secrets"
+	"github.com/Hinkolas/presso/internal/shots"
 	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
 	versionpkg "github.com/Hinkolas/presso/internal/version"
@@ -119,8 +120,13 @@ func runServe() error {
 	plat := platform.New(cfg, dk, st, box, hub, edgeClient)
 	defer plat.Close()
 	runner := jobs.New(st, hub, 4)
+	var shotSvc *shots.Service // nil when previews are disabled
+	if cfg.Shots.Enabled {
+		shotSvc = shots.New(filepath.Join(cfg.DataDir, "screenshots"), cfg.Shots.Listen, cfg.Shots.Timeout)
+	}
 	sites := site.New(site.Deps{
 		Config: cfg, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: plat, Edge: edgeClient,
+		Shots: shotSvc,
 	})
 
 	srv := &http.Server{
@@ -166,6 +172,9 @@ func runServe() error {
 	spawn("edgelog", func(ctx context.Context) { observe.NewEdgeLogIngester(dk, st).Run(ctx, 10*time.Second) })
 	spawn("retention", observe.NewRetention(st, cfg.MetricsRetention, 30*24*time.Hour).Run)
 	spawn("cron", func(ctx context.Context) { cron.New(st, sites, 3).Run(ctx, cfg.CronInterval) })
+	if cfg.Shots.Enabled {
+		spawn("screenshots", func(ctx context.Context) { sites.ScreenshotLoop(ctx, cfg.Shots.Interval) })
+	}
 
 	serveErr := make(chan error, 1)
 	go func() {

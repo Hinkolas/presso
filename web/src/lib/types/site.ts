@@ -51,6 +51,8 @@ export type Site = {
 	created_at: string;
 	updated_at: string;
 	metrics_1h?: SiteMetrics1h;
+	/** When the front-page preview was last captured; null until the first capture. */
+	screenshot_at?: string | null;
 };
 
 export type CreateSiteRequest = {
@@ -78,7 +80,14 @@ export type UpdateSiteRequest = {
 };
 
 export type SiteAction =
-	'start' | 'stop' | 'restart' | 'recreate' | 'purge-cache' | 'flush-object-cache' | 'retry';
+	| 'start'
+	| 'stop'
+	| 'restart'
+	| 'recreate'
+	| 'purge-cache'
+	| 'flush-object-cache'
+	| 'retry'
+	| 'screenshot';
 
 export type WpCliResponse = {
 	stdout: string;

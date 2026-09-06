@@ -402,10 +402,16 @@ func TestEventsStream(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		a.hub.Publish(events.TypePlatformStatus, []string{"x"})
 	}()
+	// The stream opens with a comment so proxies release it; keep reading
+	// until the published event shows up.
+	var got strings.Builder
 	buf := make([]byte, 4096)
-	n, _ := res.Body.Read(buf)
-	if !strings.Contains(string(buf[:n]), "event: platform.status") {
-		t.Fatalf("stream: %q", buf[:n])
+	for !strings.Contains(got.String(), "event: platform.status") {
+		n, err := res.Body.Read(buf)
+		got.Write(buf[:n])
+		if err != nil {
+			t.Fatalf("stream ended: %q (%v)", got.String(), err)
+		}
 	}
 }
 

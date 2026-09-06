@@ -1,5 +1,5 @@
-<!-- New-site form; a successful POST lands on the site page where the
-     provisioning job is shown live. -->
+<!-- New site. The form on the left, what will happen on the right. A
+     successful POST lands on the site page where provisioning streams in. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -11,8 +11,12 @@
 	import type { RuntimeInfo } from '$lib/types/system';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Card from '$lib/components/Card.svelte';
 	import Field from '$lib/components/Field.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Segmented from '$lib/components/Segmented.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 
 	let runtime = $state<RuntimeInfo | null>(null);
@@ -47,6 +51,15 @@
 	const domainPlaceholder = $derived(slug ? `${slug}.localhost` : 'my-site.localhost');
 	const effectiveDomain = $derived(domain.trim() || domainPlaceholder);
 	const isLocal = $derived(effectiveDomain.endsWith('.localhost'));
+	const previewUrl = $derived(`${isLocal ? 'http' : 'https'}://${effectiveDomain}`);
+
+	const steps = [
+		'Pull the runtime image if this host has not seen it yet',
+		'Create the database and a Redis cache user for the site',
+		'Start the container and wait until it reports healthy',
+		'Install WordPress with the admin account below',
+		'Publish the route at the edge and warm the front page'
+	];
 
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
@@ -82,19 +95,24 @@
 	<title>New site · presso</title>
 </svelte:head>
 
-<div class="mb-5 flex items-center gap-3">
-	<a href={resolve('/')} class="text-sm text-gray-500 hover:text-gray-900">← Sites</a>
-	<h1 class="text-xl font-semibold">New site</h1>
-</div>
+<PageHeader
+	title="New site"
+	subtitle="A fresh WordPress install behind the edge cache."
+	back={{ href: resolve('/'), label: 'Sites' }}
+/>
 
-<form onsubmit={submit} class="max-w-2xl">
-	<div class="flex flex-col gap-4">
-		<Card title="Site">
-			<div class="grid gap-4 sm:grid-cols-2">
+<form onsubmit={submit} class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+	<div class="flex flex-col gap-5">
+		<Panel title="Site">
+			<div class="grid gap-5 sm:grid-cols-2">
 				<Field label="Name" for="name">
-					<input id="name" class="input" bind:value={name} required placeholder="My Site" />
+					<input id="name" class="input" bind:value={name} required placeholder="Acme Bakery" />
 				</Field>
-				<Field label="Slug" for="slug" hint="Lowercase letters, digits and hyphens.">
+				<Field
+					label="Slug"
+					for="slug"
+					hint="Names the container and volume. Lowercase, digits, hyphens."
+				>
 					<input
 						id="slug"
 						class="input font-mono"
@@ -108,80 +126,129 @@
 					label="Primary domain"
 					for="domain"
 					hint={isLocal
-						? 'Local domain: TLS is off.'
-						: 'TLS certificates are obtained automatically.'}
+						? 'A .localhost domain resolves to this machine; no certificate is needed.'
+						: 'Point the DNS at this host. A certificate is obtained automatically.'}
+					class="sm:col-span-2"
 				>
 					<input id="domain" class="input" bind:value={domain} placeholder={domainPlaceholder} />
 				</Field>
 				<Field label="PHP version" for="php">
-					<select id="php" class="input" bind:value={phpVersion} disabled={!runtime}>
-						{#if runtime}
-							{#each runtime.php_versions as v (v)}
-								<option value={v}>{v}</option>
-							{/each}
-						{:else}
-							<option value="">Loading…</option>
-						{/if}
-					</select>
+					<Select
+						id="php"
+						block
+						bind:value={phpVersion}
+						disabled={!runtime}
+						options={(runtime?.php_versions ?? []).map((v) => ({ value: v, label: `PHP ${v}` }))}
+					/>
 				</Field>
-				<Field label="Profile" for="profile">
-					<select id="profile" class="input" bind:value={profile}>
-						<option value="prod">prod</option>
-						<option value="dev">dev</option>
-					</select>
+				<Field
+					label="Profile"
+					for="profile"
+					hint={profile === 'dev'
+						? 'Debug logging on, caches short. For building, not for visitors.'
+						: 'Tuned for visitors: opcache warm, errors logged not shown.'}
+				>
+					<div>
+						<Segmented
+							bind:value={profile}
+							options={[
+								{ value: 'prod', label: 'Production' },
+								{ value: 'dev', label: 'Development' }
+							]}
+						/>
+					</div>
 				</Field>
-				<div class="flex items-end pb-1.5">
-					<Toggle bind:checked={pageCache} label="Page cache" />
+				<div class="sm:col-span-2">
+					<Toggle
+						bind:checked={pageCache}
+						label="Page cache at the edge"
+						hint="Anonymous page views are served from the edge and purged automatically when content changes."
+					/>
 				</div>
 			</div>
-		</Card>
+		</Panel>
 
-		<Card title="WordPress admin">
-			<div class="grid gap-4 sm:grid-cols-2">
+		<Panel
+			title="WordPress administrator"
+			subtitle="The first account. Sign in later with one click from the site page."
+		>
+			<div class="grid gap-5 sm:grid-cols-2">
 				<Field label="Username" for="admin_user">
-					<input id="admin_user" class="input" bind:value={adminUser} required />
+					<input id="admin_user" class="input" bind:value={adminUser} required autocomplete="off" />
 				</Field>
 				<Field label="Email" for="admin_email">
 					<input id="admin_email" type="email" class="input" bind:value={adminEmail} required />
 				</Field>
-				<div class="sm:col-span-2">
-					<Field label="Password" for="admin_password">
-						<div class="flex gap-2">
-							<input
-								id="admin_password"
-								type={showPassword ? 'text' : 'password'}
-								class="input font-mono"
-								bind:value={adminPassword}
-								required
-								minlength="12"
-								autocomplete="new-password"
-							/>
-							<Button onclick={() => (showPassword = !showPassword)}>
-								{showPassword ? 'Hide' : 'Show'}
-							</Button>
-							<Button
-								onclick={() => {
-									adminPassword = generatePassword(20);
-									showPassword = true;
-								}}
-							>
-								Generate
-							</Button>
-						</div>
-					</Field>
-				</div>
+				<Field
+					label="Password"
+					for="admin_password"
+					class="sm:col-span-2"
+					hint="At least 12 characters. Stored only inside WordPress."
+				>
+					<div class="flex gap-2">
+						<input
+							id="admin_password"
+							type={showPassword ? 'text' : 'password'}
+							class="input font-mono"
+							bind:value={adminPassword}
+							required
+							minlength="12"
+							autocomplete="new-password"
+						/>
+						<Button
+							onclick={() => (showPassword = !showPassword)}
+							icon={showPassword ? 'eye-off' : 'eye'}
+							aria-label={showPassword ? 'Hide password' : 'Show password'}
+						/>
+						<Button
+							onclick={() => {
+								adminPassword = generatePassword(20);
+								showPassword = true;
+							}}
+						>
+							Generate
+						</Button>
+					</div>
+				</Field>
 			</div>
-		</Card>
+		</Panel>
 
 		{#if error}
 			<Alert>{error}</Alert>
 		{/if}
 
 		<div class="flex items-center justify-end gap-2">
-			<Button href="/">Cancel</Button>
+			<Button href={resolve('/')}>Cancel</Button>
 			<Button type="submit" variant="primary" busy={submitting} disabled={!runtime}>
 				Create site
 			</Button>
 		</div>
 	</div>
+
+	<aside class="flex flex-col gap-5">
+		<Panel title="Address">
+			<p class="font-mono text-sm break-all text-ink">{previewUrl}</p>
+			<p class="mt-2 text-xs text-ink-2">
+				{#if isLocal}
+					Opens from this machine only.
+				{:else}
+					Public once DNS points here.
+				{/if}
+			</p>
+		</Panel>
+		<Panel title="What happens next">
+			<ol class="flex flex-col gap-3">
+				{#each steps as step, i (i)}
+					<li class="flex gap-3 text-sm leading-5 text-ink-2">
+						<span class="mt-px w-4 shrink-0 display text-xs text-ink-3 num">{i + 1}</span>
+						<span>{step}</span>
+					</li>
+				{/each}
+			</ol>
+			<p class="mt-4 flex items-start gap-2 border-t border-rule pt-3 text-xs text-ink-3">
+				<Icon name="camera" size={14} class="mt-0.5" />
+				A preview of the front page is captured at the end and shown on the wall.
+			</p>
+		</Panel>
+	</aside>
 </form>

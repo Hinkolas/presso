@@ -197,6 +197,7 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 
 	r.Step(ctx, "warm", "Warming the front page")
 	s.warm(ctx, row, r)
+	s.screenshot(ctx, row, r)
 
 	s.setStatus(ctx, row.ID, StatusRunning, "")
 	s.logActivity(ctx, job.CreatedBy, row.ID, "site.provisioned", fmt.Sprintf("Site %s is running at %s", row.Slug, siteURL(row.PrimaryDomain, row.TlsMode)), nil)
@@ -267,6 +268,7 @@ func (s *Service) runStart(ctx context.Context, job store.Job, r *jobs.Reporter)
 		s.setStatus(ctx, row.ID, StatusError, "health: "+err.Error())
 		return err
 	}
+	s.screenshot(ctx, row, r)
 	s.setStatus(ctx, row.ID, StatusRunning, "")
 	s.logActivity(ctx, job.CreatedBy, row.ID, "site.start", "Site started", nil)
 	return nil
@@ -354,6 +356,7 @@ func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Report
 	if err := s.PurgeCache(ctx, row.ID, nil); err != nil {
 		r.Warn(ctx, "cache purge failed: "+err.Error())
 	}
+	s.screenshot(ctx, row, r)
 	s.setStatus(ctx, row.ID, StatusRunning, "")
 	s.logActivity(ctx, job.CreatedBy, row.ID, "site.recreate", "Container recreated with current settings", nil)
 	return nil
@@ -411,6 +414,9 @@ func (s *Service) runDelete(ctx context.Context, job store.Job, r *jobs.Reporter
 	r.Step(ctx, "record", "Deleting the site record")
 	if _, err := s.st.DeleteSite(ctx, row.ID); err != nil {
 		return s.deleteFailed(ctx, row.ID, "record", err)
+	}
+	if err := s.shots.Remove(row.ID); err != nil {
+		r.Warn(ctx, "preview: "+err.Error())
 	}
 	s.observed.Delete(row.ID)
 	if s.hub != nil {

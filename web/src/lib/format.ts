@@ -51,6 +51,14 @@ export function formatDateTime(iso: string | null | undefined): string {
 	});
 }
 
+/** "Oct 6, 2026" */
+export function formatDate(iso: string | null | undefined): string {
+	if (!iso) return '–';
+	const d = new Date(iso);
+	if (isNaN(d.getTime())) return '–';
+	return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 export function formatTime(iso: string): string {
 	const d = new Date(iso);
 	if (isNaN(d.getTime())) return iso;

@@ -1,15 +1,52 @@
-<!-- Sites list: initial GET merged with live site.status/site.deleted events. -->
+<!-- Sites: every site on this host, as a grid of plates or a list. The
+     initial GET is merged with live site.status events; the list view also
+     fetches an hour of request buckets per site for p95. -->
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { api, errorText } from '$lib/api/client';
-	import { deletedSites, sites as liveSites } from '$lib/state/live.svelte';
-	import type { Site } from '$lib/types/site';
-	import { formatRelative, formatNumber, percent } from '$lib/format';
+	import { deletedSites, live, sites as liveSites } from '$lib/state/live.svelte';
+	import { isAdmin } from '$lib/state/session.svelte';
+	import type { MetricsResponse, Site, SiteStatus } from '$lib/types/site';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Empty from '$lib/components/Empty.svelte';
-	import StatusPill from '$lib/components/StatusPill.svelte';
-	import Table, { td, th } from '$lib/components/Table.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Plate from '$lib/components/Plate.svelte';
+	import Segmented from '$lib/components/Segmented.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import SiteRow from '$lib/components/SiteRow.svelte';
+	import Table, { th } from '$lib/components/Table.svelte';
+
+	type View = 'grid' | 'list';
+	const VIEW_KEY = 'presso.sites.view';
+	let view = $state<View>('grid');
+	$effect(() => {
+		// ?view= wins for this visit; otherwise the remembered choice.
+		const q = page.url.searchParams.get('view');
+		if (q === 'grid' || q === 'list') {
+			view = q;
+			return;
+		}
+		try {
+			const v = localStorage.getItem(VIEW_KEY);
+			if (v === 'grid' || v === 'list') view = v;
+		} catch {
+			// Storage unavailable; the default stands.
+		}
+	});
+	function setView(v: View) {
+		view = v;
+		try {
+			localStorage.setItem(VIEW_KEY, v);
+		} catch {
+			// Not remembered this time.
+		}
+	}
+
+	type Filter = 'all' | SiteStatus;
+	let filter = $state<Filter>('all');
 
 	let loaded = $state<Site[] | null>(null);
 	let error = $state('');
@@ -25,89 +62,148 @@
 		}
 	}
 	$effect(() => {
+		void live.generation;
 		load();
 	});
 
 	// Live map wins over the snapshot; sites created after load appear too.
-	const sites = $derived.by(() => {
+	const all = $derived.by(() => {
 		const byId: Record<string, Site> = {};
 		for (const s of loaded ?? []) byId[s.id] = s;
-		for (const s of liveSites.values()) byId[s.id] = s;
+		for (const s of liveSites.values()) {
+			// Live events carry no metrics; keep the snapshot's summary.
+			byId[s.id] = { ...s, metrics_1h: s.metrics_1h ?? byId[s.id]?.metrics_1h };
+		}
 		for (const id of deletedSites.keys()) delete byId[id];
 		return Object.values(byId).sort((a, b) => a.name.localeCompare(b.name));
 	});
 
-	function hitRate(s: Site): string {
-		const m = s.metrics_1h;
-		if (!m || !m.requests) return '–';
-		return percent(m.cache_hit, m.requests);
+	const shown = $derived(filter === 'all' ? all : all.filter((s) => s.status === filter));
+
+	const counts = $derived.by(() => {
+		const c: Partial<Record<SiteStatus, number>> = {};
+		for (const s of all) c[s.status] = (c[s.status] ?? 0) + 1;
+		return c;
+	});
+
+	const words = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+	const count = (n: number) => (n < words.length ? words[n] : String(n));
+	const summary = $derived.by(() => {
+		const n = all.length;
+		if (n === 0) return 'No sites on this host yet.';
+		const parts = [
+			`${count(n).replace(/^./, (c) => c.toUpperCase())} ${n === 1 ? 'site' : 'sites'}`
+		];
+		if (counts.running) parts.push(`${count(counts.running)} running`);
+		if (counts.stopped) parts.push(`${count(counts.stopped)} stopped`);
+		if (counts.provisioning) parts.push(`${count(counts.provisioning)} being set up`);
+		if (counts.error) parts.push(`${count(counts.error)} failing`);
+		if (counts.deleting) parts.push(`${count(counts.deleting)} being deleted`);
+		return parts.join(', ') + '.';
+	});
+
+	// The list view shows p95, which needs the hour's buckets.
+	const hours = new SvelteMap<string, MetricsResponse>();
+	async function loadHour(id: string) {
+		try {
+			hours.set(id, await api.get<MetricsResponse>(`/v1/sites/${id}/metrics?range=1h`));
+		} catch {
+			// The column shows a dash.
+		}
 	}
+	$effect(() => {
+		if (view !== 'list') return;
+		const ids = all.filter((s) => s.status === 'running').map((s) => s.id);
+		for (const id of ids) loadHour(id);
+		const t = setInterval(() => ids.forEach(loadHour), 60_000);
+		return () => clearInterval(t);
+	});
+
+	const filterOptions: { value: Filter; label: string }[] = [
+		{ value: 'all', label: 'All statuses' },
+		{ value: 'running', label: 'Running' },
+		{ value: 'provisioning', label: 'Setting up' },
+		{ value: 'stopped', label: 'Stopped' },
+		{ value: 'error', label: 'Failed' }
+	];
 </script>
 
 <svelte:head>
 	<title>Sites · presso</title>
 </svelte:head>
 
-<div class="mb-5 flex items-center justify-between">
-	<h1 class="text-xl font-semibold">Sites</h1>
-	<Button variant="primary" href="/sites/new">New site</Button>
-</div>
+<PageHeader title="Sites" subtitle={loaded === null ? 'Loading your sites.' : summary}>
+	{#snippet actions()}
+		{#if all.length > 0}
+			<Select bind:value={filter} options={filterOptions} label="Filter by status" />
+			<Segmented
+				value={view}
+				options={[
+					{ value: 'grid', label: 'Grid', icon: 'grid' },
+					{ value: 'list', label: 'List', icon: 'list' }
+				]}
+				iconOnly
+				label="View"
+				onchange={setView}
+			/>
+		{/if}
+		{#if isAdmin()}
+			<Button variant="primary" href={resolve('/sites/new')} icon="plus">New site</Button>
+		{/if}
+	{/snippet}
+</PageHeader>
 
 {#if error}
-	<div class="mb-4"><Alert>{error}</Alert></div>
+	<Alert class="mb-6">{error}</Alert>
 {/if}
 
 {#if loaded === null}
-	<p class="text-sm text-gray-500">Loading…</p>
-{:else if sites.length === 0}
-	<Empty title="No sites yet" text="Create your first WordPress site to get started.">
-		<Button variant="primary" href="/sites/new">New site</Button>
+	<div class="grid gap-7 lg:grid-cols-2" aria-busy="true">
+		{#each [0, 1] as i (i)}
+			<div class="overflow-hidden frame">
+				<div class="aspect-[16/10] animate-pulse bg-sunken"></div>
+				<div class="flex flex-col gap-3 p-6">
+					<div class="h-6 w-1/2 animate-pulse rounded bg-sunken"></div>
+					<div class="h-4 w-1/3 animate-pulse rounded bg-sunken"></div>
+				</div>
+			</div>
+		{/each}
+	</div>
+{:else if all.length === 0}
+	<Empty
+		title="Create your first site"
+		text="A new WordPress site takes about a minute: the runtime container, its database and cache, and a route at the edge."
+	>
+		{#if isAdmin()}
+			<Button variant="primary" href={resolve('/sites/new')} icon="plus">New site</Button>
+		{/if}
 	</Empty>
+{:else if shown.length === 0}
+	<Empty title="No site matches" text="Nothing has this status right now.">
+		<Button onclick={() => (filter = 'all')}>Show all statuses</Button>
+	</Empty>
+{:else if view === 'grid'}
+	<div class="grid gap-7 lg:grid-cols-2">
+		{#each shown as s (s.id)}
+			<Plate site={s} />
+		{/each}
+	</div>
 {:else}
 	<Table>
-		<thead class="bg-gray-50">
+		<thead>
 			<tr>
-				<th class={th}>Name</th>
-				<th class={th}>Domain</th>
+				<th class={th}>Site</th>
 				<th class={th}>Status</th>
-				<th class={th}>PHP</th>
-				<th class="{th} text-right">Requests (1h)</th>
-				<th class="{th} text-right">Cache hit</th>
-				<th class={th}>Created</th>
+				<th class="{th} text-right">Requests, 1 h</th>
+				<th class="{th} text-right">From cache</th>
+				<th class="{th} text-right">p95</th>
+				<th class="{th} text-right">PHP</th>
+				<th class={th}><span class="sr-only">Actions</span></th>
 			</tr>
 		</thead>
-		<tbody class="divide-y divide-gray-100">
-			{#each sites as s (s.id)}
-				<tr class="hover:bg-gray-50">
-					<td class={td}>
-						<a href={resolve(`/sites/${s.id}`)} class="font-medium text-gray-900 hover:underline"
-							>{s.name}</a
-						>
-						<span class="ml-2 text-xs text-gray-400">{s.slug}</span>
-					</td>
-					<td class={td}>
-						<!-- eslint-disable svelte/no-navigation-without-resolve -- external site URL -->
-						<a
-							href={s.url}
-							target="_blank"
-							rel="noreferrer noopener"
-							class="text-gray-700 hover:underline">{s.primary_domain} ↗</a
-						>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
-					</td>
-					<td class={td}>
-						<div class="flex items-center gap-1.5">
-							<StatusPill status={s.status} />
-							{#if s.status === 'running' && s.health !== 'none'}
-								<StatusPill status={s.health} dot={false} />
-							{/if}
-						</div>
-					</td>
-					<td class={td}>{s.php_version}</td>
-					<td class="{td} text-right tabular-nums">{formatNumber(s.metrics_1h?.requests ?? 0)}</td>
-					<td class="{td} text-right tabular-nums">{hitRate(s)}</td>
-					<td class="{td} text-gray-500" title={s.created_at}>{formatRelative(s.created_at)}</td>
-				</tr>
+		<tbody>
+			{#each shown as s (s.id)}
+				<SiteRow site={s} hour={hours.get(s.id)} />
 			{/each}
 		</tbody>
 	</Table>

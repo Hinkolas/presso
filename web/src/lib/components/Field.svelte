@@ -1,4 +1,4 @@
-<!-- Label + control + hint wrapper for forms. -->
+<!-- Label, control and hint. Labels are sentence case, never shouting. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
@@ -6,14 +6,15 @@
 		label,
 		hint,
 		for: htmlFor,
+		class: klass = '',
 		children
-	}: { label: string; hint?: string; for?: string; children: Snippet } = $props();
+	}: { label: string; hint?: string; for?: string; class?: string; children: Snippet } = $props();
 </script>
 
-<div class="flex flex-col gap-1">
-	<label for={htmlFor} class="text-xs font-medium text-gray-700">{label}</label>
+<div class="flex flex-col gap-2 {klass}">
+	<label for={htmlFor} class="text-sm font-medium text-ink">{label}</label>
 	{@render children()}
 	{#if hint}
-		<p class="text-xs text-gray-500">{hint}</p>
+		<p class="text-xs text-ink-3">{hint}</p>
 	{/if}
 </div>

@@ -26,6 +26,10 @@ repo's Go code, binary `pressod`), **presso-web** (the UI), **presso-harness**
   plugin). See RUNTIME.md.
 - **edge** (`build/edge.Dockerfile`): `presso-edge`, Caddy with the Souin page
   cache. pressod renders and pushes its whole Caddyfile.
+- **browser**: `presso-browser`, a stock headless Chrome
+  (`chromedp/headless-shell`) that captures each site's front page for the
+  UI previews. Optional (`SHOTS_ENABLED=false`); see `SHOTS_*` in
+  `.env.example`.
 
 ## Topology (single host)
 
@@ -35,6 +39,7 @@ docker network "presso":
   presso-edge       :80 :443 public · 127.0.0.1:2019 admin · 127.0.0.1:2020 cache API
   presso-mariadb    127.0.0.1:3306      one database + user per site
   presso-redis      127.0.0.1:6379      one ACL user + key prefix per site
+  presso-browser    127.0.0.1:9222      headless Chrome (DevTools) for page previews
   presso-site-<slug>  no published ports; the edge proxies to site-<id>:8080
 ```
 
@@ -88,8 +93,8 @@ Open http://localhost:5173 (dev) or http://localhost:7080 (embedded build),
 create a site, and visit `http://<slug>.localhost` once the provisioning job
 finishes. `task nuke` removes every presso container and volume (dev only).
 
-Ports 80/443 (edge), 3306, 6379, 2019, 2020 (loopback) and 7080 must be
-free on the host.
+Ports 80/443 (edge), 3306, 6379, 2019, 2020, 9222 (loopback) and 7080 must
+be free on the host.
 
 Conventions: every package states its responsibility and boundary in a doc
 comment, business logic lives in service packages and handlers only translate

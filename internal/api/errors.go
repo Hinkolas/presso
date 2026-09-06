@@ -11,6 +11,7 @@ import (
 	"github.com/Hinkolas/presso/internal/edge"
 	"github.com/Hinkolas/presso/internal/jobs"
 	"github.com/Hinkolas/presso/internal/platform"
+	"github.com/Hinkolas/presso/internal/shots"
 	"github.com/Hinkolas/presso/internal/site"
 )
 
@@ -37,12 +38,13 @@ const (
 	codeRateLimited        = "rate_limited"
 	codeInternal           = "internal"
 
-	codeSlugTaken         = "slug_taken"
-	codeDomainTaken       = "domain_taken"
-	codeJobRunning        = "job_running"
-	codeSiteNotReady      = "site_not_ready"
-	codeDockerUnavailable = "docker_unavailable"
-	codeEdgeUnavailable   = "edge_unavailable"
+	codeSlugTaken          = "slug_taken"
+	codeDomainTaken        = "domain_taken"
+	codeJobRunning         = "job_running"
+	codeSiteNotReady       = "site_not_ready"
+	codeDockerUnavailable  = "docker_unavailable"
+	codeEdgeUnavailable    = "edge_unavailable"
+	codeBrowserUnavailable = "browser_unavailable"
 )
 
 // writeInternalError logs the real error and reports an opaque 500.
@@ -101,6 +103,8 @@ func writeSiteError(ctx context.Context, w http.ResponseWriter, err error) {
 		writeError(w, http.StatusServiceUnavailable, codeDockerUnavailable, "a platform service is not ready: "+err.Error())
 	case errors.Is(err, edge.ErrUnavailable):
 		writeError(w, http.StatusServiceUnavailable, codeEdgeUnavailable, "the edge proxy is not reachable")
+	case errors.Is(err, shots.ErrUnavailable):
+		writeError(w, http.StatusServiceUnavailable, codeBrowserUnavailable, "the preview browser is not reachable")
 	case errors.Is(err, docker.ErrNotFound):
 		writeError(w, http.StatusNotFound, codeNotFound, "docker object not found")
 	case errors.Is(err, context.DeadlineExceeded):

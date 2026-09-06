@@ -7,7 +7,7 @@ import { api } from '$lib/api/client';
 import type { LiveEvent } from '$lib/types/events';
 import type { Job, JobEvent } from '$lib/types/job';
 import type { Site } from '$lib/types/site';
-import type { PlatformComponent } from '$lib/types/system';
+import type { PlatformComponent, SystemStatus } from '$lib/types/system';
 
 const MAX_JOBS = 200;
 const MAX_JOB_EVENTS = 2000;
@@ -118,4 +118,24 @@ export function seedJobEvents(jobId: string, events: JobEvent[]): void {
 export function seedJob(job: Job): void {
 	const cur = jobs.get(job.id);
 	if (!cur || cur.updated_at <= job.updated_at) jobs.set(job.id, job);
+}
+
+/** Fill the live maps from the API once, so the shell (counts, health chip,
+ *  breadcrumbs, palette) has data before the first event arrives. */
+export async function seedLive(): Promise<void> {
+	await Promise.all([
+		api
+			.get<{ sites: Site[] }>('/v1/sites')
+			.then((r) => {
+				for (const s of r.sites)
+					if (!sites.has(s.id) && !deletedSites.has(s.id)) sites.set(s.id, s);
+			})
+			.catch(() => {}),
+		api
+			.get<SystemStatus>('/v1/system/status')
+			.then((r) => {
+				if (!live.platform) live.platform = r.components;
+			})
+			.catch(() => {})
+	]);
 }

@@ -124,11 +124,12 @@ func (m *Moby) EnsureImage(ctx context.Context, ref string, progress func(string
 
 func (m *Moby) CreateContainer(ctx context.Context, spec Spec) (string, error) {
 	cfg := &container.Config{
-		Image:  spec.Image,
-		Cmd:    spec.Cmd,
-		Env:    spec.Env,
-		Labels: spec.Labels,
-		User:   spec.User,
+		Image:      spec.Image,
+		Cmd:        spec.Cmd,
+		Entrypoint: spec.Entrypoint,
+		Env:        spec.Env,
+		Labels:     spec.Labels,
+		User:       spec.User,
 	}
 	if spec.StopTimeout > 0 {
 		t := int(spec.StopTimeout / time.Second)

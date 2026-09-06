@@ -22,6 +22,12 @@ func newSSE(w http.ResponseWriter) (*sseWriter, error) {
 	h.Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 	s := &sseWriter{w: w, rc: http.NewResponseController(w)}
+	// Proxies (the Vite dev server among them) hold the response until the
+	// first body byte arrives; an opening comment gets the stream through
+	// immediately instead of after the first heartbeat.
+	if _, err := fmt.Fprint(s.w, ": connected\n\n"); err != nil {
+		return nil, err
+	}
 	return s, s.rc.Flush()
 }
 

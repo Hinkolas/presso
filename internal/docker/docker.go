@@ -75,8 +75,10 @@ type Info struct {
 // Spec describes a container to create. Everything presso needs and nothing
 // more; values map straight onto the Docker create request.
 type Spec struct {
-	Name           string
-	Image          string
+	Name  string
+	Image string
+	// Entrypoint overrides the image's ENTRYPOINT when non-nil.
+	Entrypoint     []string
 	Cmd            []string
 	Env            []string
 	Labels         map[string]string

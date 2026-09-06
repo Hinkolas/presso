@@ -1,11 +1,14 @@
-<!-- Live view of one job: status header plus its event log, merged from the
-     seeded events and the /v1/events stream. Step lines are emphasized. -->
+<!-- Live view of one job: status line, then the step log. Steps are the
+     spine; info lines hang under them. Merged from seeded events and the
+     /v1/events stream. -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import StatusPill from './StatusPill.svelte';
+	import Lamp from './Lamp.svelte';
+	import Icon from './Icon.svelte';
+	import { statusLabel, toneOf, toneText } from './status';
 	import { jobEvents, jobs } from '$lib/state/live.svelte';
 	import { formatDuration, formatTime, spanMs } from '$lib/format';
-	import type { Job } from '$lib/types/job';
+	import type { Job, JobEvent } from '$lib/types/job';
 
 	let {
 		job: initial,
@@ -23,6 +26,21 @@
 		return () => clearInterval(t);
 	});
 	const duration = $derived(spanMs(job.started_at ?? job.created_at, job.finished_at, now));
+	const live = $derived(job.status === 'queued' || job.status === 'running');
+
+	// Group info/warn/error lines under the step that preceded them.
+	type Group = { step: JobEvent | null; lines: JobEvent[] };
+	const groups = $derived.by(() => {
+		const out: Group[] = [];
+		for (const ev of events) {
+			if (ev.level === 'step') out.push({ step: ev, lines: [] });
+			else {
+				if (out.length === 0) out.push({ step: null, lines: [] });
+				out[out.length - 1].lines.push(ev);
+			}
+		}
+		return out;
+	});
 
 	let scroller: HTMLDivElement | undefined = $state();
 	$effect(() => {
@@ -30,53 +48,105 @@
 		if (scroller) scroller.scrollTop = scroller.scrollHeight;
 	});
 
-	const levelCls: Record<string, string> = {
-		step: 'text-gray-900 font-semibold',
-		info: 'text-gray-600',
-		warn: 'text-amber-700',
-		error: 'text-red-700'
-	};
+	function stepState(i: number): 'done' | 'active' | 'failed' {
+		const last = i === groups.length - 1;
+		if (!last) return 'done';
+		if (job.status === 'failed') return 'failed';
+		if (live) return 'active';
+		return 'done';
+	}
+
+	/** Job kinds are "site.provision"; show the verb. */
+	function kindLabel(kind: string): string {
+		const verb = kind.split('.').pop() ?? kind;
+		return verb.charAt(0).toUpperCase() + verb.slice(1);
+	}
 </script>
 
-<div class="flex flex-col gap-2">
-	<div class="flex flex-wrap items-center gap-2 text-sm">
-		<StatusPill status={job.status} />
-		<span class="font-medium text-gray-900">{job.kind}</span>
-		<span class="text-gray-500">{formatDuration(duration)}</span>
+<div class="flex flex-col gap-3">
+	<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+		<span class="inline-flex items-center gap-2 font-medium {toneText[toneOf(job.status)]}">
+			<Lamp status={job.status} />
+			{statusLabel(job.status)}
+		</span>
+		<span class="text-ink">{kindLabel(job.kind)}</span>
+		<span class="text-ink-3 num">{formatDuration(duration)}</span>
 		{#if showLink}
 			<a
 				href={resolve(`/jobs/${job.id}`)}
-				class="ml-auto text-xs text-gray-500 underline hover:text-gray-900"
+				class="ml-auto text-xs text-ink-2 underline decoration-rule-strong underline-offset-2 hover:text-ink"
 			>
-				Job details
+				Open job
 			</a>
 		{/if}
 	</div>
+
 	{#if job.error}
-		<p class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">{job.error}</p>
+		<p class="rounded-control border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
+			{job.error}
+		</p>
 	{/if}
-	<div
-		bind:this={scroller}
-		class="overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-3 font-mono text-xs {compact
-			? 'max-h-48'
-			: 'max-h-[32rem]'}"
-	>
-		{#if events.length === 0}
-			<p class="text-gray-500">
-				{job.status === 'queued' ? 'Waiting to start…' : 'No events yet.'}
+
+	<div bind:this={scroller} class="overflow-y-auto {compact ? 'max-h-56' : 'max-h-[36rem]'}">
+		{#if groups.length === 0}
+			<p class="py-2 text-sm text-ink-3">
+				{job.status === 'queued' ? 'Waiting for a worker.' : 'No events recorded.'}
 			</p>
 		{:else}
-			{#each events as ev (ev.id)}
-				<div class="flex gap-3 {levelCls[ev.level] ?? 'text-gray-600'}">
-					<span class="shrink-0 text-gray-400">{formatTime(ev.ts)}</span>
-					{#if ev.level === 'step'}
-						<span class="shrink-0">▸ {ev.step}</span>
-					{:else if ev.step}
-						<span class="shrink-0 text-gray-400">{ev.step}</span>
-					{/if}
-					<span class="break-all whitespace-pre-wrap">{ev.message}</span>
-				</div>
-			{/each}
+			<ol class="flex flex-col">
+				{#each groups as g, i (g.step?.id ?? `pre-${i}`)}
+					{@const state = stepState(i)}
+					<li class="relative flex gap-3 pb-3 last:pb-0">
+						<!-- spine -->
+						<div class="flex w-4 shrink-0 flex-col items-center">
+							<span
+								class="mt-1 flex size-4 items-center justify-center rounded-full border {state ===
+								'failed'
+									? 'border-danger bg-danger text-white'
+									: state === 'active'
+										? 'border-busy bg-surface'
+										: 'border-ok bg-ok text-white'}"
+							>
+								{#if state === 'done'}
+									<Icon name="check" size={10} />
+								{:else if state === 'failed'}
+									<Icon name="close" size={10} />
+								{:else}
+									<span class="size-1.5 breathe rounded-full bg-busy"></span>
+								{/if}
+							</span>
+							{#if i < groups.length - 1}
+								<span class="mt-1 w-px flex-1 bg-rule"></span>
+							{/if}
+						</div>
+						<div class="min-w-0 flex-1">
+							{#if g.step}
+								<div class="flex items-baseline gap-3">
+									<span class="text-sm font-medium text-ink">{g.step.message}</span>
+									<span class="ml-auto shrink-0 text-2xs text-ink-3 num"
+										>{formatTime(g.step.ts)}</span
+									>
+								</div>
+							{/if}
+							{#if g.lines.length}
+								<ul class="mt-1 flex flex-col gap-0.5 font-mono text-xs leading-5">
+									{#each g.lines as ev (ev.id)}
+										<li
+											class="break-all whitespace-pre-wrap {ev.level === 'error'
+												? 'text-danger'
+												: ev.level === 'warn'
+													? 'text-busy'
+													: 'text-ink-2'}"
+										>
+											{ev.message}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					</li>
+				{/each}
+			</ol>
 		{/if}
 	</div>
 </div>

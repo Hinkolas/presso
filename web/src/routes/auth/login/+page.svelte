@@ -11,6 +11,8 @@
 	import type { LoginResponse } from '$lib/types/auth';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Wordmark from '$lib/components/Wordmark.svelte';
 
 	const next = $derived(safeNext(page.url.searchParams.get('next')));
 
@@ -49,44 +51,63 @@
 	<title>Sign in · presso</title>
 </svelte:head>
 
-<main class="flex min-h-screen items-center justify-center bg-gray-50 p-6">
-	<div class="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-		<div class="mb-6">
-			<span class="text-lg font-bold tracking-tight text-gray-900">presso</span>
-			<h1 class="mt-1 text-sm text-gray-500">Sign in to manage your sites</h1>
+<div class="grid min-h-screen bg-ground text-ink lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+	<aside class="hidden flex-col justify-between bg-brand-deep p-12 text-white lg:flex">
+		<div>
+			<span class="block display text-[64px] leading-none">presso</span>
+			<p class="mt-5 max-w-xs text-md text-on-brand/80">
+				WordPress sites, hosted on your own machine.
+			</p>
 		</div>
+		<ul class="flex gap-8 text-xs text-on-brand/70">
+			<li>Docker runtime</li>
+			<li>Edge cache</li>
+			<li>One binary</li>
+		</ul>
+	</aside>
 
-		<form onsubmit={submit} class="flex flex-col gap-4">
-			<label class="flex flex-col gap-1">
-				<span class="text-xs font-medium text-gray-700">Email</span>
-				<input
-					type="email"
-					name="email"
-					required
-					autocomplete="username"
-					bind:value={email}
-					class="input"
-				/>
-			</label>
-			<label class="flex flex-col gap-1">
-				<span class="text-xs font-medium text-gray-700">Password</span>
-				<input
-					type="password"
-					name="password"
-					required
-					autocomplete="current-password"
-					bind:value={password}
-					class="input"
-				/>
-			</label>
+	<main class="flex items-center justify-center p-6">
+		<div class="w-full max-w-md frame p-10">
+			<div class="mb-8 flex flex-col gap-4">
+				<Wordmark size="lg" />
+				<div>
+					<h1 class="display text-3xl">Sign in</h1>
+					<p class="mt-1 text-sm text-ink-2">Use the operator account created on this host.</p>
+				</div>
+			</div>
 
-			{#if message}
-				<Alert>{message}</Alert>
-			{/if}
+			<form onsubmit={submit} class="flex flex-col gap-4">
+				<Field label="Email" for="email">
+					<input
+						id="email"
+						type="email"
+						name="email"
+						required
+						autocomplete="username"
+						bind:value={email}
+						class="input"
+					/>
+				</Field>
+				<Field label="Password" for="password">
+					<input
+						id="password"
+						type="password"
+						name="password"
+						required
+						autocomplete="current-password"
+						bind:value={password}
+						class="input"
+					/>
+				</Field>
 
-			<Button type="submit" variant="primary" busy={submitting} class="w-full">
-				{submitting ? 'Signing in…' : 'Sign in'}
-			</Button>
-		</form>
-	</div>
-</main>
+				{#if message}
+					<Alert>{message}</Alert>
+				{/if}
+
+				<Button type="submit" variant="primary" busy={submitting} class="mt-2 w-full">
+					{submitting ? 'Signing in' : 'Sign in'}
+				</Button>
+			</form>
+		</div>
+	</main>
+</div>

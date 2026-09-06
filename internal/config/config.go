@@ -82,6 +82,7 @@ type API struct {
 	Runtime
 	Edge
 	Observe
+	Shots
 }
 
 // Platform configures the shared containers pressod reconciles on the host
@@ -141,6 +142,21 @@ type Observe struct {
 	MetricsRetention time.Duration `env:"METRICS_RETENTION,default=168h"`
 }
 
+// Shots configures the headless browser that captures front-page previews
+// of every site for the UI. The browser runs as one shared container on the
+// presso network and reaches sites through the edge, so previews show what a
+// visitor sees (page cache, TLS and all). Listen is the host-side DevTools
+// port; loopback only, since DevTools grants full browser control.
+type Shots struct {
+	Enabled bool   `env:"SHOTS_ENABLED,default=true"`
+	Image   string `env:"SHOTS_IMAGE,default=chromedp/headless-shell:stable"`
+	Listen  string `env:"SHOTS_LISTEN,default=127.0.0.1:9222"`
+	// Interval is how often running sites are re-captured in the background.
+	Interval time.Duration `env:"SHOTS_INTERVAL,default=6h"`
+	// Timeout bounds one capture (navigation + render).
+	Timeout time.Duration `env:"SHOTS_TIMEOUT,default=45s"`
+}
+
 // RuntimeImage returns the runtime image reference for a PHP version.
 func (r *Runtime) RuntimeImage(php string) string {
 	return strings.ReplaceAll(r.ImageTemplate, "{php}", php)
@@ -165,6 +181,9 @@ func (a *API) Validate() error {
 	}
 	if a.CronInterval <= 0 || a.StatsInterval <= 0 || a.MetricsRetention <= 0 {
 		return fmt.Errorf("CRON_INTERVAL, STATS_INTERVAL, METRICS_RETENTION: must be positive")
+	}
+	if a.Shots.Interval <= 0 || a.Shots.Timeout <= 0 {
+		return fmt.Errorf("SHOTS_INTERVAL, SHOTS_TIMEOUT: must be positive")
 	}
 	return nil
 }

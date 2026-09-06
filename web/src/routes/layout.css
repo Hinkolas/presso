@@ -1,6 +1,268 @@
-@import 'tailwindcss';
+/* presso design tokens and base styles ("Atelier").
 
-/* Shared form control look; components use `class="input"`. */
+   Two families: Instrument Serif carries the headline voice (page titles,
+   site names, section titles), Instrument Sans carries everything else.
+   IBM Plex Mono is reserved for things that are literally code: commands,
+   ids, log lines.
+
+   Colors are semantic tokens. Forest green is both the brand and the
+   "running" state; brass means something is in motion; red is failure only.
+   The dark palette redefines the same tokens, so components never branch.
+
+   Scale: 16px root, 44px controls, 18px plate radius. */
+
+@import 'tailwindcss';
+@import '@fontsource-variable/instrument-sans/standard.css';
+@import '@fontsource/instrument-serif/400.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+@theme {
+	--font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+	--font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+	--font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+	/* Type scale. Body copy is `sm` (15px); `base` is 16px. */
+	--text-2xs: 0.75rem;
+	--text-2xs--line-height: 1rem;
+	--text-xs: 0.8125rem;
+	--text-xs--line-height: 1.125rem;
+	--text-sm: 0.9375rem;
+	--text-sm--line-height: 1.375rem;
+	--text-base: 1rem;
+	--text-base--line-height: 1.5rem;
+	--text-md: 1.0625rem;
+	--text-md--line-height: 1.5rem;
+	--text-lg: 1.25rem;
+	--text-lg--line-height: 1.75rem;
+	--text-xl: 1.5rem;
+	--text-xl--line-height: 1.875rem;
+	--text-2xl: 1.75rem;
+	--text-2xl--line-height: 2.125rem;
+	--text-3xl: 2.25rem;
+	--text-3xl--line-height: 2.5rem;
+	--text-4xl: 3rem;
+	--text-4xl--line-height: 1;
+
+	/* Surfaces */
+	--color-ground: #eef0f3;
+	--color-surface: #ffffff;
+	--color-sunken: #f3f4f6;
+	--color-rule: #e2e5ea;
+	--color-rule-strong: #cfd4db;
+	--color-scrim: rgb(22 24 29 / 0.45);
+
+	/* Text */
+	--color-ink: #16181d;
+	--color-ink-2: #4b5563;
+	--color-ink-3: #7b8391;
+
+	/* Brand and states. `-ink` is the readable text color on the `-soft` tint. */
+	--color-brand: #1f6b4d;
+	--color-brand-hover: #185a40;
+	--color-brand-soft: #edf4f0;
+	/* Deep is the one green that stays dark in both schemes (large fills). */
+	--color-brand-deep: #1a5c42;
+	--color-on-brand: #ffffff;
+
+	--color-ok: #1f9d67;
+	--color-ok-soft: #e9f5ee;
+	--color-ok-ink: #1f6b4d;
+	--color-busy: #c99a4b;
+	--color-busy-soft: #f9f1e2;
+	--color-busy-ink: #8a6420;
+	--color-danger: #d5453b;
+	--color-danger-hover: #b93a31;
+	--color-danger-soft: #fbe9e7;
+	--color-danger-ink: #a3312a;
+	--color-info: #3b6fb6;
+	--color-info-soft: #e8eff8;
+	--color-info-ink: #2f5a95;
+
+	/* Log panes are always dark: ink on ink. */
+	--color-console: #0f141b;
+	--color-console-ink: #d5dce6;
+	--color-console-dim: #6b7688;
+	--color-console-warn: #e2b96a;
+	--color-console-err: #f07a70;
+
+	/* Radii encode hierarchy: controls 12, small controls 10, chips 8,
+	   plates 18, dialogs 20. */
+	--radius-control: 12px;
+	--radius-control-sm: 10px;
+	--radius-chip: 8px;
+	--radius-plate: 18px;
+	--radius-dialog: 20px;
+
+	--shadow-plate:
+		0 0 0 1px rgb(22 24 29 / 0.035), 0 1px 2px rgb(22 24 29 / 0.05),
+		0 18px 40px -24px rgb(22 24 29 / 0.28);
+	--shadow-plate-hover:
+		0 0 0 1px rgb(22 24 29 / 0.06), 0 2px 4px rgb(22 24 29 / 0.06),
+		0 24px 48px -24px rgb(22 24 29 / 0.36);
+	--shadow-primary: 0 1px 2px rgb(22 24 29 / 0.12), 0 8px 20px -10px rgb(31 107 77 / 0.6);
+	--shadow-pop: 0 0 0 1px rgb(22 24 29 / 0.06), 0 16px 40px -16px rgb(22 24 29 / 0.3);
+	--shadow-dialog: 0 0 0 1px rgb(22 24 29 / 0.06), 0 32px 80px -24px rgb(22 24 29 / 0.4);
+}
+
+@layer base {
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--color-ground: #0f1216;
+			--color-surface: #171b21;
+			--color-sunken: #12161b;
+			--color-rule: #262c35;
+			--color-rule-strong: #363e4a;
+			--color-scrim: rgb(0 0 0 / 0.6);
+
+			--color-ink: #eceff3;
+			--color-ink-2: #a3abb8;
+			--color-ink-3: #737d8b;
+
+			--color-brand: #3a9c74;
+			--color-brand-hover: #46ad83;
+			--color-brand-soft: #17302a;
+			--color-brand-deep: #1a5c42;
+			--color-on-brand: #071510;
+
+			--color-ok: #3dbb86;
+			--color-ok-soft: #163a2b;
+			--color-ok-ink: #6fd3a6;
+			--color-busy: #d0a660;
+			--color-busy-soft: #372d1c;
+			--color-busy-ink: #e2c58a;
+			--color-danger: #e5534b;
+			--color-danger-hover: #ee6b63;
+			--color-danger-soft: #3d1b19;
+			--color-danger-ink: #f08b84;
+			--color-info: #6f9fdc;
+			--color-info-soft: #1b2a40;
+			--color-info-ink: #9dbdf0;
+
+			--color-console: #0a0e14;
+
+			--shadow-plate: 0 0 0 1px var(--color-rule), 0 18px 40px -24px rgb(0 0 0 / 0.7);
+			--shadow-plate-hover: 0 0 0 1px var(--color-rule-strong), 0 24px 48px -24px rgb(0 0 0 / 0.8);
+			--shadow-primary: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 20px -10px rgb(58 156 116 / 0.5);
+			--shadow-pop: 0 0 0 1px var(--color-rule-strong), 0 16px 40px -16px rgb(0 0 0 / 0.8);
+			--shadow-dialog: 0 0 0 1px var(--color-rule-strong), 0 32px 80px -24px rgb(0 0 0 / 0.9);
+		}
+	}
+
+	:root {
+		color-scheme: light dark;
+	}
+
+	html {
+		overscroll-behavior: none;
+		font-family: var(--font-sans);
+		font-size: 16px;
+		line-height: 1.5;
+		background: var(--color-ground);
+		color: var(--color-ink);
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+
+	body {
+		margin: 0;
+		min-height: 100vh;
+		background: var(--color-ground);
+	}
+
+	::selection {
+		background: var(--color-brand-soft);
+		color: var(--color-ink);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--color-brand);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+
+	button,
+	input,
+	select,
+	textarea {
+		font: inherit;
+		color: inherit;
+	}
+
+	/* Anything clickable says so. Tailwind's preflight resets buttons to the
+	   default cursor; the UI wants the hand. */
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']),
+	[role='option'],
+	[role='menuitem'],
+	summary,
+	label[for] {
+		cursor: pointer;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	code,
+	kbd,
+	pre {
+		font-family: var(--font-mono);
+		font-feature-settings: 'liga' 0;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+		}
+	}
+}
+
+/* Headline voice: Instrument Serif, regular weight, slightly tight. */
+@utility display {
+	font-family: var(--font-serif);
+	font-weight: 400;
+	letter-spacing: -0.01em;
+	text-wrap: balance;
+}
+
+@utility num {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Form controls share one look; components use class="input". */
 @utility input {
-	@apply w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-xs placeholder:text-gray-400 focus:border-gray-500 focus:ring-2 focus:ring-gray-300 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500;
+	@apply h-11 w-full rounded-control border border-rule-strong bg-surface px-3.5 text-sm text-ink placeholder:text-ink-3 focus:border-brand focus:ring-3 focus:ring-brand/20 focus:outline-none disabled:bg-sunken disabled:text-ink-3;
+}
+
+/* The plate: a white surface with a soft, layered shadow. The only kind of
+   box the UI uses for content. */
+@utility frame {
+	@apply rounded-plate bg-surface shadow-plate;
+}
+
+/* Console panes: always dark, mono, wrapping. */
+@utility console {
+	@apply rounded-plate bg-console font-mono text-xs leading-5 text-console-ink;
+}
+
+/* The status lamp breathes only while something is in motion. */
+@keyframes lamp-breathe {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-busy) 55%, transparent);
+	}
+	60% {
+		box-shadow: 0 0 0 5px transparent;
+	}
+}
+
+@utility breathe {
+	animation: lamp-breathe 1.6s ease-out infinite;
 }

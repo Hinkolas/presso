@@ -1,13 +1,17 @@
-<!-- System page: docker, platform components, edge, sites by status, disk. -->
+<!-- System: the shared pieces every site depends on, Docker, the edge, and
+     what the host is spending on disk. Refreshed every 30 seconds; the
+     component strip also follows live platform.status events. -->
 <script lang="ts">
 	import { api, errorText } from '$lib/api/client';
 	import { live } from '$lib/state/live.svelte';
 	import { formatBytes, formatDateTime, formatRelative, formatUptime } from '$lib/format';
-	import type { SystemStatus } from '$lib/types/system';
+	import type { PlatformComponent, SystemStatus } from '$lib/types/system';
 	import Alert from '$lib/components/Alert.svelte';
-	import Card from '$lib/components/Card.svelte';
+	import Lamp from '$lib/components/Lamp.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
-	import Table, { td, th } from '$lib/components/Table.svelte';
+	import { statusLabel } from '$lib/components/status';
 
 	let status = $state<SystemStatus | null>(null);
 	let error = $state('');
@@ -29,123 +33,159 @@
 
 	const components = $derived(live.platform ?? status?.components ?? []);
 	const siteCounts = $derived(Object.entries(status?.sites ?? {}).sort());
+
+	const names: Record<string, string> = {
+		network: 'Network',
+		mariadb: 'MariaDB',
+		redis: 'Redis',
+		edge: 'Edge',
+		browser: 'Preview browser'
+	};
+	function nameOf(c: PlatformComponent): string {
+		return names[c.name] ?? c.name;
+	}
+	/** The lamp follows health when the container reports one, else state. */
+	function lampStatus(c: PlatformComponent): string {
+		if (c.error) return 'error';
+		if (c.health && c.health !== 'none') return c.health;
+		return c.state;
+	}
+	function stateText(c: PlatformComponent): string {
+		const s = statusLabel(c.state);
+		if (c.health && c.health !== 'none' && c.health !== c.state) {
+			return `${s}, ${statusLabel(c.health).toLowerCase()}`;
+		}
+		return s;
+	}
+
+	const diskTotal = $derived(
+		status
+			? status.disk.data_dir_bytes +
+					status.disk.images_bytes +
+					status.disk.containers_bytes +
+					status.disk.volumes_bytes
+			: 0
+	);
 </script>
 
 <svelte:head>
 	<title>System · presso</title>
 </svelte:head>
 
-<div class="mb-5 flex items-center justify-between">
-	<h1 class="text-xl font-semibold">System</h1>
-	{#if status}
-		<span class="text-sm text-gray-500">
-			presso {status.version} · up {formatUptime(status.uptime_seconds)}
-		</span>
-	{/if}
-</div>
+<PageHeader
+	title="System"
+	subtitle={status
+		? `presso ${status.version}, up ${formatUptime(status.uptime_seconds)}`
+		: 'Loading the host status.'}
+/>
 
 {#if error}
-	<div class="mb-4"><Alert>{error}</Alert></div>
+	<Alert class="mb-5">{error}</Alert>
 {/if}
 
 {#if !status}
-	{#if !error}<p class="text-sm text-gray-500">Loading…</p>{/if}
-{:else}
-	<div class="grid gap-4 lg:grid-cols-2">
-		<Card title="Docker">
-			<div class="mb-3">
-				<StatusPill
-					status={status.docker.ok ? 'ok' : 'error'}
-					label={status.docker.ok ? 'connected' : 'unavailable'}
-				/>
-			</div>
-			{#if status.docker.error}
-				<Alert>{status.docker.error}</Alert>
-			{:else}
-				<dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-					<dt class="text-gray-500">Version</dt>
-					<dd class="font-medium">{status.docker.version || '–'}</dd>
-					<dt class="text-gray-500">API version</dt>
-					<dd class="font-medium">{status.docker.api_version || '–'}</dd>
-					<dt class="text-gray-500">Host</dt>
-					<dd class="font-medium">{status.docker.os || '–'} / {status.docker.arch || '–'}</dd>
-				</dl>
-			{/if}
-		</Card>
-
-		<Card title="Edge">
-			<dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-				<dt class="text-gray-500">Last applied</dt>
-				<dd class="font-medium" title={formatDateTime(status.edge.last_applied_at)}>
-					{status.edge.last_applied_at ? formatRelative(status.edge.last_applied_at) : 'never'}
-				</dd>
-				<dt class="text-gray-500">Routed sites</dt>
-				<dd class="font-medium">{status.edge.sites}</dd>
-			</dl>
-			{#if status.edge.last_error}
-				<div class="mt-3"><Alert>{status.edge.last_error}</Alert></div>
-			{/if}
-		</Card>
-
-		<div class="lg:col-span-2">
-			<Table>
-				<thead class="bg-gray-50">
-					<tr>
-						<th class={th}>Component</th>
-						<th class={th}>State</th>
-						<th class={th}>Health</th>
-						<th class={th}>Image</th>
-						<th class={th}>Error</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-gray-100">
-					{#each components as c (c.name)}
-						<tr>
-							<td class="{td} font-medium">{c.name}</td>
-							<td class={td}><StatusPill status={c.state} /></td>
-							<td class={td}>
-								{#if c.health && c.health !== 'none'}
-									<StatusPill status={c.health} dot={false} />
-								{:else}
-									<span class="text-gray-400">–</span>
-								{/if}
-							</td>
-							<td class="{td} font-mono text-xs text-gray-600">{c.image || '–'}</td>
-							<td class="{td} text-xs text-red-700">{c.error ?? ''}</td>
-						</tr>
-					{:else}
-						<tr><td class="{td} text-gray-500" colspan="5">No components reported.</td></tr>
-					{/each}
-				</tbody>
-			</Table>
+	{#if !error}
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5" aria-busy="true">
+			{#each [0, 1, 2, 3, 4] as i (i)}
+				<div class="h-24 animate-pulse frame bg-sunken"></div>
+			{/each}
 		</div>
-
-		<Card title="Sites by status">
-			{#if siteCounts.length === 0}
-				<p class="text-sm text-gray-500">No sites.</p>
+	{/if}
+{:else}
+	<div class="flex flex-col gap-5">
+		<section aria-label="Platform components" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+			{#each components as c (c.name)}
+				<div
+					id={c.name === 'mariadb' ? 'database' : c.name === 'redis' ? 'cache' : undefined}
+					class="flex scroll-mt-6 flex-col gap-2 frame px-5 py-4"
+				>
+					<div class="flex items-center gap-2">
+						<Lamp status={lampStatus(c)} />
+						<span class="text-sm font-medium text-ink">{nameOf(c)}</span>
+					</div>
+					<span class="text-xs text-ink-2">{stateText(c)}</span>
+					{#if c.image}
+						<span class="truncate font-mono text-2xs text-ink-3" title={c.image}>{c.image}</span>
+					{/if}
+					{#if c.error}
+						<span class="text-xs leading-4 text-danger">{c.error}</span>
+					{/if}
+				</div>
 			{:else}
-				<ul class="flex flex-wrap gap-3">
-					{#each siteCounts as [s, n] (s)}
-						<li class="flex items-center gap-2 text-sm">
-							<StatusPill status={s} />
-							<span class="font-semibold tabular-nums">{n}</span>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</Card>
+				<p class="text-sm text-ink-3 sm:col-span-2 lg:col-span-5">
+					No components reported yet. The reconciler runs on boot and every minute.
+				</p>
+			{/each}
+		</section>
 
-		<Card title="Disk usage">
-			<dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-				<dt class="text-gray-500">Data directory</dt>
-				<dd class="font-medium tabular-nums">{formatBytes(status.disk.data_dir_bytes)}</dd>
-				<dt class="text-gray-500">Images</dt>
-				<dd class="font-medium tabular-nums">{formatBytes(status.disk.images_bytes)}</dd>
-				<dt class="text-gray-500">Containers</dt>
-				<dd class="font-medium tabular-nums">{formatBytes(status.disk.containers_bytes)}</dd>
-				<dt class="text-gray-500">Volumes</dt>
-				<dd class="font-medium tabular-nums">{formatBytes(status.disk.volumes_bytes)}</dd>
-			</dl>
-		</Card>
+		<div class="grid gap-5 lg:grid-cols-2">
+			<Panel title="Docker">
+				<div class="mb-4">
+					<StatusPill
+						status={status.docker.ok ? 'ok' : 'error'}
+						label={status.docker.ok ? 'Connected' : 'Unavailable'}
+						soft
+					/>
+				</div>
+				{#if status.docker.error}
+					<Alert>{status.docker.error}</Alert>
+				{:else}
+					<dl class="grid grid-cols-[8rem_minmax(0,1fr)] gap-y-2 text-sm">
+						<dt class="text-ink-2">Engine version</dt>
+						<dd class="text-ink num">{status.docker.version || '–'}</dd>
+						<dt class="text-ink-2">API version</dt>
+						<dd class="text-ink num">{status.docker.api_version || '–'}</dd>
+						<dt class="text-ink-2">Host</dt>
+						<dd class="text-ink">{status.docker.os || '–'}, {status.docker.arch || '–'}</dd>
+					</dl>
+				{/if}
+			</Panel>
+
+			<Panel title="Edge" id="edge" class="scroll-mt-6">
+				<dl class="grid grid-cols-[8rem_minmax(0,1fr)] gap-y-2 text-sm">
+					<dt class="text-ink-2">Routes applied</dt>
+					<dd class="text-ink" title={formatDateTime(status.edge.last_applied_at)}>
+						{status.edge.last_applied_at ? formatRelative(status.edge.last_applied_at) : 'Never'}
+					</dd>
+					<dt class="text-ink-2">Routed sites</dt>
+					<dd class="text-ink num">{status.edge.sites}</dd>
+				</dl>
+				{#if status.edge.last_error}
+					<Alert class="mt-4">{status.edge.last_error}</Alert>
+				{/if}
+			</Panel>
+
+			<Panel title="Sites">
+				{#if siteCounts.length === 0}
+					<p class="text-sm text-ink-3">No sites yet.</p>
+				{:else}
+					<ul class="flex flex-col gap-2.5">
+						{#each siteCounts as [s, n] (s)}
+							<li class="flex items-center justify-between gap-3 text-sm">
+								<StatusPill status={s} />
+								<span class="font-medium text-ink num">{n}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</Panel>
+
+			<Panel title="Disk">
+				<dl class="grid grid-cols-[minmax(0,1fr)_auto] gap-y-2 text-sm">
+					<dt class="text-ink-2">Engine data</dt>
+					<dd class="text-ink num">{formatBytes(status.disk.data_dir_bytes)}</dd>
+					<dt class="text-ink-2">Images</dt>
+					<dd class="text-ink num">{formatBytes(status.disk.images_bytes)}</dd>
+					<dt class="text-ink-2">Containers</dt>
+					<dd class="text-ink num">{formatBytes(status.disk.containers_bytes)}</dd>
+					<dt class="text-ink-2">Volumes</dt>
+					<dd class="text-ink num">{formatBytes(status.disk.volumes_bytes)}</dd>
+				</dl>
+				<div class="mt-3 flex items-center justify-between border-t border-rule pt-3 text-sm">
+					<span class="font-medium text-ink">Total</span>
+					<span class="font-medium text-ink num">{formatBytes(diskTotal)}</span>
+				</div>
+			</Panel>
+		</div>
 	</div>
 {/if}

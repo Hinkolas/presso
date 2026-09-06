@@ -1,59 +1,71 @@
-<!-- Button with the app's few visual variants. Renders an <a> when href is set. -->
+<!-- The one button. `primary` is forest green with a soft shadow and is
+     reserved for the main action of a view; `default` is the white control;
+     `ghost` sits in toolbars; `danger` is red and only for destructive
+     actions. `md` is 44px, `sm` 36px. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { HTMLButtonAttributes } from 'svelte/elements';
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
-
-	type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
-	type Size = 'sm' | 'md';
+	import Icon, { type IconName } from './Icon.svelte';
 
 	let {
-		variant = 'secondary',
+		variant = 'default',
 		size = 'md',
+		type = 'button',
 		href,
 		busy = false,
 		disabled = false,
+		icon,
 		class: klass = '',
+		onclick,
 		children,
 		...rest
 	}: {
-		variant?: Variant;
-		size?: Size;
-		/** Internal pathname; resolved against the app base. */
-		href?: Pathname;
+		variant?: 'primary' | 'default' | 'ghost' | 'danger';
+		size?: 'sm' | 'md';
+		type?: 'button' | 'submit';
+		href?: string;
 		busy?: boolean;
 		disabled?: boolean;
+		icon?: IconName;
 		class?: string;
-		children: Snippet;
-	} & HTMLButtonAttributes = $props();
+		onclick?: (e: MouseEvent) => void;
+		children?: Snippet;
+		[key: string]: unknown;
+	} = $props();
 
-	const variants: Record<Variant, string> = {
-		primary: 'bg-gray-900 text-white hover:bg-gray-700 border-transparent',
-		secondary: 'bg-white text-gray-900 hover:bg-gray-50 border-gray-300',
-		danger: 'bg-white text-red-700 hover:bg-red-50 border-red-300',
-		ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 border-transparent'
-	};
-	const sizes: Record<Size, string> = {
-		sm: 'px-2.5 py-1 text-xs',
-		md: 'px-3 py-1.5 text-sm'
-	};
 	const base =
-		'inline-flex items-center justify-center gap-1.5 rounded-md border font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50';
-	const cls = $derived(`${base} ${variants[variant]} ${sizes[size]} ${klass}`);
+		'inline-flex items-center justify-center gap-2 font-semibold whitespace-nowrap select-none transition-[background-color,box-shadow,color] duration-150 disabled:cursor-not-allowed disabled:opacity-50';
+	const sizes = {
+		sm: 'h-9 rounded-control-sm px-3.5 text-sm',
+		md: 'h-11 rounded-control px-[18px] text-sm'
+	};
+	const variants = {
+		primary: 'bg-brand text-on-brand shadow-primary hover:bg-brand-hover',
+		default: 'border border-rule-strong bg-surface text-ink hover:bg-sunken',
+		ghost: 'text-ink-2 hover:bg-sunken hover:text-ink',
+		danger: 'border border-danger/30 bg-surface text-danger-ink hover:bg-danger-soft'
+	};
+	const iconOnly = $derived(!children && !!icon);
+	const cls = $derived(
+		`${base} ${sizes[size]} ${variants[variant]} ${iconOnly ? (size === 'sm' ? 'w-9 px-0' : 'w-11 px-0') : ''} ${klass}`
+	);
+	const inert = $derived(disabled || busy);
 </script>
 
-{#if href}
-	<a href={resolve(href)} class={cls} aria-disabled={disabled || busy}>
-		{@render children()}
+{#if href && !inert}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass resolved paths -->
+	<a {href} class={cls} {...rest}>
+		{#if icon}<Icon name={icon} size={size === 'sm' ? 16 : 18} />{/if}
+		{#if children}{@render children()}{/if}
 	</a>
 {:else}
-	<button type="button" class={cls} disabled={disabled || busy} {...rest}>
+	<button {type} class={cls} disabled={inert} aria-busy={busy || undefined} {onclick} {...rest}>
 		{#if busy}
 			<span
-				class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+				class="size-4 animate-spin rounded-full border-[1.5px] border-current border-t-transparent"
 			></span>
+		{:else if icon}
+			<Icon name={icon} size={size === 'sm' ? 16 : 18} />
 		{/if}
-		{@render children()}
+		{#if children}{@render children()}{/if}
 	</button>
 {/if}

@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -225,6 +227,16 @@ func (h *siteHandlers) action(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
+	case "screenshot":
+		at, err := h.sites.Screenshot(ctx, id, by)
+		if err != nil {
+			writeSiteError(ctx, w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, struct {
+			ScreenshotAt time.Time `json:"screenshot_at"`
+		}{at})
+		return
 	default:
 		writeError(w, http.StatusNotFound, codeNotFound, "unknown action")
 		return
@@ -236,6 +248,39 @@ func (h *siteHandlers) action(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, struct {
 		Job jobs.Job `json:"job"`
 	}{jobs.JobPayload(job)})
+}
+
+// GET /v1/sites/{id}/screenshot serves the stored front-page preview. The
+// ETag is the capture time, so the SPA can revalidate cheaply; the response
+// is private because it is behind the session.
+func (h *siteHandlers) screenshot(w http.ResponseWriter, r *http.Request) {
+	id, ok := siteID(r)
+	if !ok {
+		writeError(w, http.StatusNotFound, codeNotFound, "not found")
+		return
+	}
+	path, at, ok := h.sites.ScreenshotFile(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, codeNotFound, "no preview captured yet")
+		return
+	}
+	etag := `"` + strconv.FormatInt(at.UnixNano(), 36) + `"`
+	w.Header().Set("Cache-Control", "private, max-age=0, must-revalidate")
+	w.Header().Set("ETag", etag)
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, codeNotFound, "no preview captured yet")
+		return
+	}
+	defer f.Close()
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Last-Modified", at.UTC().Format(http.TimeFormat))
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, f)
 }
 
 // POST /v1/sites/{id}/wp

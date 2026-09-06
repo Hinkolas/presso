@@ -27,6 +27,7 @@ import (
 	"github.com/Hinkolas/presso/internal/jobs"
 	"github.com/Hinkolas/presso/internal/platform"
 	"github.com/Hinkolas/presso/internal/secrets"
+	"github.com/Hinkolas/presso/internal/shots"
 	"github.com/Hinkolas/presso/internal/store"
 	"github.com/Hinkolas/presso/internal/utils"
 )
@@ -68,6 +69,7 @@ type Service struct {
 	jobs     *jobs.Runner
 	platform Platform
 	edge     *edge.Client
+	shots    *shots.Service // nil disables previews
 	now      func() time.Time
 
 	// observed holds the live container health per site, fed by the status
@@ -102,12 +104,14 @@ type Deps struct {
 	Jobs     *jobs.Runner
 	Platform Platform
 	Edge     *edge.Client
+	// Shots captures front-page previews; nil disables them.
+	Shots *shots.Service
 }
 
 func New(d Deps) *Service {
 	s := &Service{
 		cfg: d.Config, st: d.Store, dk: d.Docker, box: d.Secrets, hub: d.Hub, jobs: d.Jobs,
-		platform: d.Platform, edge: d.Edge, now: func() time.Time { return time.Now().UTC() },
+		platform: d.Platform, edge: d.Edge, shots: d.Shots, now: func() time.Time { return time.Now().UTC() },
 	}
 	if s.jobs != nil {
 		s.jobs.Register(JobProvision, s.runProvision)
@@ -147,6 +151,9 @@ type Site struct {
 	Domains       []Domain  `json:"domains"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+	// ScreenshotAt is when the front-page preview was last captured; null
+	// when none exists yet (GET /v1/sites/{id}/screenshot serves it).
+	ScreenshotAt *time.Time `json:"screenshot_at"`
 }
 
 type Domain struct {
@@ -181,6 +188,9 @@ func (s *Service) payloadWith(row store.Site, domains []store.SiteDomain) Site {
 	}
 	for _, d := range domains {
 		out.Domains = append(out.Domains, Domain{ID: d.ID, Host: d.Host, Kind: d.Kind})
+	}
+	if at, ok := s.shots.Stat(row.ID); ok {
+		out.ScreenshotAt = &at
 	}
 	return out
 }

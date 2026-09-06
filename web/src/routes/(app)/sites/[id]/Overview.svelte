@@ -1,16 +1,22 @@
-<!-- Overview tab: lifecycle actions, live job panel, delete dialog, info grid. -->
+<!-- Overview: what is happening now, the last hour, the configuration, and
+     the lifecycle controls. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api, errorText } from '$lib/api/client';
-	import { formatDateTime, formatNumber, percent } from '$lib/format';
+	import { sites as liveSites } from '$lib/state/live.svelte';
+	import { isAdmin } from '$lib/state/session.svelte';
+	import { formatBytes, formatDateTime, formatDuration, formatNumber, percent } from '$lib/format';
 	import type { Job } from '$lib/types/job';
-	import type { LoginLinkResponse, Site, SiteAction } from '$lib/types/site';
+	import type { MetricsResponse, Site, SiteAction, SiteStats } from '$lib/types/site';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Card from '$lib/components/Card.svelte';
 	import JobPanel from '$lib/components/JobPanel.svelte';
+	import LineChart from '$lib/components/LineChart.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Stat from '$lib/components/Stat.svelte';
+	import StatusPill from '$lib/components/StatusPill.svelte';
 
 	let { site, activeJob, onJob }: { site: Site; activeJob: Job | null; onJob: (j: Job) => void } =
 		$props();
@@ -19,24 +25,33 @@
 	let error = $state('');
 	let notice = $state('');
 
+	const admin = $derived(isAdmin());
 	const jobRunning = $derived(
 		activeJob !== null && (activeJob.status === 'queued' || activeJob.status === 'running')
 	);
 	const locked = $derived(
 		jobRunning || site.status === 'provisioning' || site.status === 'deleting'
 	);
+	const running = $derived(site.status === 'running');
 
 	async function action(name: SiteAction) {
 		busy = name;
 		error = '';
 		notice = '';
 		try {
-			const res = await api.post<{ job?: Job; ok?: boolean }>(
+			const res = await api.post<{ job?: Job; ok?: boolean; screenshot_at?: string }>(
 				`/v1/sites/${site.id}/actions/${name}`
 			);
 			if (res?.job) onJob(res.job);
-			else if (res?.ok)
-				notice = name === 'purge-cache' ? 'Page cache purged.' : 'Object cache flushed.';
+			else if (name === 'purge-cache') notice = 'Page cache purged. The next visit rebuilds it.';
+			else if (name === 'flush-object-cache') notice = 'Object cache flushed.';
+			else if (name === 'screenshot') {
+				notice = 'Preview refreshed.';
+				// The list payload carries screenshot_at; nudge the live record so
+				// the header and the wall pick up the new image without a reload.
+				if (res?.screenshot_at)
+					liveSites.set(site.id, { ...site, screenshot_at: res.screenshot_at });
+			}
 		} catch (err) {
 			error = errorText(err);
 		} finally {
@@ -44,18 +59,77 @@
 		}
 	}
 
-	async function openAdmin() {
-		busy = 'login-link';
-		error = '';
-		try {
-			const res = await api.post<LoginLinkResponse>(`/v1/sites/${site.id}/login-link`);
-			window.open(res.url, '_blank', 'noopener');
-		} catch (err) {
-			error = errorText(err);
-		} finally {
-			busy = null;
+	// Live container stats while running.
+	let stats = $state<SiteStats | null>(null);
+	$effect(() => {
+		if (!running) {
+			stats = null;
+			return;
 		}
-	}
+		const id = site.id;
+		let stop = false;
+		const tick = async () => {
+			try {
+				const s = await api.get<SiteStats>(`/v1/sites/${id}/stats`);
+				if (!stop) stats = s;
+			} catch {
+				// Leave the previous sample in place.
+			}
+		};
+		tick();
+		const t = setInterval(tick, 15_000);
+		return () => {
+			stop = true;
+			clearInterval(t);
+		};
+	});
+
+	// Last hour of request buckets for the small chart.
+	let hour = $state<MetricsResponse | null>(null);
+	$effect(() => {
+		const id = site.id;
+		const load = () =>
+			api
+				.get<MetricsResponse>(`/v1/sites/${id}/metrics?range=1h`)
+				.then((r) => (hour = r))
+				.catch(() => {});
+		load();
+		const t = setInterval(load, 60_000);
+		return () => clearInterval(t);
+	});
+	const hourWindow = $derived.by<[number, number]>(() => {
+		const end = Math.floor(Date.now() / 1000);
+		void hour;
+		return [end - 3600, end];
+	});
+	const hourTimes = $derived(
+		(hour?.requests ?? []).map((b) => Math.floor(new Date(b.bucket).getTime() / 1000))
+	);
+	const hourSeries = $derived([
+		(hour?.requests ?? []).map((b) => b.cache_hit + b.cache_stale),
+		(hour?.requests ?? []).map((b) => b.cache_miss + b.cache_bypass)
+	]);
+	// Totals for the hour come from the buckets: the detail endpoint carries no
+	// summary, and the list's summary would go stale between visits.
+	const m = $derived.by(() => {
+		const buckets = hour?.requests ?? [];
+		if (!buckets.length) return site.metrics_1h;
+		const sum = (f: (b: (typeof buckets)[number]) => number) =>
+			buckets.reduce((a, b) => a + f(b), 0);
+		return {
+			requests: sum((b) => b.requests),
+			cache_hit: sum((b) => b.cache_hit),
+			cache_miss: sum((b) => b.cache_miss),
+			cache_bypass: sum((b) => b.cache_bypass),
+			cache_stale: sum((b) => b.cache_stale),
+			status_5xx: sum((b) => b.status_5xx)
+		};
+	});
+	const p95 = $derived.by(() => {
+		const buckets = (hour?.requests ?? []).filter((b) => b.requests > 0);
+		if (!buckets.length) return null;
+		return Math.max(...buckets.map((b) => b.dur_p95_ms));
+	});
 
 	let deleteOpen = $state(false);
 	let confirmSlug = $state('');
@@ -80,168 +154,232 @@
 		}
 	}
 
-	const m = $derived(site.metrics_1h);
+	function ttlText(seconds: number): string {
+		if (seconds % 3600 === 0) return `${seconds / 3600} h`;
+		if (seconds % 60 === 0) return `${seconds / 60} min`;
+		return formatDuration(seconds * 1000);
+	}
+
+	const config: [string, string][] = $derived([
+		['Runtime', `PHP ${site.php_version}`],
+		['Image', site.image || '–'],
+		['Profile', site.profile === 'dev' ? 'Development' : 'Production'],
+		['Plugin and theme installs', site.file_mods === 'locked' ? 'Locked' : 'Allowed'],
+		['Page cache', site.page_cache ? `On, kept up to ${ttlText(site.settings.cache_ttl)}` : 'Off'],
+		['TLS', site.tls_mode === 'auto' ? 'Automatic certificate' : 'Off'],
+		[
+			'Container limits',
+			`${site.settings.container_memory_mb} MB, ${site.settings.container_cpus} CPU`
+		],
+		['PHP memory', site.settings.php_memory_limit],
+		['Upload limit', site.settings.upload_max_filesize],
+		['Administrator', `${site.admin_user}, ${site.admin_email}`],
+		['Created', formatDateTime(site.created_at)]
+	]);
 </script>
 
-<div class="flex flex-col gap-4">
-	<div class="flex flex-wrap items-center gap-2">
-		<Button
-			variant="primary"
-			onclick={openAdmin}
-			busy={busy === 'login-link'}
-			disabled={site.status !== 'running'}
-		>
-			Open wp-admin
-		</Button>
-		<span class="mx-1 h-5 w-px bg-gray-200"></span>
-		{#if site.status === 'stopped' || site.status === 'error'}
-			<Button onclick={() => action('start')} busy={busy === 'start'} disabled={locked}
-				>Start</Button
-			>
-		{/if}
-		{#if site.status === 'running'}
-			<Button onclick={() => action('stop')} busy={busy === 'stop'} disabled={locked}>Stop</Button>
-			<Button onclick={() => action('restart')} busy={busy === 'restart'} disabled={locked}>
-				Restart
-			</Button>
-		{/if}
-		<Button onclick={() => action('recreate')} busy={busy === 'recreate'} disabled={locked}>
-			Recreate
-		</Button>
-		{#if site.status === 'error'}
-			<Button onclick={() => action('retry')} busy={busy === 'retry'} disabled={locked}
-				>Retry</Button
-			>
-		{/if}
-		<span class="mx-1 h-5 w-px bg-gray-200"></span>
-		<Button
-			onclick={() => action('purge-cache')}
-			busy={busy === 'purge-cache'}
-			disabled={site.status !== 'running'}
-		>
-			Purge cache
-		</Button>
-		<Button
-			onclick={() => action('flush-object-cache')}
-			busy={busy === 'flush-object-cache'}
-			disabled={site.status !== 'running'}
-		>
-			Flush object cache
-		</Button>
-		<span class="flex-1"></span>
-		<Button
-			variant="danger"
-			onclick={() => {
-				confirmSlug = '';
-				keepVolume = false;
-				deleteError = '';
-				deleteOpen = true;
-			}}
-			disabled={site.status === 'deleting'}
-		>
-			Delete
-		</Button>
-	</div>
-
-	{#if error}
-		<Alert>{error}</Alert>
-	{/if}
-	{#if notice}
-		<Alert tone="success">{notice}</Alert>
-	{/if}
+<div class="flex flex-col gap-5">
+	{#if error}<Alert>{error}</Alert>{/if}
+	{#if notice}<Alert tone="success">{notice}</Alert>{/if}
 
 	{#if activeJob}
-		<Card title={jobRunning ? 'Operation in progress' : 'Last operation'}>
+		<Panel title={jobRunning ? 'In progress' : 'Last operation'}>
 			<JobPanel job={activeJob} compact />
-		</Card>
+		</Panel>
 	{/if}
 
-	<div class="grid gap-4 lg:grid-cols-3">
-		<Card title="Configuration" class="lg:col-span-2">
-			<dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-				{#snippet row(label: string, value: string)}
-					<div>
-						<dt class="text-xs text-gray-500">{label}</dt>
-						<dd class="mt-0.5 font-medium break-all text-gray-900">{value}</dd>
+	<div class="grid gap-5 lg:grid-cols-3">
+		<Panel title="Right now">
+			<div class="grid grid-cols-2 gap-x-4 gap-y-5">
+				<div class="flex flex-col">
+					<span class="text-xs text-ink-2">Status</span>
+					<span class="mt-1"><StatusPill status={site.status} soft /></span>
+				</div>
+				<div class="flex flex-col">
+					<span class="text-xs text-ink-2">Container health</span>
+					<span class="mt-1">
+						{#if site.health && site.health !== 'none'}
+							<StatusPill status={site.health} soft />
+						{:else}
+							<span class="text-sm text-ink-3">–</span>
+						{/if}
+					</span>
+				</div>
+				<Stat label="CPU" value={stats ? `${stats.cpu_percent.toFixed(1)}%` : '–'} />
+				<Stat
+					label="Memory"
+					value={stats ? formatBytes(stats.mem_usage) : '–'}
+					sub={stats?.mem_limit ? `of ${formatBytes(stats.mem_limit)}` : undefined}
+				/>
+			</div>
+		</Panel>
+
+		<Panel title="Last hour" class="lg:col-span-2">
+			<div class="grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)]">
+				<div class="flex flex-col gap-5">
+					<Stat label="Requests" value={formatNumber(m?.requests ?? 0)} size="lg" />
+					<Stat
+						label="Served from cache"
+						value={m && m.requests ? percent(m.cache_hit + m.cache_stale, m.requests) : '–'}
+						tone={m && m.requests ? 'ok' : 'ink'}
+					/>
+					<Stat
+						label="Slowest p95"
+						value={p95 !== null ? formatDuration(p95) : '–'}
+						sub={m?.status_5xx ? `${formatNumber(m.status_5xx)} server errors` : 'no server errors'}
+						tone={m?.status_5xx ? 'danger' : 'ink'}
+					/>
+				</div>
+				<div class="min-w-0">
+					{#if hour && hour.requests.length}
+						<LineChart
+							times={hourTimes}
+							values={hourSeries}
+							height={168}
+							xRange={hourWindow}
+							series={[
+								{ label: 'from cache', tone: 'ok', fill: true },
+								{ label: 'to origin', tone: 'ink-3', fill: true }
+							]}
+							format={(v) => String(Math.round(v))}
+						/>
+					{:else}
+						<div
+							class="grid h-full min-h-40 place-items-center rounded-plate border border-dashed border-rule-strong text-sm text-ink-3"
+						>
+							No requests in the last hour.
+						</div>
+					{/if}
+				</div>
+			</div>
+		</Panel>
+	</div>
+
+	<div class="grid gap-5 lg:grid-cols-3">
+		<Panel title="Configuration" class="lg:col-span-2" padded={false}>
+			<dl class="grid grid-cols-1 sm:grid-cols-2">
+				{#each config as [label, value] (label)}
+					<div
+						class="flex flex-col gap-0.5 border-b border-rule px-6 py-3.5 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0"
+					>
+						<dt class="text-xs text-ink-2">{label}</dt>
+						<dd class="truncate text-sm text-ink" title={value}>{value}</dd>
 					</div>
-				{/snippet}
-				{@render row('PHP', site.php_version)}
-				{@render row('Image', site.image || '–')}
-				{@render row('Profile', site.profile)}
-				{@render row('File modifications', site.file_mods)}
-				{@render row('Page cache', site.page_cache ? 'on' : 'off')}
-				{@render row('TLS', site.tls_mode)}
-				{@render row('Admin user', site.admin_user)}
-				{@render row('Admin email', site.admin_email)}
-				{@render row('Created', formatDateTime(site.created_at))}
+				{/each}
 			</dl>
 			{#if site.domains.length > 1}
-				<div class="mt-4 border-t border-gray-100 pt-3">
-					<p class="text-xs text-gray-500">Domains</p>
-					<ul class="mt-1 flex flex-wrap gap-2 text-sm">
+				<div class="border-t border-rule px-6 py-4">
+					<p class="text-xs text-ink-2">Domains</p>
+					<ul class="mt-1.5 flex flex-wrap gap-2">
 						{#each site.domains as d (d.id)}
-							<li class="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs">
-								{d.host}
-								{#if d.kind === 'primary'}<span class="text-gray-500"> (primary)</span>{/if}
+							<li
+								class="rounded-control border border-rule bg-sunken px-2 py-0.5 font-mono text-xs"
+							>
+								{d.host}{d.kind === 'primary' ? ' (primary)' : ''}
 							</li>
 						{/each}
 					</ul>
 				</div>
 			{/if}
-		</Card>
+		</Panel>
 
-		<Card title="Last hour">
-			{#if m}
-				<dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-					<div>
-						<dt class="text-xs text-gray-500">Requests</dt>
-						<dd class="mt-0.5 text-lg font-semibold tabular-nums">{formatNumber(m.requests)}</dd>
-					</div>
-					<div>
-						<dt class="text-xs text-gray-500">Cache hit</dt>
-						<dd class="mt-0.5 text-lg font-semibold tabular-nums">
-							{percent(m.cache_hit, m.requests)}
-						</dd>
-					</div>
-					<div>
-						<dt class="text-xs text-gray-500">Miss / bypass / stale</dt>
-						<dd class="mt-0.5 font-medium tabular-nums">
-							{formatNumber(m.cache_miss)} / {formatNumber(m.cache_bypass)} / {formatNumber(
-								m.cache_stale
-							)}
-						</dd>
-					</div>
-					<div>
-						<dt class="text-xs text-gray-500">5xx</dt>
-						<dd class="mt-0.5 font-medium tabular-nums {m.status_5xx ? 'text-red-700' : ''}">
-							{formatNumber(m.status_5xx)}
-						</dd>
-					</div>
-				</dl>
-			{:else}
-				<p class="text-sm text-gray-500">No traffic recorded yet.</p>
-			{/if}
-		</Card>
+		{#if admin}
+			<Panel title="Controls">
+				<div class="flex flex-col gap-2">
+					{#if site.status === 'stopped' || site.status === 'error'}
+						<Button
+							icon="play"
+							onclick={() => action('start')}
+							busy={busy === 'start'}
+							disabled={locked}>Start</Button
+						>
+					{/if}
+					{#if running}
+						<Button
+							icon="stop"
+							onclick={() => action('stop')}
+							busy={busy === 'stop'}
+							disabled={locked}>Stop</Button
+						>
+						<Button
+							icon="refresh"
+							onclick={() => action('restart')}
+							busy={busy === 'restart'}
+							disabled={locked}>Restart</Button
+						>
+					{/if}
+					{#if site.status === 'error'}
+						<Button
+							icon="refresh"
+							onclick={() => action('retry')}
+							busy={busy === 'retry'}
+							disabled={locked}>Retry provisioning</Button
+						>
+					{/if}
+					<Button onclick={() => action('recreate')} busy={busy === 'recreate'} disabled={locked}
+						>Recreate container</Button
+					>
+					<div class="my-1 h-px bg-rule"></div>
+					<Button
+						icon="broom"
+						onclick={() => action('purge-cache')}
+						busy={busy === 'purge-cache'}
+						disabled={!running}>Purge page cache</Button
+					>
+					<Button
+						onclick={() => action('flush-object-cache')}
+						busy={busy === 'flush-object-cache'}
+						disabled={!running}>Flush object cache</Button
+					>
+					<Button
+						icon="camera"
+						onclick={() => action('screenshot')}
+						busy={busy === 'screenshot'}
+						disabled={!running}>Refresh preview</Button
+					>
+					<div class="my-1 h-px bg-rule"></div>
+					<Button
+						variant="danger"
+						icon="trash"
+						onclick={() => {
+							confirmSlug = '';
+							keepVolume = false;
+							deleteError = '';
+							deleteOpen = true;
+						}}
+						disabled={site.status === 'deleting'}
+					>
+						Delete site
+					</Button>
+				</div>
+			</Panel>
+		{/if}
 	</div>
 </div>
 
 <Modal bind:open={deleteOpen} title="Delete {site.name}">
 	<p>
-		This stops and removes the site's container and configuration. Type
-		<code class="rounded bg-gray-100 px-1 font-mono">{site.slug}</code> to confirm.
+		The container, its route at the edge, the database and the cache user are removed. Type
+		<code class="rounded bg-sunken px-1 text-ink">{site.slug}</code> to confirm.
 	</p>
 	<input
 		class="mt-3 input font-mono"
 		bind:value={confirmSlug}
 		placeholder={site.slug}
 		autocomplete="off"
+		aria-label="Type the slug to confirm"
 	/>
-	<label class="mt-3 flex items-center gap-2 text-sm">
-		<input type="checkbox" bind:checked={keepVolume} />
-		Keep the data volume (files and uploads) for later recovery
+	<label class="mt-4 flex items-start gap-2 text-sm text-ink">
+		<input type="checkbox" bind:checked={keepVolume} class="mt-1 accent-brand" />
+		<span>
+			Keep the files volume
+			<span class="block text-xs text-ink-3"
+				>Uploads, plugins and themes stay on disk for later recovery.</span
+			>
+		</span>
 	</label>
 	{#if deleteError}
-		<div class="mt-3"><Alert>{deleteError}</Alert></div>
+		<Alert class="mt-3">{deleteError}</Alert>
 	{/if}
 	{#snippet footer()}
 		<Button onclick={() => (deleteOpen = false)}>Cancel</Button>

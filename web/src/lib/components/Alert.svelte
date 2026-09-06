@@ -1,20 +1,21 @@
-<!-- Inline notice for errors, warnings and confirmations. -->
+<!-- Inline notice. Errors say what happened and, where possible, what to do. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
 	let {
 		tone = 'error',
+		class: klass = '',
 		children
-	}: { tone?: 'error' | 'warn' | 'info' | 'success'; children: Snippet } = $props();
+	}: { tone?: 'error' | 'warn' | 'info' | 'success'; class?: string; children: Snippet } = $props();
 
 	const tones = {
-		error: 'border-red-200 bg-red-50 text-red-800',
-		warn: 'border-amber-200 bg-amber-50 text-amber-800',
-		info: 'border-blue-200 bg-blue-50 text-blue-800',
-		success: 'border-green-200 bg-green-50 text-green-800'
+		error: 'border-danger/25 bg-danger-soft text-danger-ink',
+		warn: 'border-busy/40 bg-busy-soft text-ink',
+		info: 'border-info/25 bg-info-soft text-ink',
+		success: 'border-ok/25 bg-ok-soft text-ink'
 	};
 </script>
 
-<div role="alert" class="rounded-md border px-3 py-2 text-sm {tones[tone]}">
+<div role="alert" class="rounded-control border px-4 py-3 text-sm leading-6 {tones[tone]} {klass}">
 	{@render children()}
 </div>

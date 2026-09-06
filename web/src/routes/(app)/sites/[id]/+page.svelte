@@ -1,17 +1,22 @@
-<!-- Site detail: header, tab strip (?tab=) and the tab panels. The site
-     record comes from GET /v1/sites/{id} and is kept fresh by live events. -->
+<!-- Site detail: preview, identity and the main actions up top; a tab strip
+     (?tab=) below. The record comes from GET /v1/sites/{id} and is kept
+     fresh by live events. -->
 <script lang="ts">
-	import { replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { api, ApiError, errorText } from '$lib/api/client';
 	import { deletedSites, jobs, seedJob, sites as liveSites } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
 	import type { Job } from '$lib/types/job';
-	import type { Site } from '$lib/types/site';
+	import type { LoginLinkResponse, Site } from '$lib/types/site';
+	import { formatRelative } from '$lib/format';
+	import { shownStatus } from '$lib/site-actions';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
+	import Thumb from '$lib/components/Thumb.svelte';
 	import Overview from './Overview.svelte';
 	import Metrics from './Metrics.svelte';
 	import Logs from './Logs.svelte';
@@ -31,6 +36,8 @@
 		try {
 			const res = await api.get<{ site: Site; active_job: Job | null }>(`/v1/sites/${siteId}`);
 			loaded = res.site;
+			// Let the shell (breadcrumb, palette) know this site by name.
+			if (!liveSites.has(res.site.id)) liveSites.set(res.site.id, res.site);
 			if (res.active_job) {
 				seedJob(res.active_job);
 				activeJobId = res.active_job.id;
@@ -84,71 +91,153 @@
 	});
 
 	function setTab(t: Tab) {
-		// Shallow routing: swap the query without re-running loads.
 		const search = t === 'overview' ? '' : `?tab=${t}`;
-		replaceState(resolve(`/sites/${id}${search}`), {});
+		goto(resolve(`/sites/${id}${search}`), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	function onJob(job: Job) {
 		seedJob(job);
 		activeJobId = job.id;
 	}
+
+	let adminBusy = $state(false);
+	let adminError = $state('');
+	async function openAdmin() {
+		if (!site) return;
+		adminBusy = true;
+		adminError = '';
+		try {
+			const res = await api.post<LoginLinkResponse>(`/v1/sites/${site.id}/login-link`);
+			window.open(res.url, '_blank', 'noopener');
+		} catch (err) {
+			adminError = errorText(err);
+		} finally {
+			adminBusy = false;
+		}
+	}
+
+	const shown = $derived(site ? shownStatus(site) : '');
 </script>
 
 <svelte:head>
 	<title>{site?.name ?? 'Site'} · presso</title>
 </svelte:head>
 
-<div class="mb-4 flex items-center gap-3">
-	<a href={resolve('/')} class="text-sm text-gray-500 hover:text-gray-900">← Sites</a>
-</div>
+<a
+	href={resolve('/')}
+	class="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink"
+>
+	<Icon name="back" size={16} />
+	Sites
+</a>
 
 {#if deleted}
 	<Alert tone="info">
-		This site has been deleted. <a href={resolve('/')} class="underline">Back to sites</a>
+		This site has been deleted.
+		<a href={resolve('/')} class="underline underline-offset-2">Back to sites</a>
 	</Alert>
 {:else if notFound}
-	<Alert>Site not found. <a href={resolve('/')} class="underline">Back to sites</a></Alert>
+	<Alert>
+		There is no site with this id.
+		<a href={resolve('/')} class="underline underline-offset-2">Back to sites</a>
+	</Alert>
 {:else if error && !site}
 	<Alert>{error}</Alert>
-	<div class="mt-3"><Button onclick={() => load(id)}>Retry</Button></div>
+	<div class="mt-4"><Button onclick={() => load(id)}>Try again</Button></div>
 {:else if !site}
-	<p class="text-sm text-gray-500">Loading…</p>
+	<div class="flex gap-8" aria-busy="true">
+		<div class="aspect-[16/10] w-72 animate-pulse rounded-plate bg-sunken"></div>
+		<div class="flex flex-1 flex-col gap-3 pt-2">
+			<div class="h-10 w-1/3 animate-pulse rounded bg-sunken"></div>
+			<div class="h-5 w-1/4 animate-pulse rounded bg-sunken"></div>
+		</div>
+	</div>
 {:else}
-	<header class="mb-5">
-		<div class="flex flex-wrap items-center gap-3">
-			<h1 class="text-xl font-semibold">{site.name}</h1>
-			<StatusPill status={site.status} />
-			{#if site.status === 'running' && site.health !== 'none'}
-				<StatusPill status={site.health} dot={false} />
-			{/if}
+	<header class="mb-8 flex flex-wrap items-start gap-8">
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- external site URL -->
+		<a
+			href={site.url}
+			target="_blank"
+			rel="noreferrer noopener"
+			class="group relative block w-72 shrink-0 overflow-hidden frame transition-shadow hover:shadow-plate-hover"
+			aria-label="Visit {site.name}"
+		>
+			<Thumb {site} size="sm" class="aspect-[16/10]" />
+			<span
+				class="absolute right-3 bottom-3 grid size-8 place-items-center rounded-full bg-surface/90 text-ink opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+			>
+				<Icon name="external" size={14} />
+			</span>
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+
+		<div class="min-w-0 flex-1 pt-1">
+			<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+				<h1 class="display text-4xl text-ink">{site.name}</h1>
+				<StatusPill status={shown} soft />
+			</div>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site URL -->
 			<a
 				href={site.url}
 				target="_blank"
 				rel="noreferrer noopener"
-				class="text-sm text-gray-600 hover:underline">{site.primary_domain} ↗</a
+				class="mt-2 inline-flex items-center gap-1.5 text-md text-ink-2 hover:text-ink"
 			>
+				{site.primary_domain}
+				<Icon name="external" size={15} class="text-ink-3" />
+			</a>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-		</div>
-		{#if site.status_message}
-			<p class="mt-1 text-sm {site.status === 'error' ? 'text-red-700' : 'text-gray-500'}">
-				{site.status_message}
+			{#if site.status_message}
+				<p
+					class="mt-3 max-w-2xl text-sm {site.status === 'error'
+						? 'text-danger-ink'
+						: 'text-ink-2'}"
+				>
+					{site.status_message}
+				</p>
+			{/if}
+			<p class="mt-3 text-sm text-ink-3">
+				PHP {site.php_version}, {site.profile === 'dev' ? 'development' : 'production'} profile,
+				{#if site.screenshot_at}
+					preview from {formatRelative(site.screenshot_at)}
+				{:else}
+					no preview yet
+				{/if}
 			</p>
-		{/if}
+		</div>
+
+		<div class="flex flex-col items-end gap-2">
+			{#if isAdmin()}
+				<Button
+					variant="primary"
+					icon="key"
+					onclick={openAdmin}
+					busy={adminBusy}
+					disabled={site.status !== 'running'}
+				>
+					Open wp-admin
+				</Button>
+			{/if}
+			{#if adminError}
+				<span class="text-xs text-danger-ink">{adminError}</span>
+			{/if}
+		</div>
 	</header>
 
-	<nav class="mb-5 flex gap-1 border-b border-gray-200" aria-label="Site sections">
+	<nav class="mb-8 flex gap-2 border-b border-rule" aria-label="Site sections">
 		{#each visibleTabs as t (t.id)}
 			<button
 				type="button"
 				onclick={() => setTab(t.id)}
-				class="-mb-px border-b-2 px-3 py-2 text-sm font-medium {tab === t.id
-					? 'border-gray-900 text-gray-900'
-					: 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'}"
+				class="relative -mb-px h-12 px-4 text-base font-medium transition-colors {tab === t.id
+					? 'text-ink'
+					: 'text-ink-2 hover:text-ink'}"
 				aria-current={tab === t.id ? 'page' : undefined}
 			>
 				{t.label}
+				{#if tab === t.id}
+					<span class="absolute inset-x-4 bottom-0 h-0.5 rounded-t bg-brand"></span>
+				{/if}
 			</button>
 		{/each}
 	</nav>

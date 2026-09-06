@@ -127,6 +127,15 @@ Implemented in this repo (see README.md for the dev loop):
 - Observability: Docker events drive site status, container stats and
   edge access-log rollups per minute, live log tail, system status page.
 - Cron runner (`wp cron event run --due-now` per running site).
+- Page previews: a shared headless Chrome container (`presso-browser`)
+  captures the front page of every site (after provision/start/recreate, on
+  demand, and every `SHOTS_INTERVAL`); the JPEG is stored under
+  `DATA_DIR/screenshots` and served by `GET /v1/sites/{id}/screenshot`. The
+  browser runs with `--host-resolver-rules=MAP * presso-edge`, so it visits a
+  site's real URL (`demo.localhost`, a public domain) and every hostname
+  resolves to the edge container on the presso network: correct Host header
+  and SNI, no dependence on public DNS, and the preview shows what visitors
+  get through the page cache.
 
 Deferred, in roughly the order they are likely needed: nginx+FPM legacy
 build, migration plugin / SSH pull / archive import, backups and snapshots,
