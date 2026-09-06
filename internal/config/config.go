@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -76,6 +77,73 @@ type API struct {
 	// DockerHost overrides where the engine reaches the Docker daemon. Empty
 	// lets the Docker client resolve it (DOCKER_HOST, then the local socket).
 	DockerHost string `env:"DOCKER_HOST_OVERRIDE,default="`
+
+	Platform
+	Runtime
+	Edge
+	Observe
+}
+
+// Platform configures the shared containers pressod reconciles on the host
+// (network, MariaDB, Redis). Listen addresses are host-side published ports:
+// the engine is a host process and cannot rely on reaching container IPs
+// (impossible on macOS), so everything it talks to publishes on loopback.
+type Platform struct {
+	// Managed=false skips the reconciler entirely (tests, or an operator
+	// running the shared services themselves).
+	Managed bool `env:"PLATFORM_MANAGED,default=true"`
+	// Network is the docker bridge network every presso container joins.
+	Network string `env:"PLATFORM_NETWORK,default=presso"`
+
+	MariaDBImage  string `env:"MARIADB_IMAGE,default=mariadb:11.4"`
+	MariaDBListen string `env:"MARIADB_LISTEN,default=127.0.0.1:3306"`
+
+	RedisImage     string `env:"REDIS_IMAGE,default=redis:7-alpine"`
+	RedisListen    string `env:"REDIS_LISTEN,default=127.0.0.1:6379"`
+	RedisMaxMemory string `env:"REDIS_MAXMEMORY,default=256mb"`
+
+	// EngineInternalURL is how site containers reach this engine (system
+	// plugin purge callbacks). host.docker.internal resolves on Docker Desktop
+	// and, with the host-gateway extra host the engine adds, on Linux too.
+	EngineInternalURL string `env:"ENGINE_INTERNAL_URL,default=http://host.docker.internal:7080"`
+}
+
+// Runtime configures which presso-runtime images sites can run.
+type Runtime struct {
+	// ImageTemplate renders the runtime image for a PHP version; {php} is
+	// replaced by e.g. "8.3".
+	ImageTemplate string `env:"RUNTIME_IMAGE_TEMPLATE,default=presso-runtime:php{php}"`
+	// PHPVersions lists the versions offered in the UI, in display order.
+	PHPVersions []string `env:"RUNTIME_PHP_VERSIONS,default=8.3,8.4"`
+	DefaultPHP  string   `env:"RUNTIME_DEFAULT_PHP,default=8.3"`
+}
+
+// Edge configures the shared Caddy edge container.
+type Edge struct {
+	Image string `env:"EDGE_IMAGE,default=presso-edge:dev"`
+	// HTTPListen/HTTPSListen are the public host ports.
+	HTTPListen  string `env:"EDGE_HTTP_LISTEN,default=0.0.0.0:80"`
+	HTTPSListen string `env:"EDGE_HTTPS_LISTEN,default=0.0.0.0:443"`
+	// AdminListen is the Caddy admin API (config pushes); loopback only.
+	AdminListen string `env:"EDGE_ADMIN_LISTEN,default=127.0.0.1:2019"`
+	// CacheAdminListen is where the page-cache purge API answers; loopback only.
+	CacheAdminListen string `env:"EDGE_CACHE_ADMIN_LISTEN,default=127.0.0.1:2020"`
+	// ACMEEmail is passed to Caddy for certificate issuance on real domains.
+	ACMEEmail string `env:"ACME_EMAIL,default="`
+	// DefaultCacheTTL is the page-cache TTL for sites without an override.
+	DefaultCacheTTL time.Duration `env:"EDGE_DEFAULT_CACHE_TTL,default=12h"`
+}
+
+// Observe configures the background workers that collect metrics.
+type Observe struct {
+	CronInterval     time.Duration `env:"CRON_INTERVAL,default=5m"`
+	StatsInterval    time.Duration `env:"STATS_INTERVAL,default=30s"`
+	MetricsRetention time.Duration `env:"METRICS_RETENTION,default=168h"`
+}
+
+// RuntimeImage returns the runtime image reference for a PHP version.
+func (r *Runtime) RuntimeImage(php string) string {
+	return strings.ReplaceAll(r.ImageTemplate, "{php}", php)
 }
 
 // Validate shadows Base.Validate, so it must chain to it explicitly.
@@ -88,6 +156,15 @@ func (a *API) Validate() error {
 	}
 	if a.SessionTTL <= 0 {
 		return fmt.Errorf("SESSION_TTL: must be positive")
+	}
+	if len(a.PHPVersions) == 0 || !slices.Contains(a.PHPVersions, a.DefaultPHP) {
+		return fmt.Errorf("RUNTIME_DEFAULT_PHP: %q must be one of RUNTIME_PHP_VERSIONS %v", a.DefaultPHP, a.PHPVersions)
+	}
+	if !strings.Contains(a.ImageTemplate, "{php}") {
+		return fmt.Errorf("RUNTIME_IMAGE_TEMPLATE: must contain {php}")
+	}
+	if a.CronInterval <= 0 || a.StatsInterval <= 0 || a.MetricsRetention <= 0 {
+		return fmt.Errorf("CRON_INTERVAL, STATS_INTERVAL, METRICS_RETENTION: must be positive")
 	}
 	return nil
 }

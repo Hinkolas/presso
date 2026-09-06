@@ -5,10 +5,50 @@
 package store
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type Activity struct {
+	ID      uuid.UUID
+	Ts      time.Time
+	UserID  uuid.NullUUID
+	SiteID  uuid.NullUUID
+	Kind    string
+	Message string
+	Meta    string
+}
+
+type Job struct {
+	ID         uuid.UUID
+	Kind       string
+	SiteID     uuid.NullUUID
+	Status     string
+	Args       string
+	Error      string
+	CreatedBy  string
+	StartedAt  sql.NullTime
+	FinishedAt sql.NullTime
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type JobEvent struct {
+	ID      int64
+	JobID   uuid.UUID
+	Ts      time.Time
+	Level   string
+	Step    string
+	Message string
+}
+
+type PlatformKv struct {
+	Key       string
+	Value     []byte
+	UpdatedAt time.Time
+}
 
 type Session struct {
 	ID        uuid.UUID
@@ -19,6 +59,70 @@ type Session struct {
 	UserAgent string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type Site struct {
+	ID               uuid.UUID
+	Slug             string
+	Name             string
+	Status           string
+	StatusMessage    string
+	PrimaryDomain    string
+	TlsMode          string
+	PhpVersion       string
+	Image            string
+	Profile          string
+	FileMods         string
+	PageCache        bool
+	DbName           string
+	DbUser           string
+	DbPasswordEnc    []byte
+	RedisUser        string
+	RedisPasswordEnc []byte
+	SaltsEnc         []byte
+	PurgeTokenHash   []byte
+	LoginSecretEnc   []byte
+	AdminUser        string
+	AdminEmail       string
+	Settings         string
+	ContainerID      string
+	VolumeName       string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type SiteContainerMetric struct {
+	SiteID   uuid.UUID
+	Bucket   time.Time
+	CpuPct   float64
+	MemBytes int64
+	MemLimit int64
+}
+
+type SiteDomain struct {
+	ID        uuid.UUID
+	SiteID    uuid.UUID
+	Host      string
+	Kind      string
+	CreatedAt time.Time
+}
+
+type SiteRequestMetric struct {
+	SiteID      uuid.UUID
+	Bucket      time.Time
+	Requests    int64
+	CacheHit    int64
+	CacheMiss   int64
+	CacheBypass int64
+	CacheStale  int64
+	Status2xx   int64
+	Status3xx   int64
+	Status4xx   int64
+	Status5xx   int64
+	Bytes       int64
+	DurSumMs    float64
+	DurP50Ms    float64
+	DurP95Ms    float64
 }
 
 type User struct {

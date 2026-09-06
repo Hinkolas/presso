@@ -86,6 +86,8 @@ func (h *authHandlers) login(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(r.Context(), w, err)
 		return
 	}
+	// The browser UI relies on the cookie; CLI clients read the token.
+	setSessionCookie(w, r, sess.Token, sess.ExpiresAt)
 	writeJSON(w, http.StatusOK, struct {
 		Session sessionCreatedPayload `json:"session"`
 	}{sessionCreatedPayload{Token: sess.Token, ExpiresAt: sess.ExpiresAt, User: newUserPayload(&sess.User)}})
@@ -93,6 +95,9 @@ func (h *authHandlers) login(w http.ResponseWriter, r *http.Request) {
 
 // POST /v1/auth/logout
 func (h *authHandlers) logout(w http.ResponseWriter, r *http.Request) {
+	if cookieAuthFrom(r.Context()) {
+		clearSessionCookie(w, r)
+	}
 	if err := h.auth.Logout(r.Context(), tokenFrom(r.Context())); err != nil {
 		writeAuthError(r.Context(), w, err)
 		return

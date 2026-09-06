@@ -1,11 +1,12 @@
 // Command pressod is the orchestration engine: the client-facing REST API
-// (web BFF, harness CLI) plus, as they land, the workers that provision and
-// manage WordPress site containers through the Docker API.
+// (embedded web UI, harness CLI) plus the workers that provision and manage
+// WordPress site containers through the Docker API, reconcile the shared
+// platform containers (MariaDB, Redis, edge) and collect observability data.
 //
 // Besides serving (the default), the binary carries the operator commands,
 // one artifact to deploy and exec into:
 //
-//	pressod [serve]                              run the engine (REST API + workers)
+//	pressod [serve]                              run the engine (REST API + UI + workers)
 //	pressod user create|list|set-role|reset-password|delete
 //	                                             manage operator accounts (no signup endpoint)
 //	pressod migrate up|status                    apply / inspect database migrations
@@ -18,15 +19,27 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/Hinkolas/presso/internal/api"
 	"github.com/Hinkolas/presso/internal/auth"
 	"github.com/Hinkolas/presso/internal/config"
+	"github.com/Hinkolas/presso/internal/cron"
+	"github.com/Hinkolas/presso/internal/docker"
+	"github.com/Hinkolas/presso/internal/edge"
+	"github.com/Hinkolas/presso/internal/events"
+	"github.com/Hinkolas/presso/internal/jobs"
 	"github.com/Hinkolas/presso/internal/obs"
+	"github.com/Hinkolas/presso/internal/observe"
+	"github.com/Hinkolas/presso/internal/platform"
+	"github.com/Hinkolas/presso/internal/secrets"
+	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
 	versionpkg "github.com/Hinkolas/presso/internal/version"
+	"github.com/Hinkolas/presso/internal/webui"
 	"github.com/Hinkolas/presso/migrations"
 )
 
@@ -85,21 +98,74 @@ func runServe() error {
 	st := store.NewStore(db)
 
 	authSvc := auth.New(st, auth.Config{SessionTTL: cfg.SessionTTL})
+	box, err := secrets.New(cfg.AuthSecret)
+	if err != nil {
+		return err
+	}
+	dk, err := docker.New(cfg.DockerHost)
+	if err != nil {
+		return err
+	}
+	defer dk.Close()
+	if info, err := dk.Ping(ctx); err != nil {
+		// Not fatal: the UI must come up so the operator can see why.
+		slog.WarnContext(ctx, "docker daemon unreachable; sites cannot be managed until it is", "err", err)
+	} else {
+		slog.InfoContext(ctx, "docker connected", "version", info.Version, "os", info.OS, "arch", info.Arch)
+	}
+
+	hub := events.New()
+	edgeClient := edge.NewClient(cfg.Edge.AdminListen, cfg.Edge.CacheAdminListen, filepath.Join(cfg.DataDir, "edge"))
+	plat := platform.New(cfg, dk, st, box, hub, edgeClient)
+	defer plat.Close()
+	runner := jobs.New(st, hub, 4)
+	sites := site.New(site.Deps{
+		Config: cfg, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: plat, Edge: edgeClient,
+	})
 
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: api.StripAPIPrefix(api.NewRouter(api.Deps{
-			Auth:    authSvc,
-			Store:   st,
-			DB:      db,
-			Version: versionpkg.Version,
+			Auth:     authSvc,
+			Store:    st,
+			DB:       db,
+			Version:  versionpkg.Version,
+			Config:   cfg,
+			Sites:    sites,
+			Hub:      hub,
+			Docker:   dk,
+			Platform: plat,
+			WebUI:    webui.Handler(),
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	// Workers share one context; cancelling it is the first step of shutdown.
 	loopCtx, cancelLoops := context.WithCancel(ctx)
 	defer cancelLoops()
-	go sweepLoop(loopCtx, authSvc)
+	if err := runner.Start(loopCtx); err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	spawn := func(name string, fn func(context.Context)) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fn(loopCtx)
+			slog.DebugContext(ctx, "worker stopped", "worker", name)
+		}()
+	}
+	spawn("sessions", func(ctx context.Context) { sweepLoop(ctx, authSvc) })
+	// The platform reconciler runs first so the edge and shared services exist
+	// before any site work; the status watcher re-inspects sites right after.
+	spawn("platform", func(ctx context.Context) { plat.Run(ctx, time.Minute) })
+	watcher := observe.NewStatusWatcher(dk, sites)
+	spawn("status", watcher.Run)
+	spawn("stats", func(ctx context.Context) { observe.NewStatsSampler(dk, st).Run(ctx, cfg.StatsInterval) })
+	spawn("edgelog", func(ctx context.Context) { observe.NewEdgeLogIngester(dk, st).Run(ctx, 10*time.Second) })
+	spawn("retention", observe.NewRetention(st, cfg.MetricsRetention, 30*24*time.Hour).Run)
+	spawn("cron", func(ctx context.Context) { cron.New(st, sites, 3).Run(ctx, cfg.CronInterval) })
 
 	serveErr := make(chan error, 1)
 	go func() {
@@ -118,9 +184,18 @@ func runServe() error {
 	}
 	slog.InfoContext(ctx, "shutting down")
 	cancelLoops()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	return srv.Shutdown(shutdownCtx)
+	err = srv.Shutdown(shutdownCtx)
+	// Give running jobs a moment to record their outcome.
+	done := make(chan struct{})
+	go func() { runner.Wait(); wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-shutdownCtx.Done():
+		slog.WarnContext(ctx, "workers did not stop in time")
+	}
+	return err
 }
 
 // sweepLoop deletes expired sessions periodically. Errors are logged, never

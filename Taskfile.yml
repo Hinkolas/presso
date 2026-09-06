@@ -18,19 +18,41 @@ tasks:
   # --- Build ---
 
   build:
-    desc: Build all binaries into bin/
+    desc: Build the web UI and the pressod binary (UI embedded) into bin/
+    deps: [build:web]
     cmds:
       - go build -ldflags "{{.LDFLAGS}}" -o bin/pressod ./cmd/pressod
+
+  build:go:
+    desc: Build only the pressod binary (uses whatever internal/webui/dist holds)
+    cmds:
+      - go build -ldflags "{{.LDFLAGS}}" -o bin/pressod ./cmd/pressod
+
+  build:web:
+    desc: Build the SvelteKit SPA and copy it into internal/webui/dist for embedding
+    dir: web
+    cmds:
+      - npm ci --no-audit --no-fund
+      - npm run build
+      - rm -rf ../internal/webui/dist && mkdir -p ../internal/webui/dist
+      - cp -R build/. ../internal/webui/dist/
+      - touch ../internal/webui/dist/.gitkeep
+
+  build:edge:
+    desc: Build the presso-edge:dev image (Caddy + Souin page cache)
+    cmds:
+      - docker build -t presso-edge:dev -f build/edge.Dockerfile build
 
   build:image:
     desc: Build the pressod:dev image from this checkout (needs docker)
     cmds:
       - docker build -t pressod:dev -f build/pressod.Dockerfile .
 
-  build:web-image:
-    desc: Build the presso-web:dev UI image from this checkout (needs docker)
+  build:runtime:
+    desc: Build the presso-runtime images for every supported PHP version
     cmds:
-      - docker build -t presso-web:dev -f build/web.Dockerfile web
+      - for: ["8.3", "8.4"]
+        cmd: docker build -t presso-runtime:php{{.ITEM}} --build-arg PHP_VERSION={{.ITEM}} runtime
 
   # --- Dev loop ---
 
@@ -43,10 +65,18 @@ tasks:
       - go run ./cmd/pressod serve
 
   dev:web:
-    desc: Run the SvelteKit BFF dev server
+    desc: Run the SvelteKit dev server (proxies /api to the engine on :7080)
     dir: web
     cmds:
       - npm run dev
+
+  nuke:
+    desc: "DEV ONLY: remove every presso-managed container, volume and the network"
+    prompt: This removes all presso containers and volumes on this Docker host. Continue?
+    cmds:
+      - docker ps -aq --filter label=presso.managed=true | xargs -r docker rm -f
+      - docker volume ls -q --filter label=presso.managed=true | xargs -r docker volume rm
+      - docker network rm presso 2>/dev/null || true
 
   user:
     desc: "Manage operator accounts, e.g. task user -- create --email you@example.com --role admin"

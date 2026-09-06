@@ -40,3 +40,7 @@ coverage.*
 # --- Go workspace files ---
 go.work
 go.work.sum
+
+# --- Embedded web UI build (copied from web/build by task build:web) ---
+/internal/webui/dist/*
+!/internal/webui/dist/.gitkeep

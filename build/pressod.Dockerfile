@@ -1,12 +1,27 @@
-# The engine image. Alpine (not scratch) on purpose so an install script can
+# The engine image: one binary carrying the API, the workers and the
+# embedded web UI. Alpine (not scratch) on purpose so an install script can
 # pipe a generated password into `pressod user create --password-stdin`
 # through a shell. CGO is off: modernc.org/sqlite is pure Go.
+#
+# The container needs the Docker socket (-v /var/run/docker.sock:/var/run/docker.sock)
+# and, because it publishes the shared services to the host's loopback, the
+# host network (--network host) so it can reach them the same way a host
+# install does.
+FROM node:22-alpine AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ .
+RUN npm run build
+
 FROM golang:1.26-alpine AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /pressod ./cmd/pressod
+COPY --from=web /web/build ./internal/webui/dist
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build -ldflags "-X github.com/Hinkolas/presso/internal/version.Version=${VERSION}" -o /pressod ./cmd/pressod
 
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates

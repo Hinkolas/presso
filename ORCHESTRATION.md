@@ -108,6 +108,46 @@ Shared services (decided, details in RUNTIME.md sections 4-6, 14):
   fire-and-forget messaging only; the engine keeps its own durable database.
 - Edge page cache: see "Edge page cache" below.
 
+## MVP status (September 2026)
+
+Implemented in this repo (see README.md for the dev loop):
+
+- Engine on the host (`pressod`), embedded web UI, SQLite state, jobs runner
+  with live progress over SSE.
+- Platform reconciler: docker network, MariaDB, Redis and the edge container
+  are created and kept running by the engine; per-site database/user and
+  Redis ACL user provisioning; ACLs re-applied every minute (Redis keeps them
+  in memory only).
+- Sites: create (provision job: image, db, redis, volume, container, health,
+  `wp core install`, edge route, warm), start/stop/restart/recreate/retry,
+  delete (typed-slug confirm, optional volume keep), settings with automatic
+  recreate, WP-CLI runner, one-click admin login link, cache purge.
+- Edge: Caddy + Souin page cache, `.localhost` sites on plain HTTP, real
+  domains on automatic HTTPS, surrogate-key purges from the system plugin.
+- Observability: Docker events drive site status, container stats and
+  edge access-log rollups per minute, live log tail, system status page.
+- Cron runner (`wp cron event run --due-now` per running site).
+
+Deferred, in roughly the order they are likely needed: nginx+FPM legacy
+build, migration plugin / SSH pull / archive import, backups and snapshots,
+update-with-rollback, domain change operation, staging and maintenance mode,
+mail relay, outbound-HTTP allowlist, multi-host, harness CLI.
+
+Edge cache notes learned while building (Souin `cache-handler`):
+
+- The module splits `Surrogate-Key` on commas; the system plugin emits
+  `k1, k2, k3`, not the space-separated Fastly form.
+- `api { ... }` is only accepted in the global block and never reaches the
+  route handlers, so the engine adapts the Caddyfile to JSON and injects the
+  API configuration into the cache handler of the loopback-only `:2020`
+  server (`internal/edge`). Purges are `PURGE /-/cache/souin` with a
+  `Surrogate-Key` header (by tag) or `PURGE /-/cache/souin/<regex>` (by key,
+  used for whole-host purges).
+- `PURGE /-/cache/souin/flush` breaks the Badger store until the edge
+  restarts (insertion errors); the engine never calls it.
+- The edge runs `caddy run --resume`, so a restarted container comes back
+  with the last pushed config before the engine re-pushes.
+
 ## Edge page cache
 
 Implementation: prototype Caddy's cache module against a written test list

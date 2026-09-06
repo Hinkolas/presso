@@ -16,3 +16,7 @@ export type AuthSession = {
 	created_at: string;
 	current: boolean;
 };
+
+export type SessionResponse = { user: AuthUser; session: AuthSession };
+export type SessionsResponse = { sessions: AuthSession[] };
+export type LoginResponse = { session: { token: string; expires_at: string; user: AuthUser } };

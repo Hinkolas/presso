@@ -13,29 +13,66 @@ import (
 	"github.com/Hinkolas/presso/internal/auth"
 )
 
-// RequireAuth guards a route group with bearer-token authentication and puts
-// the resolved user, session, and raw token on the request context. It must
-// wrap only the protected group, never the router root, or login locks
-// itself out.
+// SessionCookie carries the bearer token for the embedded web UI. The API
+// also accepts the token as an Authorization header (CLI clients). The
+// cookie is httpOnly, so the SPA never sees the token.
+const SessionCookie = "presso_session"
+
+// CSRFHeader must accompany cookie-authenticated state changes. Browsers do
+// not let cross-site pages set custom headers, so its presence proves the
+// request came from our own origin.
+const (
+	CSRFHeader = "X-Requested-With"
+	CSRFValue  = "presso"
+)
+
+// RequireAuth guards a route group with bearer-token authentication (header
+// or session cookie) and puts the resolved user, session, and raw token on
+// the request context. It must wrap only the protected group, never the
+// router root, or login locks itself out.
 func RequireAuth(a auth.Authenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token, ok := bearerToken(r)
+			token, fromCookie, ok := requestToken(r)
 			if !ok {
 				writeError(w, http.StatusUnauthorized, codeInvalidToken, "missing or malformed Authorization header")
 				return
 			}
+			if fromCookie && !safeMethod(r.Method) && r.Header.Get(CSRFHeader) != CSRFValue {
+				writeError(w, http.StatusForbidden, codeForbidden, "missing "+CSRFHeader+" header")
+				return
+			}
 			user, sess, err := a.Authenticate(r.Context(), token)
 			if err != nil {
+				if fromCookie {
+					clearSessionCookie(w, r)
+				}
 				writeAuthError(r.Context(), w, err)
 				return
 			}
 			ctx := context.WithValue(r.Context(), ctxKeyUser, user)
 			ctx = context.WithValue(ctx, ctxKeySession, sess)
 			ctx = context.WithValue(ctx, ctxKeyToken, token)
+			ctx = context.WithValue(ctx, ctxKeyCookieAuth, fromCookie)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func safeMethod(m string) bool {
+	return m == http.MethodGet || m == http.MethodHead || m == http.MethodOptions
+}
+
+// requestToken prefers the Authorization header and falls back to the
+// session cookie.
+func requestToken(r *http.Request) (token string, fromCookie bool, ok bool) {
+	if t, ok := bearerToken(r); ok {
+		return t, false, true
+	}
+	if c, err := r.Cookie(SessionCookie); err == nil && c.Value != "" {
+		return c.Value, true, true
+	}
+	return "", false, false
 }
 
 // RequireAdmin guards management routes; it must sit inside RequireAuth so
@@ -62,15 +99,40 @@ func bearerToken(r *http.Request) (string, bool) {
 	return rest, rest != ""
 }
 
+// setSessionCookie stores the token for the browser. Secure is set whenever
+// the request arrived over TLS (directly or via a proxy that says so).
+func setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
+	http.SetCookie(w, &http.Cookie{
+		Name: SessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Secure: isHTTPS(r), Expires: expires,
+	})
+}
+
+func clearSessionCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name: SessionCookie, Value: "", Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Secure: isHTTPS(r), MaxAge: -1,
+	})
+}
+
+func isHTTPS(r *http.Request) bool {
+	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+}
+
 // requestLogger emits one slog line per request. It sits inside RequestID so
 // the id is available, and outside the handlers so panics recovered further
-// in still get logged with a 500 status by Recoverer.
+// in still get logged with a 500 status by Recoverer. Streaming endpoints
+// (SSE) are logged at debug level to keep the log readable.
 func requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		start := time.Now()
 		next.ServeHTTP(ww, r)
-		slog.InfoContext(r.Context(), "http request",
+		level := slog.LevelInfo
+		if strings.HasPrefix(r.URL.Path, "/v1/events") || strings.HasPrefix(r.URL.Path, "/api/v1/events") || strings.HasSuffix(r.URL.Path, "/logs") || !strings.Contains(r.URL.Path, "/v1/") {
+			level = slog.LevelDebug
+		}
+		slog.Log(r.Context(), level, "http request",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", ww.Status(),
@@ -100,7 +162,7 @@ func versionHeader(version string) func(http.Handler) http.Handler {
 // realIP folds the proxy-reported client address into r.RemoteAddr: X-Real-IP
 // first, else the rightmost X-Forwarded-For entry, the one appended by the
 // nearest hop. These headers are trusted because the engine is documented to
-// run behind the SvelteKit BFF or the operator's reverse proxy. (chi's RealIP
+// run behind the operator's reverse proxy when exposed. (chi's RealIP
 // middleware is deprecated for using the leftmost, client-spoofable value.)
 func realIP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

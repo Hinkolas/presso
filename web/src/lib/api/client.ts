@@ -1,5 +1,7 @@
-// Thin client for the BFF proxy: relative /_api/v1/… calls, envelope-aware
-// error handling. Components never talk to the engine API directly.
+// Thin client for the engine API at the same origin (/api/v1/…). The session
+// lives in an httpOnly cookie set by the API; every request carries the
+// X-Requested-With header the API's CSRF guard demands on cookie-authenticated
+// mutations. Components never build URLs themselves.
 
 export class ApiError extends Error {
 	constructor(
@@ -12,12 +14,17 @@ export class ApiError extends Error {
 	}
 }
 
+const BASE = '/api';
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+	const headers: Record<string, string> = { 'X-Requested-With': 'presso' };
+	if (body !== undefined) headers['content-type'] = 'application/json';
 	let res: Response;
 	try {
-		res = await fetch(`/_api${path}`, {
+		res = await fetch(`${BASE}${path}`, {
 			method,
-			headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+			headers,
+			credentials: 'same-origin',
 			body: body !== undefined ? JSON.stringify(body) : undefined
 		});
 	} catch {
@@ -31,7 +38,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 		// on the login page. invalid_credentials is a user error (wrong
 		// password in a settings flow), not a dead session.
 		if (res.status === 401 && detail?.code !== 'invalid_credentials') {
-			window.location.href = '/auth/login';
+			const next = window.location.pathname + window.location.search;
+			window.location.href = '/auth/login?next=' + encodeURIComponent(next);
 		}
 		throw new ApiError(res.status, detail?.code ?? 'internal', detail?.message ?? res.statusText);
 	}
@@ -43,5 +51,38 @@ export const api = {
 	post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
 	patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
 	put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
-	del: <T = void>(path: string) => request<T>('DELETE', path)
+	del: <T = void>(path: string, body?: unknown) => request<T>('DELETE', path, body),
+	/** Open an SSE stream; the session cookie travels automatically. */
+	stream: (path: string) => new EventSource(`${BASE}${path}`)
 };
+
+/** Human copy for the error codes the UI is expected to handle. */
+export function errorText(err: unknown, fallback = 'Something went wrong.'): string {
+	if (!(err instanceof ApiError)) return fallback;
+	switch (err.code) {
+		case 'network':
+			return 'The server is unreachable.';
+		case 'bad_request':
+			return err.message || 'The request was invalid.';
+		case 'slug_taken':
+			return 'That slug is already in use.';
+		case 'domain_taken':
+			return 'That domain is already attached to another site.';
+		case 'job_running':
+			return 'Another operation is in progress on this site.';
+		case 'site_not_ready':
+			return 'The site is not running.';
+		case 'docker_unavailable':
+			return 'Docker is unavailable.';
+		case 'not_found':
+			return 'Not found.';
+		case 'forbidden':
+			return 'You are not allowed to do that.';
+		case 'invalid_credentials':
+			return 'Wrong email or password.';
+		case 'rate_limited':
+			return 'Too many attempts. Wait a moment and try again.';
+		default:
+			return err.message || fallback;
+	}
+}

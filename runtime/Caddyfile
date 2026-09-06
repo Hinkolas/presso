@@ -1,0 +1,57 @@
+# Caddyfile for the presso-runtime container. Identical for every site: the
+# per-site PHP limits arrive as environment variables (defaults inline), TLS
+# and compression happen at the shared edge (ORCHESTRATION.md), so this only
+# serves plain HTTP on :8080 inside the container network.
+{
+	# No admin API socket, no ACME: nothing here is reachable from outside.
+	admin off
+	auto_https off
+
+	frankenphp {
+		# Values the engine's settings UI exposes (RUNTIME.md, "Container
+		# structure"). They apply to web requests only; WP-CLI gets php.ini.
+		php_ini {
+			memory_limit {$PHP_MEMORY_LIMIT:256M}
+			upload_max_filesize {$PHP_UPLOAD_MAX_FILESIZE:64M}
+			post_max_size {$PHP_POST_MAX_SIZE:64M}
+			max_execution_time {$PHP_MAX_EXECUTION_TIME:120}
+			max_input_time 120
+			max_input_vars {$PHP_MAX_INPUT_VARS:3000}
+			opcache.memory_consumption {$PHP_OPCACHE_MEMORY:128}
+			opcache.revalidate_freq {$PHP_OPCACHE_REVALIDATE_FREQ:60}
+			date.timezone {$PHP_TIMEZONE:UTC}
+		}
+	}
+}
+
+# SERVER_NAME is set to :8080 in the image; the fallback keeps a bare
+# `frankenphp run` outside Docker on the same port.
+{$SERVER_NAME::8080} {
+	root * /var/www/html
+
+	# Access log as JSON on stdout; PHP errors go to stderr (php/presso.ini).
+	log {
+		output stdout
+		format json
+	}
+
+	# Nothing here identifies the stack. expose_php is off too.
+	header -Server
+	header -X-Powered-By
+
+	# Liveness probe used by health.php; never reaches PHP.
+	respond /-/ping "ok" 200
+
+	# Caddy refuses to execute PHP under uploads (RUNTIME.md section 8): a
+	# compromised request that manages to drop a .php file there gains nothing.
+	# Case-insensitive because php_server's .php split is, and with path-info
+	# (x.php/foo) covered.
+	@phpuploads path_regexp (?i)^/wp-content/uploads/.*\.(php[0-9]*|phtml|phar)(/.*)?$
+	respond @phpuploads 403
+
+	@blocked path /wp-config.php /wp-content/debug.log /.git*
+	respond @blocked 404
+
+	# Static files straight from disk, everything else through index.php.
+	php_server
+}

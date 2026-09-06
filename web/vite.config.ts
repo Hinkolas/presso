@@ -1,8 +1,12 @@
 import tailwindcss from '@tailwindcss/vite';
-import adapter from '@sveltejs/adapter-node';
+import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
+// The UI is a static SPA: adapter-static emits web/build with an index.html
+// fallback, and the Go binary embeds and serves it next to /api. In dev the
+// Vite server proxies /api to a locally running engine so the session cookie
+// it sets is first-party on http://localhost:5173.
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
@@ -12,7 +16,12 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter({ fallback: 'index.html', precompress: false, strict: false })
 		})
-	]
+	],
+	server: {
+		proxy: {
+			'/api': { target: 'http://localhost:7080', changeOrigin: false }
+		}
+	}
 });
