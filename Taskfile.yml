@@ -1,0 +1,88 @@
+# Project tasks (go-task v3). The engine keeps its state in a SQLite file
+# under DATA_DIR, so there is no database service to start for development.
+
+version: "3"
+
+silent: true
+
+# The binaries load .env themselves (godotenv); this makes it reach bare
+# `go test` and npm scripts too.
+dotenv: [".env"]
+
+vars:
+  VERSION:
+    sh: git describe --tags --dirty 2>/dev/null || echo v0.0.0-dev
+  LDFLAGS: -X github.com/Hinkolas/presso/internal/version.Version={{.VERSION}}
+
+tasks:
+  # --- Build ---
+
+  build:
+    desc: Build all binaries into bin/
+    cmds:
+      - go build -ldflags "{{.LDFLAGS}}" -o bin/pressod ./cmd/pressod
+
+  build:image:
+    desc: Build the pressod:dev image from this checkout (needs docker)
+    cmds:
+      - docker build -t pressod:dev -f build/pressod.Dockerfile .
+
+  build:web-image:
+    desc: Build the presso-web:dev UI image from this checkout (needs docker)
+    cmds:
+      - docker build -t presso-web:dev -f build/web.Dockerfile web
+
+  # --- Dev loop ---
+
+  dev:
+    desc: Run the engine API (takes over :7080; migrates on boot)
+    cmds:
+      # Free the port first so a restart always wins, whatever started the
+      # previous instance. 7080 mirrors the HTTP_ADDR default.
+      - lsof -ti :7080 | xargs kill 2>/dev/null || true
+      - go run ./cmd/pressod serve
+
+  dev:web:
+    desc: Run the SvelteKit BFF dev server
+    dir: web
+    cmds:
+      - npm run dev
+
+  user:
+    desc: "Manage operator accounts, e.g. task user -- create --email you@example.com --role admin"
+    cmds:
+      - go run ./cmd/pressod user {{.CLI_ARGS}}
+
+  # --- Code generation ---
+
+  generate:
+    desc: Regenerate the sqlc store from migrations/ and query/
+    cmds:
+      - sqlc generate
+
+  # --- Checks ---
+
+  test:
+    desc: Run the Go test suite (SQLite in temp dirs; nothing to start)
+    cmds:
+      # web/ is excluded: node_modules occasionally ships stray Go packages.
+      - go test $(go list ./... | grep -v '/web/')
+
+  vet:
+    desc: go vet
+    cmds:
+      - go vet $(go list ./... | grep -v '/web/')
+
+  check:web:
+    desc: Type-check and lint the web UI
+    dir: web
+    cmds:
+      - npm run check
+      - npm run lint
+
+  check:
+    desc: Everything CI runs
+    cmds:
+      - task: vet
+      - task: test
+      - task: check:web

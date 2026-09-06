@@ -1,0 +1,24 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    schema: "migrations"
+    queries: "query"
+    gen:
+      go:
+        package: "store"
+        out: "internal/store"
+        emit_pointers_for_null_types: false
+        overrides:
+          # SQLite has no datetime type; columns declared DATETIME are read
+          # and written as time.Time by the driver (see store.Open).
+          - db_type: "datetime"
+            go_type: "time.Time"
+          # UUIDs are TEXT columns. sqlc's sqlite engine has no custom type
+          # names to hook on, so every id column is listed here; add new
+          # tables' id/foreign-key columns as they appear.
+          - column: "users.id"
+            go_type: "github.com/google/uuid.UUID"
+          - column: "sessions.id"
+            go_type: "github.com/google/uuid.UUID"
+          - column: "sessions.user_id"
+            go_type: "github.com/google/uuid.UUID"

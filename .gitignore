@@ -1,0 +1,42 @@
+# ==============================================================================
+# Root-level ignores. Framework-specific rules live in subdirectory .gitignore
+# files (web/.gitignore for SvelteKit).
+# ==============================================================================
+
+# --- OS ---
+.DS_Store
+._*
+Thumbs.db
+
+# --- Secrets & environment ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- Engine state (DATA_DIR default) ---
+/data/
+
+# --- Logs & temp ---
+*.log
+tmp/
+
+# --- Go build output ---
+/bin/
+/dist/
+# A plain `go build ./cmd/<name>` drops the binary at the repo root.
+/pressod
+*.test
+*.out
+coverage.*
+
+# --- Go workspace files ---
+go.work
+go.work.sum
