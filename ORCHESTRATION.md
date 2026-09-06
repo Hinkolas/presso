@@ -1,0 +1,338 @@
+# ORCHESTRATION — Running many WordPress sites on shared infrastructure
+
+Status: rough plan. Depends on RUNTIME.
+
+## Goal
+
+A UI and management engine that provisions, runs, updates, backs up and monitors
+many WordPress sites efficiently on one host first, multiple hosts later. Sites
+are isolated from each other. Operators get the diagnostics that predict trouble
+(autoloaded option size, postmeta growth, slow queries, error rates).
+
+## Substrate and stack
+
+Docker Engine on Linux. The engine talks to the Docker API directly, not Compose
+files. Containers on Linux are native processes, so there is no file system
+penalty (that is a macOS-only problem, see HARNESS.md).
+
+Engine: Go. Single binary, uses the official Docker Go client against the
+daemon socket, exposes an HTTP/JSON API consumed by the UI and by the harness
+CLI. Keeps its durable state (site model, credentials, tokens, jobs, backups
+index, metrics rollups) in SQLite. Decided: single-host scope for now; one
+engine per host, one SQLite file. Postgres only if multi-host ever needs a
+shared store. Consumes telemetry/events from Redis. Runs the
+cron runner and the update/snapshot/rollback jobs as internal workers.
+
+UI: SvelteKit, talking only to the engine's API. No direct Docker or
+database access from the UI.
+
+Harness CLI (HARNESS.md) is a thin client of the same engine API / the same
+Go packages, so local and production provisioning share code.
+
+## Topology (single host)
+
+| Component            | Cardinality  | Notes                                             |
+|----------------------|--------------|---------------------------------------------------|
+| Edge proxy           | 1 per host   | TLS, hostname routing, full-page cache, rate limit|
+| Site container       | 1 per site   | Runtime image (FrankenPHP), see RUNTIME.md        |
+| Redis                | shared       | One container, one ACL user per site              |
+| MariaDB              | shared       | One container, one database + user per site       |
+| Cron runner          | 1 per host   | Invokes WP-CLI cron in each site container        |
+| Management engine    | 1 per host   | Provisioning, updates, backups, metrics, API      |
+| UI                   | 1            | Talks to the engine's API                         |
+
+```
+                    internet
+                       |
+              +--------+--------+
+              |   edge proxy    |   the ONLY container publishing :80 :443
+              |  TLS, hostname  |   Caddy (admin API for live route changes)
+              |  routing, page  |   or nginx (stronger fastcgi/proxy cache)
+              |  cache, limits  |   no PHP inside
+              +--------+--------+
+                       |  internal docker network, plain HTTP
+     +---------+-------+-------+---------+
+     |         |               |         |
++----+---+ +---+----+     +----+---+ +---+-----+
+| site-a | | site-b |     | site-n | | engine  |  docker socket,
+|Franken | |Franken | ... |Franken | | + UI    |  provisions everything
+| PHP    | | PHP    |     | PHP    | +---------+
++----+---+ +---+----+     +----+---+
+     |         |               |
+     +---------+-------+-------+
+                       |
+          +------------+------------+
+          |                         |
+     +----+----+              +-----+----+
+     | mariadb |              |  redis   |
+     | shared  |              |  shared  |
+     +---------+              +----------+
+
+     + cron runner: docker exec into each site container, runs wp cron
+```
+
+Request flow:
+1. Client connects to the edge. TLS terminates here.
+2. Edge checks the page cache. Hit: respond, no PHP runs.
+3. Miss: route by Host header to the site container over plain HTTP.
+4. Site container's FrankenPHP serves the static file or runs PHP, using its
+   own MySQL database and Redis ACL user over the internal network.
+5. Edge stores the response in the page cache if cookies/path rules allow.
+
+Two web servers per request on a miss (edge Caddy, then the Caddy embedded in
+FrankenPHP) is deliberate. The site container is self-contained and can run
+without the edge (this is what HARNESS does). The edge never touches site files
+and only needs a hostname to upstream map.
+
+Edge configuration is a per-site route (domains, upstream container:port) plus
+global TLS, cache, and rate-limit policy. The engine adds/removes routes at
+runtime via the proxy's API; no restart.
+
+Networks: one internal network is sufficient. Site containers publish no
+ports and are isolated from each other by credentials (DB user grants, Redis
+ACL key patterns), not by network. Per-site networks are possible later but
+hit Docker's default address pool limits after a few dozen.
+
+Sharing Redis and MariaDB saves memory (buffer pool, process overhead).
+Isolation is by credentials: separate DB users with grants scoped to their
+database, separate Redis ACL users restricted to a per-site key prefix.
+Trade-off accepted: a compromise of the shared database server itself affects
+all sites; per-site PHP containers cannot reach other sites' data through
+WordPress-level exploits.
+
+Shared services (decided, details in RUNTIME.md sections 4-6, 14):
+- MariaDB: one instance, utf8mb4, per-site db + user, slow query log on,
+  buffer pool sized for the host.
+- Redis: one instance, ACL user per site (`~site-<id>:*`), maxmemory with
+  volatile-lru so non-TTL data (telemetry, events) is never evicted. Cache and
+  fire-and-forget messaging only; the engine keeps its own durable database.
+- Edge page cache: see "Edge page cache" below.
+
+## Edge page cache
+
+Implementation: prototype Caddy's cache module against a written test list
+(bypass rules, tag purge, stale serving, memory with ~100 sites, behavior
+across restart). Fallback: Varnish behind the edge Caddy (strongest cache and
+tag tooling, no TLS, extra process). nginx proxy_cache rejected: mature but
+tag purge is not native.
+
+Policy (decided):
+- Storage: persistent (disk or Redis backed), never memory-only, so an edge
+  restart does not cause a cold-start storm across all sites. Per-site size
+  quota so one site cannot evict the others.
+- stale-while-revalidate ON: serve the old copy while refreshing in the
+  background. stale-if-error ON: serve the old copy when the site container is
+  down or erroring. A site with crashing PHP keeps serving cached pages.
+- Cache key: scheme + host + path + normalized query (tracking params such as
+  utm_*, fbclid, gclid stripped; remaining params sorted). Compression
+  variants stored separately or compressed at the edge; site containers do not
+  compress. Vary on device class only if the site opts in. Cookies cause
+  bypass, never a variant.
+- Hard bypass: non-GET/HEAD; wp-admin, wp-login, wp-cron, xmlrpc, wp-json
+  (REST GET may be cached with tags later); preview params; cookies
+  wordpress_logged_in_*, wp-postpass_*, comment_author_*, woocommerce_*.
+  Everything finer-grained comes from the site via Cache-Control (system
+  plugin).
+- Default TTL 12h (below nonce lifetime); site can lower via s-maxage.
+- Static assets cached too, long TTL for versioned URLs, tagged so a theme /
+  plugin update purges them.
+- Purge API: by tag, by URL, whole site. Per-site token. Tags carry a site
+  prefix and the endpoint enforces it so one site cannot purge another.
+- Observability: cache status header (HIT/MISS/BYPASS/STALE) on every
+  response; per-site hit ratio in the engine.
+- Optional warming after a site purge (home + top sitemap URLs). Low priority.
+
+Per-site memory budget (idle, low traffic): roughly 80–150 MB for PHP plus a
+negligible share of Redis/MySQL. A 32 GB host should hold well over a hundred
+small sites.
+
+## Engine responsibilities
+
+- Provision: create DB + user, Redis ACL, volumes, container, proxy route, TLS.
+- Configure: generate wp-config from a site model (constants, salts, cache,
+  cron off, debug off, file mods policy).
+- Update: swap runtime image tag (core/PHP), run db upgrade via WP-CLI, roll
+  back on failure. Plugin/theme/language updates via WP-CLI as `ops` user, on
+  a schedule or on demand, always as snapshot -> update -> smoke test ->
+  auto-rollback. Sites are LOCKED (no admin file mods) by default; per-site
+  flag opens them (RUNTIME.md section 8).
+- Install: plugin/theme search + install and zip upload in the UI, executed
+  via WP-CLI in the site container.
+- Backup: db dump + wp-content volume snapshot, per site, retained per policy.
+- Cron: run wp cron events for each site on a schedule; report failures.
+- Cache: purge full-page cache (by tag or whole site) and object cache per
+  site on demand and on deploy. Content-driven purges come from the system
+  plugin directly; the engine issues a site purge after core/plugin updates.
+- System plugin integration: issue per-site purge tokens and login tokens,
+  consume telemetry and events from Redis, set module toggles via env.
+- Guard: warn or refuse installation of known page-cache plugins that
+  conflict with the platform cache.
+- Metrics: per-site request rate, p95 latency, PHP errors, slow queries,
+  autoloaded option bytes, postmeta row count, transient count, disk usage.
+- Access: ephemeral WP-CLI shell, one-click admin login, log tailing.
+- Resource limits: CPU and memory caps per container.
+
+## Site settings model
+
+Every important knob is configurable in the UI without touching files. Settings
+are layered: platform defaults -> size class defaults -> per-site overrides.
+The engine stores them in SQLite, renders them into env vars / mounted config
+for the site container, and applies them (most PHP ini changes need a container
+recreate; per-site containers restart in a second or two, done gracefully
+behind stale-if-error at the edge so visitors see cached pages meanwhile).
+
+Settings surface (initial list):
+- Runtime: PHP version (image tag), WordPress version (image tag), size class.
+- PHP: memory_limit, upload_max_filesize, post_max_size, max_execution_time,
+  max_input_vars (page builders need 3000+), max_input_time, timezone,
+  OPcache memory, thread count.
+- WordPress constants: WP_MEMORY_LIMIT, WP_MAX_MEMORY_LIMIT,
+  WP_POST_REVISIONS, AUTOSAVE_INTERVAL, WP_DEBUG flags (dev), table prefix
+  (read-only after creation), DB_CHARSET/DB_COLLATE (see migration).
+- Policy: file modification (locked/open), two-user hardening escape hatch,
+  XML-RPC on/off, REST for anonymous on/off, heartbeat interval, outbound
+  HTTP allowlist, cron interval.
+- Cache: page cache on/off, default TTL, per-site bypass paths, object cache
+  on/off, device-class vary.
+- Domains: primary, aliases, redirects, staging flag (see Domains).
+- Mail: relay credentials, from address.
+- Limits: container CPU/memory caps, upload storage quota.
+- Escape hatches: extra php.ini lines, extra wp-config constants, extra
+  Caddyfile snippet for the site container. Shown with a warning; these are
+  what makes "run basically every site" possible.
+
+## Engine tools
+
+Not all MVP. Rough order of value:
+1. One-click admin login (system plugin token) and ephemeral WP-CLI shell.
+2. Maintenance mode outside WordPress: engine flips a flag, the edge serves a
+   static maintenance page for that site regardless of container state.
+   Bypass for operators via IP or a signed cookie so the site can be checked
+   while "down". Used automatically during migrations, domain changes and
+   risky updates.
+3. Update with rollback: snapshot (db dump + wp-content volume snapshot) ->
+   update -> smoke test (home 200, admin 200, no new PHP fatals, key URLs)
+   -> auto-rollback on failure. Same machinery for core image tag changes.
+4. Log viewer: PHP errors, access, slow queries, cron output, per site.
+5. Domain operations (see Domains).
+6. Staging clone: copy of a site under a staging domain with URL rewrite,
+   noindex and optional edge password. Promote = the clone replaces prod
+   (swap + domain rewrite). Merging database changes back is not solvable in
+   general and is not offered; code-only sync (plugins/themes) is.
+7. Backup system: scheduled snapshots per site, retention policy, restore to
+   same or new site, off-host copy to object storage. Not critical for MVP;
+   the snapshot primitive from (3) is the foundation.
+8. Integrity: core is immutable, so `wp plugin verify-checksums` and a
+   wp-content scan for PHP files in uploads cover most of what "malware
+   scanners" do.
+9. Health/uptime checks per site, TLS expiry, disk usage, the DB hygiene
+   metrics (autoload bytes, postmeta rows, transients, revisions).
+10. Redirect management at the edge (old paths, old domains).
+11. Search-replace tool (thin UI over `wp search-replace` with dry run).
+
+## Compatibility and migration
+
+Goal: run basically every existing WordPress site, either by giving it what it
+needs or by migrating it.
+
+PHP versions:
+- Runtime images are tagged per PHP version and WordPress version, e.g.
+  `runtime:php8.3-wp6.6`. Sites choose their PHP version in settings.
+- FrankenPHP requires PHP >= 8.2. Legacy sites on 7.4 / 8.0 / 8.1 run on the
+  nginx + PHP-FPM build of the same image layout (RUNTIME.md keeps this as a
+  first-class fallback build for exactly this reason). Same volume layout,
+  same env contract, same system plugin; only the execution layer differs.
+  EOL PHP versions are allowed with a persistent warning and a per-site
+  "upgrade readiness" report.
+- Upgrade readiness: PHP compatibility scan of plugins/themes (PHPCompatibility
+  via WP-CLI or the migration plugin), plus a trial run in a staging clone on
+  the target PHP version with fatals captured.
+
+Charsets and database quirks:
+- Preserve the source DB_CHARSET / DB_COLLATE and table prefix on import; do
+  not silently convert.
+- Offer conversion to utf8mb4 as an explicit step with a dry run. Detect
+  double-encoded data (latin1 columns holding utf8 bytes) by mojibake
+  heuristics before converting and let the operator choose.
+- Convert MyISAM tables to InnoDB (safe, WordPress handles it).
+- sql_mode: WordPress strips its known-incompatible modes itself; MariaDB
+  strictness is per-session so a per-site override exists in settings if an
+  old plugin depends on lenient modes.
+- Multisite: out of scope for MVP; flagged during migration inventory.
+
+Migration sources, in priority order:
+1. Push via migration plugin (primary; works on shared hosting without SSH).
+   Operator installs the plugin on the old site, pastes a one-time token from
+   the engine. The plugin: inventories (WP/PHP version, extensions in use,
+   plugins/themes, prefix, charset, sizes, multisite), streams a DB dump and
+   wp-content to the engine in resumable chunks, and reports progress.
+   Engine: provisions a site with matching PHP version, imports, runs the
+   domain rewrite (see Domains) to a staging domain, runs checks, and hands
+   the operator a staging URL. Cutover is then a domain operation.
+   This plugin is separate from the system plugin (it runs on foreign hosts,
+   must work on old PHP, and is uninstalled after).
+2. Pull via SSH (rsync + mysqldump / remote WP-CLI) for hosts that allow it.
+3. Import from archives: All-in-One WP Migration, Duplicator, UpdraftPlus,
+   plain db dump + wp-content zip. Later.
+
+Post-import checks: WP_DEBUG logging on in the staging clone, capture PHP
+fatals/deprecations, list plugins failing on the target PHP, verify uploads
+paths, check for hardcoded absolute paths (old server's filesystem paths in
+options/uploads), flush rewrite rules, regenerate builder CSS, purge caches.
+
+## Domains
+
+The engine owns a site's domains: one primary, any number of aliases (served
+as-is or 301 to primary), a staging flag. Changing the primary domain is a
+first-class engine operation, never a manual search-replace.
+
+Why moving a WordPress site between domains breaks: the domain is stored in
+many places, not just siteurl/home in wp_options.
+- wp_options siteurl/home (the obvious two).
+- Absolute URLs in post_content (images, links) and in block attributes
+  (JSON with escaped slashes: `http:\/\/old`).
+- PHP-serialized data in options, postmeta, usermeta, termmeta (page builders,
+  widgets, customizer, theme settings). A naive text replace corrupts
+  serialized string lengths.
+- wp_posts.guid (should not be rewritten per WP guidance; skipped).
+- Generated files under wp-content/uploads (page builder CSS with absolute
+  URLs, cached CSS/JS from optimizer plugins).
+- Transients and object cache entries, page cache entries.
+- wp-config constants and .htaccess on the old host (not carried over: our
+  wp-config is generated).
+- Hardcoded URLs in theme files (reported, not auto-fixed).
+- Scheme changes (http -> https) on top of host changes.
+
+How the platform handles it:
+- WP_HOME and WP_SITEURL are set from env in the generated wp-config, so the
+  engine's primary domain is authoritative for core routing regardless of
+  what the database says. General Settings shows them read-only.
+- Domain change operation: maintenance mode -> snapshot -> `wp search-replace`
+  for every variant of the old origin (https://old, http://old, //old,
+  escaped `https:\/\/old`, url-encoded form) with `--all-tables --precise
+  --skip-columns=guid` (handles PHP serialization correctly) -> regenerate
+  builder assets and flush rewrite rules -> flush object cache, purge page
+  cache -> update edge route, issue TLS for the new domain -> 301 the old
+  domain to the new one -> exit maintenance -> report changed-row counts.
+- Safety net in the system plugin: an output filter rewriting any remaining
+  occurrences of known former domains to the current primary on the fly
+  (for content the search-replace could not reach, e.g. odd encodings).
+  Logged so leftovers can be fixed properly.
+- Staging domains: staging flag sets noindex (X-Robots-Tag at the edge plus
+  blog_public), optional edge password, and mail redirected to the catcher
+  or a sink so staging never emails customers.
+- Local (HARNESS): sites run as `<slug>.localhost`; the same domain operation
+  is what turns an imported production site into a local one.
+
+## Later (explicitly out of scope for now)
+
+Scope decision: single host. Everything above assumes one machine running the
+edge, all site containers, MariaDB, Redis and the engine. Multi-host is a
+later phase and should not shape the current design beyond keeping the site
+model host-agnostic (a site is a record; its host is an attribute).
+
+- Multi-host placement and migration of sites between hosts.
+- Object storage offload for uploads and backups.
+- Staging clones of a site with URL rewrite.
+- Whether to adopt an existing scheduler (Nomad, Swarm, Kubernetes) once
+  multi-host is needed. Not before.
