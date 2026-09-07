@@ -197,7 +197,7 @@ func (s *Service) Components() []Component {
 // --- container specs ---
 
 func managedLabels(kind string) map[string]string {
-	return map[string]string{docker.LabelManaged: "true", docker.LabelKind: kind}
+	return docker.Labels(kind, nil)
 }
 
 func splitListen(addr string) (string, int, error) {

@@ -143,7 +143,7 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 	}
 
 	r.Step(ctx, "volume", "Ensuring wp-content volume "+row.VolumeName)
-	if err := s.dk.EnsureVolume(ctx, row.VolumeName, map[string]string{docker.LabelManaged: "true", docker.LabelKind: "site", docker.LabelSiteID: row.ID.String(), docker.LabelSlug: row.Slug}); err != nil {
+	if err := s.dk.EnsureVolume(ctx, row.VolumeName, docker.Labels("site", map[string]string{docker.LabelSiteID: row.ID.String(), docker.LabelSlug: row.Slug})); err != nil {
 		return fail("volume", err)
 	}
 

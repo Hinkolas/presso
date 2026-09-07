@@ -111,7 +111,7 @@ func (s *Service) containerSpec(row store.Site, d decrypted) docker.Spec {
 		Name:           ContainerName(row.Slug),
 		Image:          row.Image,
 		Env:            env,
-		Labels:         map[string]string{docker.LabelManaged: "true", docker.LabelKind: "site", docker.LabelSiteID: id, docker.LabelSlug: row.Slug},
+		Labels:         docker.Labels("site", map[string]string{docker.LabelSiteID: id, docker.LabelSlug: row.Slug}),
 		Network:        s.cfg.Network,
 		NetworkAliases: []string{NetworkAlias(id)},
 		Mounts: []docker.Mount{

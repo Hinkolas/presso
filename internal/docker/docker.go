@@ -21,10 +21,33 @@ var ErrNotFound = errors.New("docker: not found")
 // containers after a restart and the status watcher can filter events.
 const (
 	LabelManaged = "presso.managed"
-	LabelKind    = "presso.kind" // site|edge|mariadb|redis
+	LabelKind    = "presso.kind" // site|edge|mariadb|redis|browser|network
 	LabelSiteID  = "presso.site_id"
 	LabelSlug    = "presso.slug"
+
+	// LabelComposeProject is the label Docker Compose stamps on its objects.
+	// presso does not use Compose, but Docker Desktop groups containers that
+	// share this label into one collapsible stack, so every presso object
+	// carries it with ComposeProject as the value purely for that UI grouping.
+	LabelComposeProject = "com.docker.compose.project"
+	ComposeProject      = "presso"
 )
+
+// Labels returns the label set for a presso-managed object of the given
+// kind, merged with any extra labels. Every caller that creates a container,
+// volume or network goes through here so the managed and grouping labels
+// never drift apart.
+func Labels(kind string, extra map[string]string) map[string]string {
+	labels := map[string]string{
+		LabelManaged:        "true",
+		LabelKind:           kind,
+		LabelComposeProject: ComposeProject,
+	}
+	for k, v := range extra {
+		labels[k] = v
+	}
+	return labels
+}
 
 // Client is the subset of the Docker API presso uses.
 type Client interface {
