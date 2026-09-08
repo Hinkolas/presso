@@ -164,7 +164,7 @@
 	{disabled}
 	onclick={() => (open ? hide() : show())}
 	onkeydown={onTriggerKey}
-	class="inline-flex items-center justify-between gap-3 border border-rule-strong bg-surface text-left text-sm font-medium text-ink transition-colors hover:bg-sunken focus-visible:border-brand focus-visible:ring-3 focus-visible:ring-brand/20 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-sunken disabled:text-ink-3 {size ===
+	class="inline-flex items-center justify-between gap-3 border field-focus border-rule-strong bg-surface text-left text-sm font-medium text-ink transition-[background-color,border-color,box-shadow] duration-150 hover:bg-sunken disabled:cursor-not-allowed disabled:bg-sunken disabled:text-ink-3 {size ===
 	'sm'
 		? 'h-9 rounded-control-sm pr-2.5 pl-3'
 		: 'h-11 rounded-control pr-3 pl-3.5'} {block ? 'w-full' : ''} {open

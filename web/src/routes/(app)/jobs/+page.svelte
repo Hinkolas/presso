@@ -7,10 +7,11 @@
 	import type { Job, JobsResponse } from '$lib/types/job';
 	import type { Site } from '$lib/types/site';
 	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import Empty from '$lib/components/Empty.svelte';
-	import Icon from '$lib/components/Icon.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
 	import Table, { td, th } from '$lib/components/Table.svelte';
 
@@ -118,10 +119,10 @@
 		<tbody aria-busy="true">
 			{#each [0, 1, 2, 3] as i (i)}
 				<tr>
-					<td class={td}><div class="h-4 w-40 animate-pulse rounded bg-sunken"></div></td>
-					<td class={td}><div class="h-4 w-20 animate-pulse rounded bg-sunken"></div></td>
-					<td class={td}><div class="h-4 w-24 animate-pulse rounded bg-sunken"></div></td>
-					<td class={td}><div class="ml-auto h-4 w-12 animate-pulse rounded bg-sunken"></div></td>
+					<td class={td}><Skeleton class="h-4 w-40" /></td>
+					<td class={td}><Skeleton class="h-7 w-24 rounded-full" /></td>
+					<td class={td}><Skeleton class="h-4 w-24" /></td>
+					<td class={td}><Skeleton class="ml-auto h-4 w-12" /></td>
 					<td class={td}></td>
 				</tr>
 			{/each}
@@ -171,12 +172,14 @@
 						</div>
 					</td>
 					<td class={td}>
-						<StatusPill status={j.status} />
-						{#if j.error}
-							<p class="mt-0.5 max-w-xs truncate text-xs text-danger" title={j.error}>
-								{j.error}
-							</p>
-						{/if}
+						<div class="flex flex-col items-start gap-1.5">
+							<StatusPill status={j.status} soft />
+							{#if j.error}
+								<p class="max-w-xs truncate text-xs text-danger-ink" title={j.error}>
+									{j.error}
+								</p>
+							{/if}
+						</div>
 					</td>
 					<td class="{td} text-ink-2 num" title={formatDateTime(j.started_at ?? j.created_at)}>
 						{formatRelative(j.started_at ?? j.created_at, now)}
@@ -184,14 +187,14 @@
 					<td class="{td} text-right text-ink-2 num">
 						{formatDuration(spanMs(j.started_at, j.finished_at, now))}
 					</td>
-					<td class="{td} w-10 text-right">
-						<a
+					<td class="{td} w-16 pr-4 text-right">
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="chevron-right"
 							href={resolve(`/jobs/${j.id}`)}
-							class="inline-flex size-9 items-center justify-center rounded-control-sm text-ink-3 hover:bg-sunken hover:text-ink"
 							aria-label="Open job"
-						>
-							<Icon name="chevron-right" size={16} />
-						</a>
+						/>
 					</td>
 				</tr>
 			{/each}

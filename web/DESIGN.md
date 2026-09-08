@@ -14,6 +14,7 @@ sidebar that has room to grow.
   bottom holds the platform health chip and the connection state.
 - A 64px topbar carries the breadcrumb, the global search (⌘K opens the
   command palette), the Live indicator, running jobs and the account menu.
+  The Live pill is the one place connection state is shown.
 - Pages live in a 1400px column with 48px side padding and 36px above.
 
 ## Tokens
@@ -33,8 +34,9 @@ palette values.
 - Console panes are always dark (`console` utility) with `console-ink`,
   `console-dim`, `console-warn`, `console-err`.
 - Radii encode hierarchy: `control` (12px) for 44px buttons and inputs,
-  `control-sm` (10px) for 36px ones, `chip` (8px), `plate` (18px), `dialog`
-  (20px).
+  `control-sm` (10px) for 36px ones and nav items, `chip` (8px), `key`
+  (6px, keycaps and checkboxes), `plate` (18px), `dialog` (20px). No
+  arbitrary `rounded-[…]` values outside the Wordmark.
 - Shadows: `shadow-plate` (the `frame` utility) is the one content shadow,
   `shadow-plate-hover` lifts a plate under the pointer, `shadow-primary`
   sits under the primary button, `shadow-pop` and `shadow-dialog` for menus
@@ -74,6 +76,23 @@ palette values.
   the control points at it with `aria-describedby="{for}-error"`. `Select`
   options may be `disabled`: still listed with their hint saying why, skipped
   by the keys.
+- No bare browser controls. `Input` is every text-like field (text, email,
+  password, search, url): one 44px frame with optional leading `icon`,
+  literal `prefix`/`suffix` ("wp", a unit), `mono` for code-shaped values,
+  `invalid`, and a built-in show/hide toggle on passwords (`bind:shown` to
+  drive it from a "Generate" button). `NumberInput` holds a real number,
+  shows its unit and a two-chevron stepper, steps on arrow keys and snaps to
+  `min`/`max` on blur. `Checkbox` and `Toggle` draw their own box and track
+  over an sr-only native input. `Skeleton` is the loading placeholder
+  (`plate` for whole-panel stand-ins). `BackLink` is the "‹ Sites" link above
+  a detail title (PageHeader's `back` uses it).
+- Focus: buttons and links get the global 2px outline; text-like controls
+  draw a brand hairline plus a 3px `brand/20` halo through the `field-focus`
+  / `field-focus-within` utilities. Never both on one element.
+- `Menu` takes `children` to render a custom trigger (the topbar account
+  button) and `header` for a non-interactive block above the items; arrow
+  keys move through items. Every icon-only action in a table is
+  `Button variant="ghost" size="sm" icon=…` with an `aria-label`.
 
 ## Creating a site
 
@@ -91,6 +110,16 @@ runtime the row lands on. Rows the server cannot run (legacy disabled) stay
 listed, dimmed, with the reason. PHP is derived from the branch; "Advanced"
 opens an override limited to compatible, offered versions and warns when the
 choice moves the site to another runtime.
+
+## Settings
+
+The site Settings tab is four panels (General, PHP, Container, Edge cache)
+and a save bar that appears only while the form is dirty, sticky at the
+bottom of the content pane. The name and the cache TTL apply in place;
+anything else recreates the container (mirrors `internal/site/ops.go`), so
+those saves go through a confirmation dialog that names the changed fields
+and the short outage. There is no explanatory side column and no standing
+help text.
 
 ## Rules of thumb
 

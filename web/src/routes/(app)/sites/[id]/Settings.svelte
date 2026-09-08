@@ -1,5 +1,7 @@
-<!-- Settings tab: PATCH the editable site fields; a returned job means the
-     container is being recreated to apply them. -->
+<!-- Settings tab: PATCH the editable site fields. The save bar at the bottom
+     says up front whether the pending changes apply on save or recreate the
+     container (everything except the name and the cache TTL does); a
+     returned job means a recreate is under way. -->
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
@@ -24,6 +26,8 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import NumberInput from '$lib/components/NumberInput.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import RuntimeBadge from '$lib/components/RuntimeBadge.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
@@ -105,7 +109,19 @@
 		return body;
 	}
 
-	const dirty = $derived(Object.keys(diff()).length > 0);
+	const pending = $derived(diff());
+	const dirty = $derived(Object.keys(pending).length > 0);
+	// Mirrors internal/site/ops.go: the name and the cache TTL apply in place,
+	// everything else means a new container.
+	const recreates = $derived.by(() => {
+		const { name: _n, settings, ...rest } = pending;
+		void _n;
+		if (Object.keys(rest).length) return true;
+		if (!settings) return false;
+		const { cache_ttl: _t, ...others } = settings;
+		void _t;
+		return Object.keys(others).length > 0;
+	});
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
@@ -129,237 +145,227 @@
 		}
 	}
 
-	const num = (v: string) => (v === '' ? 0 : Number(v));
+	function discard() {
+		form = snapshot(site);
+		error = '';
+	}
 </script>
 
-<form onsubmit={save} class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-	<div class="flex flex-col gap-5">
-		<Panel title="General">
-			<div class="grid gap-5 sm:grid-cols-2">
-				<Field label="Name" for="s-name">
-					<input id="s-name" class="input" bind:value={form.name} required />
-				</Field>
-				<Field label="WordPress" for="s-wp" hint="Chosen when the site was created.">
-					<div id="s-wp" class="flex input items-center gap-2 bg-sunken text-ink-2">
-						<span class="num"
-							>{site.wp_version ? `WordPress ${site.wp_version}` : 'Not detected yet'}</span
-						>
-						<RuntimeBadge runtime={site.runtime} />
-					</div>
-				</Field>
-				<Field
-					label="PHP version"
-					for="s-php"
-					hint={!caps
-						? undefined
-						: !branch
-							? 'Available once the WordPress version has been detected.'
-							: `WordPress ${branch.branch} runs on PHP ${branch.php_versions.join(', ')}.`}
-				>
-					<Select
-						id="s-php"
-						block
-						bind:value={form.php_version}
-						disabled={phpLocked}
-						options={phpOptions}
-					/>
-				</Field>
-				{#if runtimeMoves}
-					<div class="sm:col-span-2">
-						<Alert tone="warn">
-							PHP {form.php_version} moves the site from {runtimeLabel(site.runtime)} to
-							{runtimeLabel(phpRuntime)}. The container is recreated.
-						</Alert>
-					</div>
-				{/if}
-				<Field
-					label="Profile"
-					for="s-profile"
-					hint={form.profile === 'dev'
-						? 'Debug logging on, caches short. For building, not for visitors.'
-						: 'Tuned for visitors: opcache warm, errors logged not shown.'}
-				>
-					<div>
-						<Segmented
-							bind:value={form.profile}
-							options={[
-								{ value: 'prod', label: 'Production' },
-								{ value: 'dev', label: 'Development' }
-							]}
-						/>
-					</div>
-				</Field>
-				<Field
-					label="Plugin and theme installs"
-					for="s-mods"
-					hint={form.file_mods === 'locked'
-						? 'wp-admin cannot install or update plugins, themes or core.'
-						: 'wp-admin can install and update plugins and themes.'}
-				>
-					<div>
-						<Segmented
-							bind:value={form.file_mods}
-							options={[
-								{ value: 'locked', label: 'Locked' },
-								{ value: 'open', label: 'Allowed' }
-							]}
-						/>
-					</div>
-				</Field>
-				<Field
-					label="TLS"
-					for="s-tls"
-					hint={isLocal
-						? 'Not available for .localhost domains.'
-						: 'Automatic obtains and renews a certificate for the domain.'}
-				>
-					<Select
-						id="s-tls"
-						block
-						bind:value={form.tls_mode}
-						disabled={isLocal}
+<form onsubmit={save} class="flex flex-col gap-5">
+	<Panel title="General">
+		<div class="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+			<Field label="Name" for="s-name">
+				<Input id="s-name" bind:value={form.name} required autocomplete="off" />
+			</Field>
+			<Field label="WordPress" hint="Chosen when the site was created.">
+				<div class="flex h-11 items-center gap-2.5 text-sm text-ink">
+					<span class="num">
+						{site.wp_version ? `WordPress ${site.wp_version}` : 'Not detected yet'}
+					</span>
+					<RuntimeBadge runtime={site.runtime} />
+				</div>
+			</Field>
+			<Field
+				label="PHP version"
+				for="s-php"
+				hint={!caps
+					? undefined
+					: !branch
+						? 'Available once the WordPress version has been detected.'
+						: `WordPress ${branch.branch} runs on PHP ${branch.php_versions.join(', ')}.`}
+			>
+				<Select
+					id="s-php"
+					block
+					bind:value={form.php_version}
+					disabled={phpLocked}
+					options={phpOptions}
+				/>
+			</Field>
+			<Field
+				label="TLS"
+				for="s-tls"
+				hint={isLocal
+					? 'Not available for .localhost domains.'
+					: 'Automatic obtains and renews a certificate for the domain.'}
+			>
+				<Select
+					id="s-tls"
+					block
+					bind:value={form.tls_mode}
+					disabled={isLocal}
+					options={[
+						{ value: 'auto', label: 'Automatic certificate' },
+						{ value: 'off', label: 'Off' }
+					]}
+				/>
+			</Field>
+			{#if runtimeMoves}
+				<div class="sm:col-span-2">
+					<Alert tone="warn">
+						PHP {form.php_version} moves the site from {runtimeLabel(site.runtime)} to
+						{runtimeLabel(phpRuntime)}. The container is recreated.
+					</Alert>
+				</div>
+			{/if}
+			<Field
+				label="Profile"
+				hint={form.profile === 'dev'
+					? 'Debug logging on, caches short. For building, not for visitors.'
+					: 'Tuned for visitors: opcache warm, errors logged not shown.'}
+			>
+				<div>
+					<Segmented
+						bind:value={form.profile}
+						label="Profile"
 						options={[
-							{ value: 'auto', label: 'Automatic certificate' },
-							{ value: 'off', label: 'Off' }
+							{ value: 'prod', label: 'Production' },
+							{ value: 'dev', label: 'Development' }
 						]}
 					/>
-				</Field>
-				<div class="flex items-end pb-1">
-					<Toggle
-						bind:checked={form.page_cache}
-						label="Page cache at the edge"
-						hint="Anonymous page views are served from the edge."
+				</div>
+			</Field>
+			<Field
+				label="Plugin and theme installs"
+				hint={form.file_mods === 'locked'
+					? 'wp-admin cannot install or update plugins, themes or core.'
+					: 'wp-admin can install and update plugins and themes.'}
+			>
+				<div>
+					<Segmented
+						bind:value={form.file_mods}
+						label="Plugin and theme installs"
+						options={[
+							{ value: 'locked', label: 'Locked' },
+							{ value: 'open', label: 'Allowed' }
+						]}
 					/>
 				</div>
-			</div>
-		</Panel>
+			</Field>
+		</div>
+	</Panel>
 
-		<Panel title="PHP">
-			<div class="grid gap-5 sm:grid-cols-3">
-				<Field label="Memory limit" for="s-mem" hint="e.g. 256M">
-					<input id="s-mem" class="input font-mono" bind:value={form.settings.php_memory_limit} />
-				</Field>
-				<Field label="Upload max filesize" for="s-upload" hint="e.g. 64M">
-					<input
-						id="s-upload"
-						class="input font-mono"
-						bind:value={form.settings.upload_max_filesize}
-					/>
-				</Field>
-				<Field label="Post max size" for="s-post" hint="At least the upload size.">
-					<input id="s-post" class="input font-mono" bind:value={form.settings.post_max_size} />
-				</Field>
-				<Field label="Max execution time" for="s-exec" hint="Seconds per request.">
-					<input
-						id="s-exec"
-						type="number"
-						min="0"
-						class="input font-mono"
-						value={form.settings.max_execution_time}
-						oninput={(e) => (form.settings.max_execution_time = num(e.currentTarget.value))}
-					/>
-				</Field>
-				<Field label="Max input vars" for="s-vars" hint="Raise for very large menus or forms.">
-					<input
-						id="s-vars"
-						type="number"
-						min="0"
-						class="input font-mono"
-						value={form.settings.max_input_vars}
-						oninput={(e) => (form.settings.max_input_vars = num(e.currentTarget.value))}
-					/>
-				</Field>
-				<Field label="OPcache memory" for="s-opcache" hint="MB of compiled PHP kept in memory.">
-					<input
-						id="s-opcache"
-						type="number"
-						min="0"
-						class="input font-mono"
-						value={form.settings.opcache_memory_mb}
-						oninput={(e) => (form.settings.opcache_memory_mb = num(e.currentTarget.value))}
-					/>
-				</Field>
-			</div>
-		</Panel>
+	<Panel title="PHP">
+		<div class="grid gap-x-6 gap-y-5 sm:grid-cols-3">
+			<Field label="Memory limit" for="s-mem" hint="Per request, e.g. 256M.">
+				<Input id="s-mem" mono bind:value={form.settings.php_memory_limit} spellcheck="false" />
+			</Field>
+			<Field label="Upload max filesize" for="s-upload" hint="e.g. 64M.">
+				<Input
+					id="s-upload"
+					mono
+					bind:value={form.settings.upload_max_filesize}
+					spellcheck="false"
+				/>
+			</Field>
+			<Field label="Post max size" for="s-post" hint="At least the upload size.">
+				<Input id="s-post" mono bind:value={form.settings.post_max_size} spellcheck="false" />
+			</Field>
+			<Field label="Max execution time" for="s-exec" hint="Per request.">
+				<NumberInput
+					id="s-exec"
+					min={0}
+					step={5}
+					suffix="s"
+					bind:value={form.settings.max_execution_time}
+				/>
+			</Field>
+			<Field label="Max input vars" for="s-vars" hint="Raise for very large menus or forms.">
+				<NumberInput id="s-vars" min={0} step={1000} bind:value={form.settings.max_input_vars} />
+			</Field>
+			<Field label="OPcache memory" for="s-opcache" hint="Compiled PHP kept in memory.">
+				<NumberInput
+					id="s-opcache"
+					min={0}
+					step={16}
+					suffix="MB"
+					bind:value={form.settings.opcache_memory_mb}
+				/>
+			</Field>
+		</div>
+	</Panel>
 
-		<Panel title="Container and cache">
-			<div class="grid gap-5 sm:grid-cols-3">
-				<Field label="Memory limit" for="s-cmem" hint="MB. The container is killed above it.">
-					<input
+	<div class="grid gap-5 lg:grid-cols-2">
+		<Panel title="Container">
+			<div class="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+				<Field label="Memory limit" for="s-cmem" hint="The container is killed above it.">
+					<NumberInput
 						id="s-cmem"
-						type="number"
-						min="0"
-						class="input font-mono"
-						value={form.settings.container_memory_mb}
-						oninput={(e) => (form.settings.container_memory_mb = num(e.currentTarget.value))}
+						min={0}
+						step={128}
+						suffix="MB"
+						bind:value={form.settings.container_memory_mb}
 					/>
 				</Field>
 				<Field label="CPUs" for="s-cpus" hint="Fractions allowed, e.g. 0.5.">
-					<input
+					<NumberInput
 						id="s-cpus"
-						type="number"
-						min="0"
-						step="0.25"
-						class="input font-mono"
-						value={form.settings.container_cpus}
-						oninput={(e) => (form.settings.container_cpus = num(e.currentTarget.value))}
-					/>
-				</Field>
-				<Field label="Page cache TTL" for="s-ttl" hint="Seconds a page stays cached at the edge.">
-					<input
-						id="s-ttl"
-						type="number"
-						min="0"
-						class="input font-mono"
-						value={form.settings.cache_ttl}
-						oninput={(e) => (form.settings.cache_ttl = num(e.currentTarget.value))}
+						min={0}
+						step={0.25}
+						suffix="CPUs"
+						bind:value={form.settings.container_cpus}
 					/>
 				</Field>
 			</div>
 		</Panel>
 
-		{#if error}
-			<Alert>{error}</Alert>
-		{/if}
-		{#if saved === 'ok'}
-			<Alert tone="success">Settings saved.</Alert>
-		{:else if saved}
-			<Alert tone="info">
-				Recreating the container with the new settings.
-				<a href={resolve(`/jobs/${saved.id}`)} class="underline underline-offset-2"
-					>Follow the job</a
+		<Panel title="Edge cache">
+			<div class="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+				<div class="pt-1 sm:col-span-2">
+					<Toggle
+						bind:checked={form.page_cache}
+						label="Page cache at the edge"
+						hint="Anonymous page views are served from the edge and purged when content changes."
+					/>
+				</div>
+				<Field
+					label="Time to live"
+					for="s-ttl"
+					hint={form.page_cache
+						? 'How long a page stays cached at the edge.'
+						: 'Applies once the page cache is on.'}
 				>
-			</Alert>
-		{/if}
-
-		<div class="flex items-center justify-end gap-3">
-			{#if dirty}
-				<span class="text-xs text-busy">Unsaved changes</span>
-			{/if}
-			<Button onclick={() => (form = snapshot(site))} disabled={!dirty || saving}>
-				Discard changes
-			</Button>
-			<Button type="submit" variant="primary" busy={saving} disabled={!dirty}>Save changes</Button>
-		</div>
+					<NumberInput
+						id="s-ttl"
+						min={0}
+						step={60}
+						suffix="s"
+						disabled={!form.page_cache}
+						bind:value={form.settings.cache_ttl}
+					/>
+				</Field>
+			</div>
+		</Panel>
 	</div>
 
-	<aside class="lg:sticky lg:top-0 lg:self-start">
-		<Panel title="Applying changes">
-			<div class="flex flex-col gap-3 text-sm leading-5 text-ink-2">
-				<p>The name and the page cache switch apply as soon as you save.</p>
-				<p>
-					PHP version, profile, install policy, container limits and PHP settings recreate the
-					container. The site is unavailable for a few seconds while it comes back.
-				</p>
-				{#if saved && saved !== 'ok'}
-					<p class="border-t border-rule pt-3">
-						A recreate is in progress.
-						<a href={resolve(`/jobs/${saved.id}`)} class="text-ink underline underline-offset-2">
-							Follow the job
-						</a>
-					</p>
-				{/if}
-			</div>
-		</Panel>
-	</aside>
+	{#if error}
+		<Alert>{error}</Alert>
+	{/if}
+	{#if saved === 'ok'}
+		<Alert tone="success">Settings saved.</Alert>
+	{:else if saved}
+		<Alert tone="info">
+			Recreating the container with the new settings. The site is back in a few seconds.
+			<a href={resolve(`/jobs/${saved.id}`)} class="underline underline-offset-2">Follow the job</a>
+		</Alert>
+	{/if}
+
+	<div
+		class="sticky bottom-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-3 rounded-plate border border-rule/70 bg-surface/85 px-5 py-3.5 shadow-plate backdrop-blur-md transition-[opacity,transform] duration-200 {dirty ||
+		saving
+			? 'opacity-100'
+			: 'pointer-events-none translate-y-2 opacity-0'}"
+		aria-hidden={!dirty && !saving}
+	>
+		<p class="mr-auto text-sm text-ink-2">
+			{#if recreates}
+				Saving recreates the container. The site is unavailable for a few seconds while it comes
+				back.
+			{:else}
+				These changes apply as soon as you save.
+			{/if}
+		</p>
+		<Button onclick={discard} disabled={!dirty || saving}>Discard changes</Button>
+		<Button type="submit" variant="primary" busy={saving} disabled={!dirty}>Save changes</Button>
+	</div>
 </form>

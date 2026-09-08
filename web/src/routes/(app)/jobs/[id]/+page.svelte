@@ -13,6 +13,7 @@
 	import JobPanel from '$lib/components/JobPanel.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
 
 	const id = $derived(page.params.id ?? '');
@@ -98,7 +99,7 @@
 	<Alert>{error}</Alert>
 {:else if !job}
 	<PageHeader title="Job" subtitle="Loading." back={{ href: resolve('/jobs'), label: 'Jobs' }} />
-	<div class="h-40 animate-pulse frame bg-sunken" aria-busy="true"></div>
+	<div aria-busy="true"><Skeleton plate class="h-40" /></div>
 {:else}
 	<PageHeader {title} subtitle={timing} back={{ href: resolve('/jobs'), label: 'Jobs' }}>
 		<div class="flex flex-wrap items-center gap-3">

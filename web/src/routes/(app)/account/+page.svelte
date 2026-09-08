@@ -6,11 +6,14 @@
 	import { formatDate, formatDateTime, formatRelative } from '$lib/format';
 	import type { AuthSession, SessionsResponse } from '$lib/types/auth';
 	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Field from '$lib/components/Field.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import Input from '$lib/components/Input.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Table, { td, th } from '$lib/components/Table.svelte';
 
 	// Password dialog.
@@ -149,10 +152,10 @@
 				{#if sessions === null}
 					{#each [0, 1] as i (i)}
 						<tr aria-busy="true">
-							<td class={td}><div class="h-5 w-48 animate-pulse rounded bg-sunken"></div></td>
-							<td class={td}><div class="h-5 w-24 animate-pulse rounded bg-sunken"></div></td>
-							<td class={td}><div class="h-5 w-20 animate-pulse rounded bg-sunken"></div></td>
-							<td class={td}><div class="h-5 w-28 animate-pulse rounded bg-sunken"></div></td>
+							<td class={td}><Skeleton class="h-5 w-48" /></td>
+							<td class={td}><Skeleton class="h-5 w-24" /></td>
+							<td class={td}><Skeleton class="h-5 w-20" /></td>
+							<td class={td}><Skeleton class="h-5 w-28" /></td>
 							<td class={td}></td>
 						</tr>
 					{/each}
@@ -174,10 +177,7 @@
 										>{deviceName(s.user_agent)}</span
 									>
 									{#if s.current}
-										<span
-											class="rounded-full bg-brand-soft px-2.5 py-0.5 text-2xs font-semibold text-brand"
-											>This device</span
-										>
+										<Badge tone="brand">This device</Badge>
 									{/if}
 								</div>
 							</td>
@@ -190,16 +190,16 @@
 							</td>
 							<td class="{td} w-16 text-right">
 								{#if !s.current}
-									<button
-										type="button"
-										class="inline-flex size-9 items-center justify-center rounded-control-sm text-ink-3 hover:bg-danger-soft hover:text-danger-ink disabled:opacity-50"
+									<Button
+										variant="ghost"
+										size="sm"
+										icon="close"
 										aria-label="Sign out {deviceName(s.user_agent)}"
 										title="Sign out this session"
+										busy={revoking === s.id}
 										disabled={revoking !== null}
 										onclick={() => revoke(s.id)}
-									>
-										<Icon name="close" size={16} />
-									</button>
+									/>
 								{/if}
 							</td>
 						</tr>
@@ -213,32 +213,34 @@
 <Modal bind:open={pwOpen} title="Change password">
 	<form id="pw-form" onsubmit={changePassword} class="flex flex-col gap-5">
 		<Field label="Current password" for="pw-current">
-			<input
+			<Input
 				id="pw-current"
 				type="password"
-				class="input"
 				bind:value={current}
 				required
 				autocomplete="current-password"
 			/>
 		</Field>
 		<Field label="New password" for="pw-next" hint="At least 12 characters.">
-			<input
+			<Input
 				id="pw-next"
 				type="password"
-				class="input"
 				bind:value={next}
 				required
 				minlength="12"
 				autocomplete="new-password"
 			/>
 		</Field>
-		<Field label="Repeat new password" for="pw-confirm">
-			<input
+		<Field
+			label="Repeat new password"
+			for="pw-confirm"
+			error={confirm && confirm !== next ? 'Does not match the new password yet.' : undefined}
+		>
+			<Input
 				id="pw-confirm"
 				type="password"
-				class="input"
 				bind:value={confirm}
+				invalid={!!confirm && confirm !== next}
 				required
 				autocomplete="new-password"
 			/>
@@ -247,6 +249,12 @@
 	</form>
 	{#snippet footer()}
 		<Button onclick={() => (pwOpen = false)}>Cancel</Button>
-		<Button type="submit" form="pw-form" variant="primary" busy={pwBusy}>Change password</Button>
+		<Button
+			type="submit"
+			form="pw-form"
+			variant="primary"
+			busy={pwBusy}
+			disabled={!current || !next || confirm !== next}>Change password</Button
+		>
 	{/snippet}
 </Modal>

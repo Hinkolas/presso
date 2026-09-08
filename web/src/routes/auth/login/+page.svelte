@@ -12,6 +12,7 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
 
 	const next = $derived(safeNext(page.url.searchParams.get('next')));
@@ -55,11 +56,11 @@
 	<aside class="hidden flex-col justify-between bg-brand-deep p-12 text-white lg:flex">
 		<div>
 			<span class="block display text-[64px] leading-none">presso</span>
-			<p class="mt-5 max-w-xs text-md text-on-brand/80">
+			<p class="mt-5 max-w-xs text-md text-white/80">
 				WordPress sites, hosted on your own machine.
 			</p>
 		</div>
-		<ul class="flex gap-8 text-xs text-on-brand/70">
+		<ul class="flex gap-8 text-xs text-white/70">
 			<li>Docker runtime</li>
 			<li>Edge cache</li>
 			<li>One binary</li>
@@ -78,25 +79,24 @@
 
 			<form onsubmit={submit} class="flex flex-col gap-4">
 				<Field label="Email" for="email">
-					<input
+					<Input
 						id="email"
 						type="email"
 						name="email"
 						required
 						autocomplete="username"
+						spellcheck="false"
 						bind:value={email}
-						class="input"
 					/>
 				</Field>
 				<Field label="Password" for="password">
-					<input
+					<Input
 						id="password"
 						type="password"
 						name="password"
 						required
 						autocomplete="current-password"
 						bind:value={password}
-						class="input"
 					/>
 				</Field>
 

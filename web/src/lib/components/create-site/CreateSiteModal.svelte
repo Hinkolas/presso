@@ -28,6 +28,7 @@
 	import Button from '../Button.svelte';
 	import Field from '../Field.svelte';
 	import Icon from '../Icon.svelte';
+	import Input from '../Input.svelte';
 	import Modal from '../Modal.svelte';
 	import RuntimeBadge from '../RuntimeBadge.svelte';
 	import Segmented from '../Segmented.svelte';
@@ -267,12 +268,12 @@
 		{#if step === 0}
 			<div class="grid gap-5 sm:grid-cols-2">
 				<Field label="Name" for={FIELD_IDS.name} error={errors.name}>
-					<input
+					<Input
 						id={FIELD_IDS.name}
-						class="input"
 						bind:value={draft.name}
 						placeholder="Acme Bakery"
 						autocomplete="off"
+						invalid={!!errors.name}
 						{...aria('name')}
 					/>
 				</Field>
@@ -282,13 +283,14 @@
 					hint="Names the container and volume. Lowercase, digits, hyphens."
 					error={errors.slug}
 				>
-					<input
+					<Input
 						id={FIELD_IDS.slug}
-						class="input font-mono"
+						mono
 						bind:value={draft.slug}
 						oninput={() => (draft.slugEdited = true)}
 						autocomplete="off"
 						spellcheck="false"
+						invalid={!!errors.slug}
 						{...aria('slug')}
 					/>
 				</Field>
@@ -301,13 +303,13 @@
 						: 'Point the DNS at this host. A certificate is obtained automatically.'}
 					error={errors.domain}
 				>
-					<input
+					<Input
 						id={FIELD_IDS.domain}
-						class="input"
 						bind:value={draft.domain}
 						placeholder={domainPlaceholder}
 						autocomplete="off"
 						spellcheck="false"
+						invalid={!!errors.domain}
 						{...aria('domain')}
 					/>
 				</Field>
@@ -437,23 +439,23 @@
 		{:else if step === 2}
 			<div class="grid gap-5 sm:grid-cols-2">
 				<Field label="Username" for={FIELD_IDS.adminUser} error={errors.adminUser}>
-					<input
+					<Input
 						id={FIELD_IDS.adminUser}
-						class="input"
 						bind:value={draft.adminUser}
 						autocomplete="off"
 						spellcheck="false"
+						invalid={!!errors.adminUser}
 						{...aria('adminUser')}
 					/>
 				</Field>
 				<Field label="Email" for={FIELD_IDS.adminEmail} error={errors.adminEmail}>
-					<input
+					<Input
 						id={FIELD_IDS.adminEmail}
 						type="email"
-						class="input"
 						bind:value={draft.adminEmail}
 						autocomplete="off"
 						spellcheck="false"
+						invalid={!!errors.adminEmail}
 						{...aria('adminEmail')}
 					/>
 				</Field>
@@ -465,20 +467,17 @@
 					error={errors.adminPassword}
 				>
 					<div class="flex gap-2">
-						<input
+						<Input
 							id={FIELD_IDS.adminPassword}
-							type={draft.showPassword ? 'text' : 'password'}
-							class="input font-mono"
+							type="password"
+							bind:shown={draft.showPassword}
+							mono
+							class="flex-1"
 							bind:value={draft.adminPassword}
 							autocomplete="new-password"
 							spellcheck="false"
+							invalid={!!errors.adminPassword}
 							{...aria('adminPassword')}
-						/>
-						<Button
-							onclick={() => (draft.showPassword = !draft.showPassword)}
-							icon={draft.showPassword ? 'eye-off' : 'eye'}
-							aria-label={draft.showPassword ? 'Hide password' : 'Show password'}
-							aria-pressed={draft.showPassword}
 						/>
 						<Button
 							onclick={() => {

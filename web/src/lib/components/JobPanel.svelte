@@ -3,6 +3,7 @@
      /v1/events stream. -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import Alert from './Alert.svelte';
 	import Lamp from './Lamp.svelte';
 	import Icon from './Icon.svelte';
 	import { statusLabel, toneOf, toneText } from './status';
@@ -82,9 +83,7 @@
 	</div>
 
 	{#if job.error}
-		<p class="rounded-control border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
-			{job.error}
-		</p>
+		<Alert>{job.error}</Alert>
 	{/if}
 
 	<div bind:this={scroller} class="overflow-y-auto {compact ? 'max-h-56' : 'max-h-[36rem]'}">

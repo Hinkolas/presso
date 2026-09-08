@@ -7,6 +7,7 @@
 	import type { PickerRow } from '$lib/state/capabilities.svelte';
 	import Badge from '../Badge.svelte';
 	import Icon from '../Icon.svelte';
+	import Input from '../Input.svelte';
 	import RuntimeBadge from '../RuntimeBadge.svelte';
 
 	let {
@@ -107,29 +108,23 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<div class="relative">
-		<Icon
-			name="search"
-			size={18}
-			class="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3"
-		/>
-		<input
-			{id}
-			bind:value={query}
-			onkeydown={onKey}
-			class="input pl-10"
-			role="combobox"
-			aria-expanded="true"
-			aria-controls={listId}
-			aria-activedescendant="{listId}-{cursor}"
-			aria-autocomplete="list"
-			aria-invalid={invalid || undefined}
-			aria-describedby={invalid ? `${id}-error` : undefined}
-			placeholder="Filter versions, e.g. 6.4"
-			autocomplete="off"
-			spellcheck="false"
-		/>
-	</div>
+	<Input
+		{id}
+		type="search"
+		icon="search"
+		bind:value={query}
+		onkeydown={onKey}
+		{invalid}
+		role="combobox"
+		aria-expanded="true"
+		aria-controls={listId}
+		aria-activedescendant="{listId}-{cursor}"
+		aria-autocomplete="list"
+		aria-describedby={invalid ? `${id}-error` : undefined}
+		placeholder="Filter versions, e.g. 6.4"
+		autocomplete="off"
+		spellcheck="false"
+	/>
 	<ul
 		id={listId}
 		role="listbox"

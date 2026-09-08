@@ -1,7 +1,7 @@
 <!-- Page title row: serif headline, one line of meaning, actions to the right. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Icon from './Icon.svelte';
+	import BackLink from './BackLink.svelte';
 
 	let {
 		title,
@@ -20,19 +20,11 @@
 
 <header class="mb-8">
 	{#if back}
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- callers pass resolved paths -->
-		<a
-			href={back.href}
-			class="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink"
-		>
-			<Icon name="back" size={16} />
-			{back.label}
-		</a>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		<BackLink href={back.href} label={back.label} class="mb-4" />
 	{/if}
 	<div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
 		<div class="min-w-0">
-			<h1 class="display text-4xl text-ink">{title}</h1>
+			<h1 class="display text-3xl text-ink sm:text-4xl">{title}</h1>
 			{#if subtitle}
 				<p class="mt-2 text-md text-ink-2">{subtitle}</p>
 			{/if}

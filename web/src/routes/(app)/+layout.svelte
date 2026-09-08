@@ -22,6 +22,7 @@
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import CreateSiteModal from '$lib/components/create-site/CreateSiteModal.svelte';
 	import Icon, { type IconName } from '$lib/components/Icon.svelte';
+	import Menu, { type MenuItem } from '$lib/components/Menu.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
 	import type { LayoutData } from './$types';
 
@@ -88,15 +89,18 @@
 		return ['Sites'];
 	});
 
-	let menuOpen = $state(false);
 	let paletteOpen = $state(false);
+	// Below lg the sidebar is a drawer opened from the topbar.
+	let navOpen = $state(false);
 	let mainEl: HTMLElement | undefined = $state();
 
 	// The content pane is the scroller, so a new page starts at the top
-	// (tab switches change only the query and keep their position).
+	// (tab switches change only the query and keep their position). A
+	// navigation also closes the drawer.
 	$effect(() => {
 		void page.url.pathname;
 		mainEl?.scrollTo({ top: 0 });
+		navOpen = false;
 	});
 
 	$effect(() => {
@@ -110,11 +114,12 @@
 		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 			e.preventDefault();
 			paletteOpen = !paletteOpen;
+		} else if (e.key === 'Escape' && navOpen) {
+			navOpen = false;
 		}
 	}
 
 	async function signOut() {
-		menuOpen = false;
 		try {
 			await api.post('/v1/auth/logout');
 		} catch {
@@ -122,10 +127,6 @@
 		}
 		setUser(null);
 		await goto(resolve('/auth/login'));
-	}
-
-	function closeMenu(e: MouseEvent) {
-		if (!(e.target as HTMLElement).closest('[data-user-menu]')) menuOpen = false;
 	}
 
 	const initials = $derived(
@@ -138,16 +139,21 @@
 			.toUpperCase()
 	);
 	const firstName = $derived((user?.name || user?.email || '').split(/[\s@]+/)[0] || 'Account');
+
+	const accountItems: MenuItem[] = [
+		{ label: 'Account security', icon: 'user', href: resolve('/account') },
+		{ label: 'Sign out', icon: 'logout', onclick: signOut }
+	];
 </script>
 
-<svelte:window onclick={closeMenu} onkeydown={onKey} />
+<svelte:window onkeydown={onKey} />
 
 {#snippet navLink(item: NavItem)}
 	{@const active = item.match(page.url.pathname)}
 	<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved above -->
 	<a
 		href={item.href}
-		class="flex h-11 items-center gap-3 rounded-[10px] px-3 text-base font-medium transition-colors {active
+		class="flex h-11 items-center gap-3 rounded-control-sm px-3 text-base font-medium transition-colors {active
 			? 'bg-brand-soft text-ink'
 			: 'text-ink-2 hover:bg-sunken hover:text-ink'}"
 		aria-current={active ? 'page' : undefined}
@@ -164,12 +170,33 @@
 {/snippet}
 
 <div class="flex h-dvh overflow-hidden bg-ground text-ink">
+	{#if navOpen}
+		<button
+			type="button"
+			class="fixed inset-0 z-40 bg-scrim lg:hidden"
+			aria-label="Close navigation"
+			onclick={() => (navOpen = false)}
+		></button>
+	{/if}
 	<aside
-		class="flex h-full w-[260px] shrink-0 flex-col gap-[26px] overflow-y-auto border-r border-rule bg-surface px-4 pt-[22px] pb-5"
+		class="fixed inset-y-0 left-0 z-50 flex h-full w-[260px] shrink-0 flex-col gap-[26px] overflow-y-auto border-r border-rule bg-surface px-4 pt-[22px] pb-5 transition-transform duration-200 ease-out lg:static lg:translate-x-0 {navOpen
+			? 'translate-x-0 shadow-dialog'
+			: '-translate-x-full lg:shadow-none'}"
+		aria-label="Navigation"
 	>
-		<a href={resolve('/')} class="flex h-9 items-center px-2.5" aria-label="presso home">
-			<Wordmark />
-		</a>
+		<div class="flex h-9 items-center justify-between px-2.5">
+			<a href={resolve('/')} class="flex items-center" aria-label="presso home">
+				<Wordmark />
+			</a>
+			<Button
+				variant="ghost"
+				size="sm"
+				icon="close"
+				class="-mr-2 lg:hidden"
+				aria-label="Close navigation"
+				onclick={() => (navOpen = false)}
+			/>
+		</div>
 
 		<nav class="flex flex-col gap-1" aria-label="Sections">
 			{#each primary as item (item.label)}
@@ -184,10 +211,10 @@
 			{/each}
 		</div>
 
-		<div class="mt-auto flex flex-col gap-3.5">
+		<div class="mt-auto">
 			<a
 				href={resolve('/system')}
-				class="flex items-center gap-2.5 rounded-control bg-sunken px-3.5 py-3 text-sm text-ink-2 hover:text-ink"
+				class="flex items-center gap-2.5 rounded-control bg-sunken px-3.5 py-3 text-sm text-ink-2 transition-colors hover:bg-rule/70 hover:text-ink"
 			>
 				<span
 					class="size-2 rounded-full {platformState === 'ok'
@@ -206,39 +233,52 @@
 					{/if}
 				</span>
 			</a>
-			<div class="flex items-center justify-between px-3 text-xs text-ink-3">
-				<span>presso</span>
-				<span class="num">{live.connected ? 'connected' : 'offline'}</span>
-			</div>
 		</div>
 	</aside>
 
 	<div class="flex h-full min-w-0 flex-1 flex-col">
 		<header
-			class="z-30 flex h-16 shrink-0 items-center gap-4 border-b border-rule bg-surface px-6 pl-8"
+			class="z-30 flex h-16 shrink-0 items-center gap-3 border-b border-rule bg-surface px-4 sm:gap-4 sm:px-6 lg:pl-8"
 		>
-			<div class="flex items-center gap-2 text-sm text-ink-3">
+			<Button
+				variant="ghost"
+				size="sm"
+				icon="menu"
+				class="-ml-1 lg:hidden"
+				aria-label="Open navigation"
+				aria-expanded={navOpen}
+				onclick={() => (navOpen = true)}
+			/>
+			<div class="flex min-w-0 items-center gap-2 text-sm text-ink-3">
 				{#each crumbs as c, i (i)}
 					{#if i > 0}<Icon name="chevron-right" size={14} />{/if}
-					<span class={i === crumbs.length - 1 ? 'font-medium text-ink' : ''}>{c}</span>
+					<span class="truncate {i === crumbs.length - 1 ? 'font-medium text-ink' : ''}">{c}</span>
 				{/each}
 			</div>
 
+			<Button
+				variant="ghost"
+				size="sm"
+				icon="search"
+				class="ml-auto md:hidden"
+				aria-label="Search"
+				onclick={() => (paletteOpen = true)}
+			/>
 			<button
 				type="button"
 				onclick={() => (paletteOpen = true)}
-				class="ml-auto hidden h-10 w-[360px] items-center gap-2.5 rounded-[10px] bg-sunken pr-3 pl-3.5 text-left text-sm text-ink-3 transition-colors hover:bg-rule/70 md:flex"
+				class="ml-auto hidden h-10 w-[360px] items-center gap-2.5 rounded-control-sm bg-sunken pr-3 pl-3.5 text-left text-sm text-ink-3 transition-colors hover:bg-rule/70 md:flex"
 			>
 				<Icon name="search" size={18} />
 				<span class="flex-1">Search sites, jobs, domains</span>
 				<kbd
-					class="rounded-[6px] border border-rule bg-surface px-1.5 py-0.5 font-sans text-2xs text-ink-2"
+					class="rounded-key border border-rule bg-surface px-1.5 py-0.5 font-sans text-2xs text-ink-2"
 					>⌘K</kbd
 				>
 			</button>
 
 			<span
-				class="inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-medium {live.connected
+				class="hidden h-8 items-center gap-2 rounded-full px-3 text-xs font-medium sm:inline-flex {live.connected
 					? 'bg-ok-soft text-ok-ink'
 					: 'bg-sunken text-ink-3'}"
 				title={live.connected ? 'Live updates connected' : 'Live updates disconnected'}
@@ -249,76 +289,51 @@
 
 			<a
 				href={resolve('/jobs')}
-				class="relative grid size-10 place-items-center rounded-[10px] text-ink-2 hover:bg-sunken hover:text-ink"
+				class="relative grid size-10 place-items-center rounded-control-sm text-ink-2 transition-colors hover:bg-sunken hover:text-ink"
 				aria-label="Jobs{runningJobs ? `, ${runningJobs} running` : ''}"
 				title="Jobs"
 			>
 				<Icon name="clock" size={20} />
 				{#if runningJobs}
 					<span
-						class="absolute top-1 right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-busy px-1 text-[11px] font-semibold text-white num"
+						class="absolute top-0.5 right-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-busy-soft px-1 text-[11px] font-semibold text-busy-ink num ring-2 ring-surface"
 						>{runningJobs}</span
 					>
 				{/if}
 			</a>
 
-			<span class="mx-1 h-6 w-px bg-rule"></span>
+			<span class="mx-1 hidden h-6 w-px bg-rule sm:block"></span>
 
-			<div class="relative" data-user-menu>
-				<button
-					type="button"
-					onclick={() => (menuOpen = !menuOpen)}
-					class="flex items-center gap-2.5 rounded-full py-0.5 pr-1 pl-0.5 text-left hover:bg-sunken"
-					aria-haspopup="menu"
-					aria-expanded={menuOpen}
-				>
+			<Menu
+				items={accountItems}
+				label="Account"
+				align="right"
+				triggerClass="flex items-center gap-2.5 rounded-full py-0.5 pr-1.5 pl-0.5 text-left transition-colors hover:bg-sunken aria-expanded:bg-sunken"
+			>
+				{#snippet header()}
+					<p class="truncate text-sm font-medium text-ink">{user?.name || user?.email || '–'}</p>
+					<p class="truncate text-xs text-ink-2">
+						{user?.name ? user.email : ''}{user?.role === 'admin' ? ' · administrator' : ''}
+					</p>
+				{/snippet}
+				{#snippet children({ open })}
 					<span
 						class="grid size-[34px] place-items-center rounded-full bg-ink text-xs font-semibold text-surface"
 					>
 						{initials}
 					</span>
 					<span class="hidden text-sm font-medium text-ink sm:block">{firstName}</span>
-					<Icon name="chevron-down" size={16} class="text-ink-3" />
-				</button>
-				{#if menuOpen}
-					<div
-						class="absolute top-full right-0 mt-2 w-64 rounded-plate bg-surface p-2 shadow-pop"
-						role="menu"
-					>
-						<div class="px-3 py-2.5">
-							<p class="truncate text-sm font-medium text-ink">
-								{user?.name || user?.email || '–'}
-							</p>
-							<p class="truncate text-xs text-ink-2">
-								{user?.name ? user.email : ''}{user?.role === 'admin' ? ' · administrator' : ''}
-							</p>
-						</div>
-						<div class="my-1.5 h-px bg-rule"></div>
-						<a
-							href={resolve('/account')}
-							onclick={() => (menuOpen = false)}
-							role="menuitem"
-							class="flex items-center gap-3 rounded-control-sm px-3 py-2.5 text-sm font-medium text-ink hover:bg-sunken"
-						>
-							<Icon name="user" size={18} class="text-ink-3" />
-							Account security
-						</a>
-						<button
-							type="button"
-							onclick={signOut}
-							role="menuitem"
-							class="flex w-full items-center gap-3 rounded-control-sm px-3 py-2.5 text-left text-sm font-medium text-ink hover:bg-sunken"
-						>
-							<Icon name="logout" size={18} class="text-ink-3" />
-							Sign out
-						</button>
-					</div>
-				{/if}
-			</div>
+					<Icon
+						name="chevron-down"
+						size={16}
+						class="text-ink-3 transition-transform duration-150 {open ? 'rotate-180' : ''}"
+					/>
+				{/snippet}
+			</Menu>
 		</header>
 
 		<main bind:this={mainEl} class="min-h-0 flex-1 overflow-y-auto overscroll-none">
-			<div class="w-full max-w-[1400px] px-12 pt-9 pb-16">
+			<div class="w-full max-w-[1400px] px-5 pt-6 pb-16 sm:px-8 sm:pt-9 lg:px-12">
 				{#if data.apiDown}
 					<div class="mx-auto mt-24 max-w-md text-center">
 						<h1 class="display text-3xl">The engine is not answering</h1>

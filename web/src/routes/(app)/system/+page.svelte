@@ -10,6 +10,7 @@
 	import Lamp from '$lib/components/Lamp.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
 	import { statusLabel } from '$lib/components/status';
 
@@ -87,7 +88,7 @@
 	{#if !error}
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5" aria-busy="true">
 			{#each [0, 1, 2, 3, 4] as i (i)}
-				<div class="h-24 animate-pulse frame bg-sunken"></div>
+				<Skeleton plate class="h-24" />
 			{/each}
 		</div>
 	{/if}

@@ -18,7 +18,10 @@
 	import type { Job } from '$lib/types/job';
 	import type { MetricsResponse, Site, SiteAction, SiteStats } from '$lib/types/site';
 	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Input from '$lib/components/Input.svelte';
 	import JobPanel from '$lib/components/JobPanel.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -289,10 +292,10 @@
 					<p class="text-xs text-ink-2">Domains</p>
 					<ul class="mt-1.5 flex flex-wrap gap-2">
 						{#each site.domains as d (d.id)}
-							<li
-								class="rounded-control border border-rule bg-sunken px-2 py-0.5 font-mono text-xs"
-							>
-								{d.host}{d.kind === 'primary' ? ' (primary)' : ''}
+							<li>
+								<Badge tone="neutral" size="md" class="font-mono font-medium">
+									{d.host}{d.kind === 'primary' ? ' (primary)' : ''}
+								</Badge>
 							</li>
 						{/each}
 					</ul>
@@ -379,22 +382,22 @@
 		The container, its route at the edge, the database and the cache user are removed. Type
 		<code class="rounded bg-sunken px-1 text-ink">{site.slug}</code> to confirm.
 	</p>
-	<input
-		class="mt-3 input font-mono"
+	<Input
+		class="mt-3"
+		mono
 		bind:value={confirmSlug}
 		placeholder={site.slug}
 		autocomplete="off"
+		spellcheck="false"
 		aria-label="Type the slug to confirm"
 	/>
-	<label class="mt-4 flex items-start gap-2 text-sm text-ink">
-		<input type="checkbox" bind:checked={keepVolume} class="mt-1 accent-brand" />
-		<span>
-			Keep the files volume
-			<span class="block text-xs text-ink-3"
-				>Uploads, plugins and themes stay on disk for later recovery.</span
-			>
-		</span>
-	</label>
+	<div class="mt-4">
+		<Checkbox
+			bind:checked={keepVolume}
+			label="Keep the files volume"
+			hint="Uploads, plugins and themes stay on disk for later recovery."
+		/>
+	</div>
 	{#if deleteError}
 		<Alert class="mt-3">{deleteError}</Alert>
 	{/if}

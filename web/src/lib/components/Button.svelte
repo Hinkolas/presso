@@ -39,10 +39,11 @@
 		md: 'h-11 rounded-control px-[18px] text-sm'
 	};
 	const variants = {
-		primary: 'bg-brand text-on-brand shadow-primary hover:bg-brand-hover',
-		default: 'border border-rule-strong bg-surface text-ink hover:bg-sunken',
-		ghost: 'text-ink-2 hover:bg-sunken hover:text-ink',
-		danger: 'border border-danger/30 bg-surface text-danger-ink hover:bg-danger-soft'
+		primary: 'bg-brand text-on-brand shadow-primary hover:bg-brand-hover active:bg-brand-deep',
+		default: 'border border-rule-strong bg-surface text-ink hover:bg-sunken active:bg-rule/70',
+		ghost: 'text-ink-2 hover:bg-sunken hover:text-ink active:bg-rule/70',
+		danger:
+			'border border-danger/30 bg-surface text-danger-ink hover:bg-danger-soft active:border-danger/50'
 	};
 	const iconOnly = $derived(!children && !!icon);
 	const cls = $derived(

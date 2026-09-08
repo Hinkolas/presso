@@ -4,7 +4,7 @@
      is short. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Icon from './Icon.svelte';
+	import Button from './Button.svelte';
 
 	let {
 		open = $bindable(false),
@@ -64,15 +64,15 @@
 	{#if open}
 		<div class="flex items-start justify-between gap-4 px-7 pt-6">
 			<h2 class="display text-2xl">{title}</h2>
-			<button
-				type="button"
-				class="-mt-1 -mr-2 rounded-control-sm p-2 text-ink-3 hover:bg-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+			<Button
+				variant="ghost"
+				size="sm"
+				icon="close"
+				class="-mt-1 -mr-2.5"
 				onclick={dismiss}
 				disabled={!dismissable}
 				aria-label="Close"
-			>
-				<Icon name="close" size={18} />
-			</button>
+			/>
 		</div>
 		{#if header}
 			<div class="px-7 pt-4">

@@ -19,6 +19,7 @@
 	import Segmented from '$lib/components/Segmented.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SiteRow from '$lib/components/SiteRow.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Table, { th } from '$lib/components/Table.svelte';
 
 	type View = 'grid' | 'list';
@@ -172,9 +173,9 @@
 		{#each [0, 1] as i (i)}
 			<div class="overflow-hidden frame">
 				<div class="aspect-[16/10] animate-pulse bg-sunken"></div>
-				<div class="flex flex-col gap-3 p-6">
-					<div class="h-6 w-1/2 animate-pulse rounded bg-sunken"></div>
-					<div class="h-4 w-1/3 animate-pulse rounded bg-sunken"></div>
+				<div class="flex flex-col gap-3 border-t border-rule p-6">
+					<Skeleton class="h-6 w-1/2" />
+					<Skeleton class="h-4 w-1/3" />
 				</div>
 			</div>
 		{/each}

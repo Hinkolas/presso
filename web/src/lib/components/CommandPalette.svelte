@@ -130,7 +130,7 @@
 				spellcheck="false"
 			/>
 			<kbd
-				class="rounded-chip border border-rule bg-sunken px-1.5 py-0.5 font-sans text-2xs text-ink-3"
+				class="rounded-key border border-rule bg-sunken px-1.5 py-0.5 font-sans text-2xs text-ink-3"
 				>esc</kbd
 			>
 		</div>

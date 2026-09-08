@@ -38,9 +38,11 @@
 				value = o.value;
 				onchange?.(o.value);
 			}}
-			class="inline-flex h-full items-center justify-center gap-2 rounded-chip text-sm font-medium transition-colors {iconOnly
+			class="inline-flex h-full items-center justify-center gap-2 rounded-chip text-sm font-medium transition-colors duration-150 {iconOnly
 				? 'w-10'
-				: 'px-3.5'} {value === o.value ? 'bg-ink text-surface' : 'text-ink-2 hover:text-ink'}"
+				: 'px-3.5'} {value === o.value
+				? 'bg-ink text-surface'
+				: 'text-ink-2 hover:bg-sunken hover:text-ink'}"
 		>
 			{#if o.icon}<Icon name={o.icon} size={size === 'sm' ? 16 : 18} />{/if}
 			{#if !iconOnly}{o.label}{/if}

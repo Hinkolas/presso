@@ -8,6 +8,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Stat from '$lib/components/Stat.svelte';
 
 	let { siteId }: { siteId: string } = $props();
@@ -243,7 +244,7 @@
 	{:else if !error}
 		<div class="grid gap-5 xl:grid-cols-2" aria-busy="true">
 			{#each [0, 1] as i (i)}
-				<div class="h-64 animate-pulse frame bg-sunken"></div>
+				<Skeleton plate class="h-64" />
 			{/each}
 		</div>
 	{/if}

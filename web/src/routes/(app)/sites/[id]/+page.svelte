@@ -14,9 +14,11 @@
 	import { formatRelative } from '$lib/format';
 	import { shownStatus } from '$lib/site-actions';
 	import Alert from '$lib/components/Alert.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import RuntimeBadge from '$lib/components/RuntimeBadge.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
 	import Thumb from '$lib/components/Thumb.svelte';
 	import Overview from './Overview.svelte';
@@ -125,13 +127,7 @@
 	<title>{site?.name ?? 'Site'} · presso</title>
 </svelte:head>
 
-<a
-	href={resolve('/')}
-	class="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink"
->
-	<Icon name="back" size={16} />
-	Sites
-</a>
+<BackLink href={resolve('/')} label="Sites" class="mb-4" />
 
 {#if deleted}
 	<Alert tone="info">
@@ -148,20 +144,20 @@
 	<div class="mt-4"><Button onclick={() => load(id)}>Try again</Button></div>
 {:else if !site}
 	<div class="flex gap-8" aria-busy="true">
-		<div class="aspect-[16/10] w-72 animate-pulse rounded-plate bg-sunken"></div>
+		<Skeleton plate class="aspect-[16/10] w-72" />
 		<div class="flex flex-1 flex-col gap-3 pt-2">
-			<div class="h-10 w-1/3 animate-pulse rounded bg-sunken"></div>
-			<div class="h-5 w-1/4 animate-pulse rounded bg-sunken"></div>
+			<Skeleton class="h-10 w-1/3" />
+			<Skeleton class="h-5 w-1/4" />
 		</div>
 	</div>
 {:else}
-	<header class="mb-8 flex flex-wrap items-start gap-8">
+	<header class="mb-8 flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-start sm:gap-8">
 		<!-- eslint-disable svelte/no-navigation-without-resolve -- external site URL -->
 		<a
 			href={site.url}
 			target="_blank"
 			rel="noreferrer noopener"
-			class="group relative block w-72 shrink-0 overflow-hidden frame transition-shadow hover:shadow-plate-hover"
+			class="group relative block w-full shrink-0 overflow-hidden frame transition-shadow hover:shadow-plate-hover sm:w-72"
 			aria-label="Visit {site.name}"
 		>
 			<Thumb {site} size="sm" class="aspect-[16/10]" />
@@ -175,7 +171,7 @@
 
 		<div class="min-w-0 flex-1 pt-1">
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-				<h1 class="display text-4xl text-ink">{site.name}</h1>
+				<h1 class="display text-3xl text-ink sm:text-4xl">{site.name}</h1>
 				<StatusPill status={shown} soft />
 				<RuntimeBadge runtime={site.runtime} size="md" />
 			</div>
@@ -210,7 +206,7 @@
 			</p>
 		</div>
 
-		<div class="flex flex-col items-end gap-2">
+		<div class="flex flex-col items-start gap-2 sm:items-end">
 			{#if isAdmin()}
 				<Button
 					variant="primary"
@@ -228,17 +224,27 @@
 		</div>
 	</header>
 
-	<nav class="mb-8 flex gap-2 border-b border-rule" aria-label="Site sections">
+	<nav
+		class="mb-8 flex [scrollbar-width:none] gap-2 overflow-x-auto border-b border-rule"
+		aria-label="Site sections"
+	>
 		{#each visibleTabs as t (t.id)}
 			<button
 				type="button"
 				onclick={() => setTab(t.id)}
-				class="relative -mb-px h-12 px-4 text-base font-medium transition-colors {tab === t.id
+				class="group relative -mb-px h-12 px-1 text-base font-medium transition-colors {tab === t.id
 					? 'text-ink'
 					: 'text-ink-2 hover:text-ink'}"
 				aria-current={tab === t.id ? 'page' : undefined}
 			>
-				{t.label}
+				<span
+					class="inline-flex h-9 items-center rounded-chip px-3 transition-colors group-hover:bg-sunken {tab ===
+					t.id
+						? 'group-hover:bg-transparent'
+						: ''}"
+				>
+					{t.label}
+				</span>
 				{#if tab === t.id}
 					<span class="absolute inset-x-4 bottom-0 h-0.5 rounded-t bg-brand"></span>
 				{/if}

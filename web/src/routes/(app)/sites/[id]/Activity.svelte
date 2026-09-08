@@ -4,7 +4,9 @@
 	import { formatDateTime, formatRelative } from '$lib/format';
 	import type { Activity, ActivityResponse } from '$lib/types/activity';
 	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
 	import Empty from '$lib/components/Empty.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 
 	let { siteId }: { siteId: string } = $props();
 
@@ -30,8 +32,8 @@
 	<div class="flex flex-col frame" aria-busy="true">
 		{#each [0, 1, 2, 3] as i (i)}
 			<div class="flex items-center gap-4 border-b border-rule px-6 py-4 last:border-b-0">
-				<div class="h-3 w-16 animate-pulse rounded bg-sunken"></div>
-				<div class="h-3 w-1/2 animate-pulse rounded bg-sunken"></div>
+				<Skeleton class="h-3 w-16" />
+				<Skeleton class="h-3 w-1/2" />
 			</div>
 		{/each}
 	</div>
@@ -45,9 +47,7 @@
 					{formatRelative(a.ts)}
 				</span>
 				<span class="min-w-0 flex-1 text-sm leading-5 text-ink">{a.message}</span>
-				<span class="shrink-0 rounded bg-sunken px-1.5 py-0.5 font-mono text-2xs text-ink-2">
-					{a.kind}
-				</span>
+				<Badge tone="neutral" class="font-mono font-medium">{a.kind}</Badge>
 			</li>
 		{/each}
 	</ol>

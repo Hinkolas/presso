@@ -7,6 +7,7 @@
 	import type { WpCliResponse } from '$lib/types/site';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Input from '$lib/components/Input.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
 
 	let { siteId, running }: { siteId: string; running: boolean } = $props();
@@ -42,19 +43,16 @@
 	{/if}
 
 	<form onsubmit={run} class="flex items-center gap-2">
-		<label
-			class="flex input flex-1 items-center gap-2 py-0 font-mono focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/20"
-		>
-			<span class="text-ink-3 select-none" aria-hidden="true">wp</span>
-			<input
-				class="min-w-0 flex-1 bg-transparent font-mono text-sm text-ink outline-none placeholder:text-ink-3"
-				bind:value={input}
-				placeholder="plugin list --status=active"
-				autocomplete="off"
-				spellcheck="false"
-				aria-label="WP-CLI arguments"
-			/>
-		</label>
+		<Input
+			class="flex-1"
+			mono
+			prefix="wp"
+			bind:value={input}
+			placeholder="plugin list --status=active"
+			autocomplete="off"
+			spellcheck="false"
+			aria-label="WP-CLI arguments"
+		/>
 		<Button type="submit" variant="primary" icon="terminal" {busy} disabled={!input.trim()}>
 			Run
 		</Button>
@@ -66,7 +64,7 @@
 			<button
 				type="button"
 				onclick={() => (input = ex)}
-				class="rounded-control bg-sunken px-1.5 py-0.5 font-mono text-ink-2 hover:text-ink"
+				class="rounded-key bg-sunken px-1.5 py-0.5 font-mono text-ink-2 transition-colors hover:bg-rule/70 hover:text-ink"
 			>
 				wp {ex}
 			</button>{i < examples.length - 1 ? ',' : ''}
@@ -94,13 +92,13 @@
 				<div>
 					<p class="mb-1.5 text-xs text-ink-2">Output</p>
 					<pre
-						class="max-h-96 overflow-auto console p-3 break-all whitespace-pre-wrap">{result.stdout ||
+						class="max-h-96 console overflow-auto p-3 break-all whitespace-pre-wrap">{result.stdout ||
 							' '}</pre>
 				</div>
 				<div>
 					<p class="mb-1.5 text-xs text-ink-2">Errors and warnings</p>
 					<pre
-						class="max-h-96 overflow-auto console p-3 break-all whitespace-pre-wrap text-console-warn">{result.stderr ||
+						class="max-h-96 console overflow-auto p-3 break-all whitespace-pre-wrap text-console-warn">{result.stderr ||
 							' '}</pre>
 				</div>
 			</div>

@@ -88,10 +88,11 @@
 	--color-console-err: #f07a70;
 
 	/* Radii encode hierarchy: controls 12, small controls 10, chips 8,
-	   plates 18, dialogs 20. */
+	   keycaps and checkboxes 6, plates 18, dialogs 20. */
 	--radius-control: 12px;
 	--radius-control-sm: 10px;
 	--radius-chip: 8px;
+	--radius-key: 6px;
 	--radius-plate: 18px;
 	--radius-dialog: 20px;
 
@@ -152,6 +153,7 @@
 
 	:root {
 		color-scheme: light dark;
+		accent-color: var(--color-brand);
 	}
 
 	html {
@@ -161,6 +163,7 @@
 		line-height: 1.5;
 		background: var(--color-ground);
 		color: var(--color-ink);
+		caret-color: var(--color-brand);
 		-webkit-font-smoothing: antialiased;
 		text-rendering: optimizeLegibility;
 	}
@@ -176,10 +179,17 @@
 		color: var(--color-ink);
 	}
 
+	/* Scrollbars belong to the palette too: thin, hairline-colored, no track. */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-rule-strong) transparent;
+	}
+
+	/* Buttons and links get the outline; text fields draw their own ring
+	   (see the Input component), so the two never stack. */
 	:focus-visible {
 		outline: 2px solid var(--color-brand);
 		outline-offset: 2px;
-		border-radius: 4px;
 	}
 
 	button,
@@ -236,9 +246,15 @@
 	font-variant-numeric: tabular-nums;
 }
 
-/* Form controls share one look; components use class="input". */
-@utility input {
-	@apply h-11 w-full rounded-control border border-rule-strong bg-surface px-3.5 text-sm text-ink placeholder:text-ink-3 focus:border-brand focus:ring-3 focus:ring-brand/20 focus:outline-none disabled:bg-sunken disabled:text-ink-3;
+/* The one focus treatment for text-like controls (Input, NumberInput, the
+   Select trigger): brand hairline plus a soft 3px halo. `field-focus` is for
+   the element itself, `field-focus-within` for a wrapper around a bare
+   <input>. Never pair either with the global outline. */
+@utility field-focus {
+	@apply focus-visible:border-brand focus-visible:ring-3 focus-visible:ring-brand/20 focus-visible:outline-none;
+}
+@utility field-focus-within {
+	@apply focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/20;
 }
 
 /* The plate: a white surface with a soft, layered shadow. The only kind of
@@ -250,6 +266,12 @@
 /* Console panes: always dark, mono, wrapping. */
 @utility console {
 	@apply rounded-plate bg-console font-mono text-xs leading-5 text-console-ink;
+	scrollbar-color: var(--color-console-dim) transparent;
+	&::selection,
+	& ::selection {
+		background: color-mix(in srgb, var(--color-console-ink) 22%, transparent);
+		color: inherit;
+	}
 }
 
 /* The status lamp breathes only while something is in motion. */
