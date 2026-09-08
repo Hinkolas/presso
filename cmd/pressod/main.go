@@ -42,6 +42,7 @@ import (
 	"github.com/Hinkolas/presso/internal/shots"
 	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
+	"github.com/Hinkolas/presso/internal/update"
 	versionpkg "github.com/Hinkolas/presso/internal/version"
 	"github.com/Hinkolas/presso/internal/warm"
 	"github.com/Hinkolas/presso/internal/webui"
@@ -87,7 +88,7 @@ func runServe() error {
 	// Fails fast on a default WordPress branch or PHP allowlist the matrix
 	// cannot satisfy, the semantic half of the RUNTIME_* validation.
 	catalog, err := compat.New(compat.Default, compat.Options{
-		ImageTemplate: cfg.ImageTemplate, LegacyEnabled: cfg.LegacyEnabled, DefaultWP: cfg.DefaultWP, PHPVersions: cfg.PHPVersions,
+		ImageTemplate: cfg.ImageTemplate, Release: versionpkg.Release(), LegacyEnabled: cfg.LegacyEnabled, DefaultWP: cfg.DefaultWP, PHPVersions: cfg.PHPVersions,
 	})
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
@@ -143,6 +144,15 @@ func runServe() error {
 		Config: cfg, Catalog: catalog, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: plat, Edge: edgeClient,
 		Shots: shotSvc, Warmer: warmer,
 	})
+	// The executable path is resolved once, now: after a self-update swapped
+	// the file, /proc/self/exe reports the old inode as "(deleted)".
+	exePath, err := os.Executable()
+	if err == nil {
+		if resolved, rerr := filepath.EvalSymlinks(exePath); rerr == nil {
+			exePath = resolved
+		}
+	}
+	updater := update.New(update.Deps{Config: cfg, Store: st, Docker: dk, Hub: hub, Jobs: runner, Sites: sites, Executable: exePath})
 
 	// Streaming handlers (events, logs) watch this context so shutdown does
 	// not wait for browsers to hang up.
@@ -162,9 +172,12 @@ func runServe() error {
 			Hub:      hub,
 			Docker:   dk,
 			Platform: plat,
+			Update:   updater,
 			WebUI:    webui.Handler(),
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
+		// The raw peer address feeds the panel guard (PANEL_DOMAIN).
+		ConnContext: api.PeerContext,
 	}
 
 	// Workers share one context; cancelling it is the first step of shutdown.
@@ -173,6 +186,9 @@ func runServe() error {
 	if err := runner.Start(loopCtx); err != nil {
 		return err
 	}
+	// First boot on a new version: move every site to this release's runtime
+	// images (engine.rollout). The platform reconciler below swaps the edge.
+	updater.OnBoot(ctx)
 
 	var wg sync.WaitGroup
 	spawn := func(name string, fn func(context.Context)) {
@@ -197,6 +213,7 @@ func runServe() error {
 		spawn("screenshots", func(ctx context.Context) { sites.ScreenshotLoop(ctx, cfg.Shots.Interval) })
 	}
 	spawn("warm", warmer.Start)
+	spawn("update", updater.Run)
 
 	serveErr := make(chan error, 1)
 	go func() {
@@ -208,10 +225,14 @@ func runServe() error {
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	restart := false
 	select {
 	case err := <-serveErr:
 		return err
 	case <-sigCtx.Done():
+	case <-updater.RestartRequests():
+		restart = true
+		slog.InfoContext(ctx, "engine updated, restarting", "exe", exePath)
 	}
 	slog.InfoContext(ctx, "shutting down")
 	cancelLoops()
@@ -227,7 +248,21 @@ func runServe() error {
 	case <-shutdownCtx.Done():
 		slog.WarnContext(ctx, "workers did not stop in time")
 	}
+	if restart {
+		reexec(ctx, exePath)
+	}
 	return err
+}
+
+// reexec replaces this process with the (freshly installed) binary at path,
+// keeping PID, arguments and environment: correct under systemd and when run
+// by hand. Exec only returns on failure; exiting non-zero then lets the
+// supervisor (systemd Restart=always) start the new binary instead.
+func reexec(ctx context.Context, path string) {
+	slog.InfoContext(ctx, "re-executing", "exe", path, "args", os.Args)
+	err := syscall.Exec(path, os.Args, os.Environ())
+	slog.ErrorContext(ctx, "re-exec failed; exiting so the supervisor restarts the service", "err", err)
+	os.Exit(1)
 }
 
 // sweepLoop deletes expired sessions periodically. Errors are logged, never

@@ -389,12 +389,23 @@ func (s *Service) RenderEdge(ctx context.Context) (string, error) {
 		})
 	}
 	_, cacheAdminPort, _ := splitHostPort(s.cfg.Edge.CacheAdminListen)
-	return edge.Render(routes, edge.Options{
+	opts := edge.Options{
 		ACMEEmail:        s.cfg.Edge.ACMEEmail,
 		DefaultTTL:       s.cfg.Edge.DefaultCacheTTL,
 		StaleFor:         s.cfg.Edge.StaleFor,
 		CacheAdminListen: ":" + strconv.Itoa(cacheAdminPort),
-	}, s.now())
+	}
+	if s.cfg.Panel.Domain != "" {
+		// The engine listens on the host; inside the edge container the host
+		// is host.docker.internal (platform adds the host-gateway entry).
+		_, port, err := splitHostPort(s.cfg.HTTPAddr)
+		if err != nil {
+			return "", fmt.Errorf("edge: HTTP_ADDR %q: %w", s.cfg.HTTPAddr, err)
+		}
+		opts.PanelHost = s.cfg.Panel.Domain
+		opts.PanelUpstream = "host.docker.internal:" + strconv.Itoa(port)
+	}
+	return edge.Render(routes, opts, s.now())
 }
 
 func splitHostPort(addr string) (string, int, error) {

@@ -9,9 +9,15 @@ import (
 // Options is the server-side policy layered over the matrix.
 type Options struct {
 	// ImageTemplate renders a runtime image reference; {php} and {wp} are
-	// required, {runtime} is optional (for operators with one repository per
-	// flavor).
+	// required, {runtime} (frankenphp|legacy, for operators with one
+	// repository per flavor) and {release} (the engine's release tag, see
+	// Release) are optional.
 	ImageTemplate string
+	// Release fills {release} in the template. Runtime images are published
+	// per engine release under the release tag, so the engine's own version
+	// names the images its sites run; empty is only valid when the template
+	// does not use {release} (dev builds against locally built images).
+	Release string
 	// LegacyEnabled offers the nginx + PHP-FPM runtime (PHP 7.4-8.1). Off, the
 	// WordPress branches that need it disappear from the catalog.
 	LegacyEnabled bool
@@ -36,6 +42,9 @@ func New(m *Matrix, opt Options) (*Catalog, error) {
 	}
 	if !strings.Contains(opt.ImageTemplate, "{php}") || !strings.Contains(opt.ImageTemplate, "{wp}") {
 		return nil, errors.New("compat: image template must contain {php} and {wp}")
+	}
+	if strings.Contains(opt.ImageTemplate, "{release}") && opt.Release == "" {
+		return nil, errors.New("compat: image template uses {release} but this is not a release build; set RUNTIME_IMAGE_TEMPLATE to locally built images (e.g. presso-runtime:php{php}-wp{wp})")
 	}
 	for _, v := range opt.PHPVersions {
 		if !m.Ships(v) {
@@ -193,7 +202,7 @@ func (c *Catalog) Image(php, wp string) string {
 		version = w.Version
 	}
 	rt, _ := c.m.RuntimeFor(php)
-	r := strings.NewReplacer("{php}", php, "{wp}", version, "{runtime}", rt)
+	r := strings.NewReplacer("{php}", php, "{wp}", version, "{runtime}", rt, "{release}", c.opt.Release)
 	return r.Replace(c.opt.ImageTemplate)
 }
 

@@ -7,7 +7,7 @@ import { api } from '$lib/api/client';
 import type { LiveEvent } from '$lib/types/events';
 import type { Job, JobDetailResponse, JobEvent, JobsResponse } from '$lib/types/job';
 import type { Site } from '$lib/types/site';
-import type { PlatformComponent, SystemStatus } from '$lib/types/system';
+import type { PlatformComponent, SystemStatus, UpdateStatus } from '$lib/types/system';
 
 const MAX_JOBS = 200;
 const MAX_JOB_EVENTS = 2000;
@@ -16,7 +16,12 @@ export const live = $state({
 	connected: false,
 	/** Incremented on every reconnect so pages can refetch to fill gaps. */
 	generation: 0,
-	platform: null as PlatformComponent[] | null
+	platform: null as PlatformComponent[] | null,
+	/** Latest self-update check; drives the System nav dot and the Updates panel. */
+	update: null as UpdateStatus | null,
+	/** Set to the target version while the engine restarts after an update;
+	 *  the app reloads itself once that version answers and the edge is back. */
+	restarting: '' as string
 });
 
 export const sites = new SvelteMap<string, Site>();
@@ -39,6 +44,10 @@ function handle(ev: LiveEvent): void {
 		case 'job.updated':
 			jobs.set(ev.payload.id, ev.payload);
 			trimJobs();
+			if (ev.payload.kind === 'engine.update' && ev.payload.status === 'succeeded') {
+				const v = ev.payload.args?.version;
+				watchRestart(typeof v === 'string' && v ? v : 'new');
+			}
 			break;
 		case 'job.event': {
 			const list = jobEvents.get(ev.payload.job_id) ?? [];
@@ -54,7 +63,42 @@ function handle(ev: LiveEvent): void {
 		case 'platform.status':
 			live.platform = ev.payload;
 			break;
+		case 'system.update':
+			live.update = ev.payload;
+			break;
 	}
+}
+
+/** After a successful engine.update the process re-execs and the edge is
+ *  recreated shortly after. Poll the status (tolerating the errors in
+ *  between) until the target version answers and the edge runs, then reload
+ *  the SPA so it matches the new engine. Lives here, not on a page, so
+ *  navigating away does not cancel it. */
+let restartTimer: ReturnType<typeof setTimeout> | null = null;
+export function watchRestart(target: string): void {
+	if (live.restarting) return;
+	live.restarting = target;
+	const started = Date.now();
+	const tick = async () => {
+		try {
+			const s = await api.get<SystemStatus>('/v1/system/status');
+			const edgeUp = s.components.some((c) => c.name === 'edge' && c.state === 'running');
+			const versionOk = target === 'new' ? s.uptime_seconds < 120 : s.version === target;
+			if (versionOk && edgeUp) {
+				location.reload();
+				return;
+			}
+		} catch {
+			// The engine is restarting; keep polling.
+		}
+		// Give up after ten minutes rather than polling forever.
+		if (Date.now() - started > 10 * 60_000) {
+			live.restarting = '';
+			return;
+		}
+		restartTimer = setTimeout(tick, 2000);
+	};
+	restartTimer = setTimeout(tick, 3000);
 }
 
 function trimJobs(): void {
@@ -71,7 +115,8 @@ const TYPES: LiveEvent['type'][] = [
 	'site.deleted',
 	'job.updated',
 	'job.event',
-	'platform.status'
+	'platform.status',
+	'system.update'
 ];
 
 export function connectLive(): void {
@@ -101,6 +146,8 @@ export function disconnectLive(): void {
 	source?.close();
 	source = null;
 	live.connected = false;
+	if (restartTimer) clearTimeout(restartTimer);
+	restartTimer = null;
 }
 
 /** Seed job events (e.g. from GET /v1/jobs/{id}) without losing live ones. */
@@ -171,6 +218,7 @@ export async function seedLive(): Promise<void> {
 			.get<SystemStatus>('/v1/system/status')
 			.then((r) => {
 				if (!live.platform) live.platform = r.components;
+				if (r.update) live.update = r.update;
 			})
 			.catch(() => {})
 	]);

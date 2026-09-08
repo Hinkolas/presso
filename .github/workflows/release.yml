@@ -1,0 +1,100 @@
+# Cuts a release from a version tag (v0.1.0, v0.2.0-rc.1, ...). One tag names
+# everything: the pressod binary on the GitHub release, the edge image and the
+# runtime images on ghcr.io all carry it, and the engine derives its image
+# references from its own version (see ORCHESTRATION.md "Release and update").
+#
+# The GitHub release is created as a draft by goreleaser and published by the
+# last job, after every image has been pushed and smoke-tested. Hosts poll
+# /releases/latest, which never returns drafts, so an update is only ever
+# offered once all of its parts exist.
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  EDGE_IMAGE: ghcr.io/hinkolas/presso-edge
+
+jobs:
+  binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # goreleaser reads tags and the changelog range
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # The builder stage cross-compiles (xcaddy honours GOOS/GOARCH), so the
+      # arm64 image does not need emulation for the Go build.
+      - uses: docker/build-push-action@v6
+        with:
+          context: build
+          file: build/edge.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.EDGE_IMAGE }}:${{ github.ref_name }}
+          push: true
+          cache-from: type=gha,scope=edge
+          cache-to: type=gha,scope=edge,mode=max
+      - name: Smoke-test the edge image
+        run: |
+          set -euo pipefail
+          docker run --rm "$EDGE_IMAGE:${{ github.ref_name }}" caddy version
+          docker run --rm "$EDGE_IMAGE:${{ github.ref_name }}" caddy list-modules | grep -q '^http.handlers.cache$'
+
+  runtime:
+    uses: ./.github/workflows/runtime.yml
+    with:
+      release: ${{ github.ref_name }}
+    secrets: inherit
+
+  publish:
+    needs: [binary, edge, runtime]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Pre-releases (-rc, -beta) stay marked as such and are not "latest".
+          if [[ "$TAG" == *-* ]]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+          else
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets --jq '{isDraft,isPrerelease,assets:[.assets[].name]}'

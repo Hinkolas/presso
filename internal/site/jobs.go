@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -253,8 +254,19 @@ func (s *Service) runStart(ctx context.Context, job store.Job, r *jobs.Reporter)
 	}
 	r.Step(ctx, "start", "Starting container")
 	info, err := s.dk.InspectContainer(ctx, ContainerName(row.Slug))
-	if isNotFound(err) {
-		r.Info(ctx, "container missing, recreating it")
+	switch {
+	case isNotFound(err), err == nil && info.Image != row.Image:
+		// A stopped site whose row moved to a newer runtime image (engine
+		// update rollout) gets its container rebuilt on the way up.
+		if err == nil {
+			r.Info(ctx, "runtime image changed, recreating the container on "+row.Image)
+		} else {
+			r.Info(ctx, "container missing, recreating it")
+		}
+		if err := s.dk.EnsureImage(ctx, row.Image, func(line string) { r.Info(ctx, line) }); err != nil {
+			s.setStatus(ctx, row.ID, StatusError, "image: "+err.Error())
+			return err
+		}
 		d, derr := s.decrypt(row)
 		if derr != nil {
 			return derr
@@ -264,7 +276,7 @@ func (s *Service) runStart(ctx context.Context, job store.Job, r *jobs.Reporter)
 			return cerr
 		}
 		info = &docker.ContainerInfo{ID: cid}
-	} else if err != nil {
+	case err != nil:
 		return err
 	}
 	if err := s.dk.StartContainer(ctx, info.ID); err != nil {
@@ -361,6 +373,17 @@ func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Report
 		return err
 	}
 	s.detectWPVersion(ctx, &row, cid)
+	// A recreate is how a site moves to a newer runtime image, and with it
+	// possibly a newer WordPress release; the database upgrade that release
+	// may need runs here (idempotent, a no-op when nothing changed).
+	r.Step(ctx, "wordpress", "Running the WordPress database upgrade")
+	if res, err := s.exec(ctx, cid, 3*time.Minute, "core", "update-db"); err != nil {
+		r.Warn(ctx, "wp core update-db failed: "+err.Error())
+	} else if res.ExitCode != 0 {
+		r.Warn(ctx, "wp core update-db exited "+strconv.Itoa(res.ExitCode)+": "+strings.TrimSpace(string(res.Stderr)))
+	} else if line := strings.TrimSpace(string(res.Stdout)); line != "" {
+		r.Info(ctx, line)
+	}
 	r.Step(ctx, "edge", "Refreshing the edge and purging the page cache")
 	if err := s.platform.ApplyEdge(ctx); err != nil {
 		r.Warn(ctx, "edge apply failed: "+err.Error())

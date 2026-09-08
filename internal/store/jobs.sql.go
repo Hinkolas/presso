@@ -146,6 +146,29 @@ func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
 	return err
 }
 
+const getActiveJobByKind = `-- name: GetActiveJobByKind :one
+SELECT id, kind, site_id, status, args, error, created_by, started_at, finished_at, created_at, updated_at FROM jobs WHERE kind = ? AND status IN ('queued', 'running') ORDER BY created_at LIMIT 1
+`
+
+func (q *Queries) GetActiveJobByKind(ctx context.Context, kind string) (Job, error) {
+	row := q.db.QueryRowContext(ctx, getActiveJobByKind, kind)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.SiteID,
+		&i.Status,
+		&i.Args,
+		&i.Error,
+		&i.CreatedBy,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getJob = `-- name: GetJob :one
 SELECT id, kind, site_id, status, args, error, created_by, started_at, finished_at, created_at, updated_at FROM jobs WHERE id = ?
 `
@@ -167,6 +190,45 @@ func (q *Queries) GetJob(ctx context.Context, id uuid.UUID) (Job, error) {
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listActiveJobs = `-- name: ListActiveJobs :many
+SELECT id, kind, site_id, status, args, error, created_by, started_at, finished_at, created_at, updated_at FROM jobs WHERE status IN ('queued', 'running') ORDER BY created_at
+`
+
+func (q *Queries) ListActiveJobs(ctx context.Context) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveJobs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Job
+	for rows.Next() {
+		var i Job
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.SiteID,
+			&i.Status,
+			&i.Args,
+			&i.Error,
+			&i.CreatedBy,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listActiveJobsBySite = `-- name: ListActiveJobsBySite :many

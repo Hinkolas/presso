@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +46,9 @@ var (
 	ErrUnknownKind = errors.New("jobs: unknown job kind")
 	ErrQueueFull   = errors.New("jobs: queue full")
 	ErrNotFound    = errors.New("jobs: not found")
+	// ErrPaused is returned for site jobs while the runner is paused (an
+	// engine update is draining the queue before it restarts the process).
+	ErrPaused = errors.New("jobs: the engine is updating; site operations resume after the restart")
 )
 
 // Handler executes one job. Progress goes through the Reporter; the returned
@@ -88,6 +92,7 @@ type Runner struct {
 	locks    keyedMutex
 	now      func() time.Time
 	wg       sync.WaitGroup
+	paused   atomic.Bool
 }
 
 func New(st *store.Store, hub *events.Hub, workers int) *Runner {
@@ -133,10 +138,20 @@ func (r *Runner) Start(ctx context.Context) error {
 // Wait blocks until all workers have exited (after ctx cancellation).
 func (r *Runner) Wait() { r.wg.Wait() }
 
+// Pause stops accepting site jobs (Enqueue returns ErrPaused for them) so an
+// engine update can wait for the in-flight ones to finish; global jobs are
+// still accepted. Resume lifts it.
+func (r *Runner) Pause()       { r.paused.Store(true) }
+func (r *Runner) Resume()      { r.paused.Store(false) }
+func (r *Runner) Paused() bool { return r.paused.Load() }
+
 // Enqueue records a job and schedules it. args is JSON-encoded into the row.
 func (r *Runner) Enqueue(ctx context.Context, kind string, siteID uuid.NullUUID, args any, createdBy string) (store.Job, error) {
 	if _, ok := r.handlers[kind]; !ok {
 		return store.Job{}, fmt.Errorf("%w: %s", ErrUnknownKind, kind)
+	}
+	if siteID.Valid && r.paused.Load() {
+		return store.Job{}, ErrPaused
 	}
 	raw := []byte("{}")
 	if args != nil {
@@ -247,6 +262,10 @@ type Reporter struct {
 	jobID  uuid.UUID
 	step   string
 }
+
+// NewReporter binds a Reporter to an existing job row without running it
+// (tests, or code that records progress from outside a handler).
+func NewReporter(r *Runner, jobID uuid.UUID) *Reporter { return &Reporter{runner: r, jobID: jobID} }
 
 // Step starts a named phase; subsequent Info/Warn lines carry its name.
 func (rp *Reporter) Step(ctx context.Context, name, message string) {

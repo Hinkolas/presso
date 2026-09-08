@@ -110,3 +110,43 @@ func TestEdgeSpecPorts(t *testing.T) {
 		t.Fatalf("h3 udp port missing: %+v", spec.Ports[2])
 	}
 }
+
+func TestSpecHashExtraHosts(t *testing.T) {
+	base := docker.Spec{Name: "x", Image: "img:1", Cmd: []string{"run"}, Env: []string{"A=1"}, RestartPolicy: "unless-stopped"}
+	empty := base
+	empty.ExtraHosts = []string{}
+	if specHash(base) != specHash(empty) {
+		t.Fatal("an empty ExtraHosts list must not change the hash (existing components would be recreated on upgrade)")
+	}
+	withHosts := base
+	withHosts.ExtraHosts = []string{"host.docker.internal:host-gateway"}
+	if specHash(base) == specHash(withHosts) {
+		t.Fatal("ExtraHosts must be part of the hash")
+	}
+}
+
+func TestEdgeRecreatePullsBeforeRemove(t *testing.T) {
+	st := testdb.New(t)
+	dk := fake.New()
+	box, _ := secrets.New(strings.Repeat("s", 32))
+	cfg := testConfig()
+	svc := New(cfg, dk, st, box, events.New(), nil)
+	ctx := context.Background()
+	if err := svc.Reconcile(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.edgeDirty.Load() {
+		t.Fatal("a freshly created edge must be marked dirty so its config is pushed")
+	}
+	// The edge spec carries the host-gateway entry the panel vhost needs.
+	if hosts := svc.edgeSpec().ExtraHosts; len(hosts) != 1 || hosts[0] != "host.docker.internal:host-gateway" {
+		t.Fatalf("edge extra hosts: %v", hosts)
+	}
+	cfg.Edge.Image = "presso-edge:v2"
+	if err := svc.Reconcile(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(dk.Removed) != 1 || len(dk.Created) != 4 || dk.Created[3].Image != "presso-edge:v2" {
+		t.Fatalf("expected one recreate: removed=%d created=%d", len(dk.Removed), len(dk.Created))
+	}
+}

@@ -38,3 +38,9 @@ SELECT * FROM job_events WHERE job_id = ? ORDER BY id;
 
 -- name: DeleteJobsBefore :execrows
 DELETE FROM jobs WHERE status IN ('succeeded', 'failed') AND finished_at < ?;
+
+-- name: ListActiveJobs :many
+SELECT * FROM jobs WHERE status IN ('queued', 'running') ORDER BY created_at;
+
+-- name: GetActiveJobByKind :one
+SELECT * FROM jobs WHERE kind = ? AND status IN ('queued', 'running') ORDER BY created_at LIMIT 1;

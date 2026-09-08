@@ -510,6 +510,29 @@ func (q *Queries) SetSiteContainerID(ctx context.Context, arg SetSiteContainerID
 	return err
 }
 
+const setSiteImage = `-- name: SetSiteImage :exec
+UPDATE sites SET image = ?, runtime = ?, php_version = ?, updated_at = ? WHERE id = ?
+`
+
+type SetSiteImageParams struct {
+	Image      string
+	Runtime    string
+	PhpVersion string
+	UpdatedAt  time.Time
+	ID         uuid.UUID
+}
+
+func (q *Queries) SetSiteImage(ctx context.Context, arg SetSiteImageParams) error {
+	_, err := q.db.ExecContext(ctx, setSiteImage,
+		arg.Image,
+		arg.Runtime,
+		arg.PhpVersion,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
 const setSiteStatus = `-- name: SetSiteStatus :exec
 UPDATE sites SET status = ?, status_message = ?, updated_at = ? WHERE id = ?
 `

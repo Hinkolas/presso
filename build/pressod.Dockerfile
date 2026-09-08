@@ -27,6 +27,9 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /pressod /usr/local/bin/pressod
 ENV DATA_DIR=/data
+# Tells the engine it cannot replace its own binary (self-update is refused;
+# pull a newer image instead).
+ENV PRESSO_IN_CONTAINER=1
 VOLUME ["/data"]
 EXPOSE 7080
 ENTRYPOINT ["pressod"]

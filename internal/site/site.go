@@ -155,6 +155,7 @@ func New(d Deps) *Service {
 		s.jobs.Register(JobStop, s.runStop, jobs.Step{Name: "stop", Label: "Stop container"})
 		s.jobs.Register(JobRestart, s.runRestart, jobs.Step{Name: "restart", Label: "Restart container"}, health)
 		s.jobs.Register(JobRecreate, s.runRecreate, image, container, health,
+			jobs.Step{Name: "wordpress", Label: "Database upgrade"},
 			jobs.Step{Name: "edge", Label: "Edge and page cache"}, preview)
 		s.jobs.Register(JobDelete, s.runDelete,
 			edge, container,

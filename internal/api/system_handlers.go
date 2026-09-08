@@ -13,6 +13,7 @@ import (
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/platform"
 	"github.com/Hinkolas/presso/internal/store"
+	"github.com/Hinkolas/presso/internal/update"
 )
 
 type systemHandlers struct {
@@ -22,6 +23,7 @@ type systemHandlers struct {
 	dk       docker.Client
 	platform *platform.Service
 	st       *store.Store
+	update   *update.Service
 	started  time.Time
 }
 
@@ -75,7 +77,12 @@ func (h *systemHandlers) status(w http.ResponseWriter, r *http.Request) {
 		Sites         map[string]int64     `json:"sites"`
 		Disk          diskStatus           `json:"disk"`
 		UptimeSeconds int64                `json:"uptime_seconds"`
+		Update        *update.Status       `json:"update,omitempty"`
 	}{Version: h.version, Components: []platform.Component{}, Sites: map[string]int64{}, UptimeSeconds: int64(time.Since(h.started).Seconds())}
+	if h.update != nil {
+		st := h.update.Status(ctx)
+		out.Update = &st
+	}
 
 	if h.dk != nil {
 		pctx, cancel := context.WithTimeout(ctx, 5*time.Second)

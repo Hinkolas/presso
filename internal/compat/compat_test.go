@@ -131,6 +131,13 @@ func TestResolve(t *testing.T) {
 	if _, err := restricted.Resolve("6.6", "8.2"); !errors.Is(err, ErrPHPUnsupported) {
 		t.Fatalf("allowlist: %v", err)
 	}
+	if _, err := New(full, Options{ImageTemplate: "x:{release}-php{php}-wp{wp}"}); err == nil {
+		t.Fatal("{release} template without a release accepted")
+	}
+	withRelease := mustCatalogOn(t, full, Options{ImageTemplate: "ghcr.io/x/presso-runtime:{release}-php{php}-wp{wp}", Release: "v0.3.0"})
+	if img := withRelease.Image("8.5", "7.1"); img != "ghcr.io/x/presso-runtime:v0.3.0-php8.5-wp7.1" {
+		t.Fatalf("release image: %s", img)
+	}
 	withRuntime := mustCatalogOn(t, full, Options{ImageTemplate: "ghcr.io/x/presso-{runtime}:php{php}-wp{wp}", LegacyEnabled: true})
 	if img := withRuntime.Image("8.0", "5.6"); img != "ghcr.io/x/presso-legacy:php8.0-wp5.6.19" {
 		t.Fatalf("runtime placeholder: %s", img)

@@ -14,6 +14,9 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sethvargo/go-envconfig"
+
+	"github.com/Hinkolas/presso/internal/edge"
+	"github.com/Hinkolas/presso/internal/version"
 )
 
 // Logging is shared by every binary.
@@ -81,6 +84,8 @@ type API struct {
 	Platform
 	Runtime
 	Edge
+	Panel
+	Update
 	Observe
 	Shots
 	Warm
@@ -116,9 +121,12 @@ type Platform struct {
 type Runtime struct {
 	// ImageTemplate renders the runtime image for a (PHP, WordPress) pair:
 	// {php} is e.g. "8.4", {wp} the pinned WordPress release e.g. "6.8.8",
-	// and the optional {runtime} is frankenphp|legacy for operators who keep
-	// one repository per flavor.
-	ImageTemplate string `env:"RUNTIME_IMAGE_TEMPLATE,default=ghcr.io/hinkolas/presso-runtime:php{php}-wp{wp}"`
+	// {release} the engine's own release tag (runtime images are published
+	// per release, so updating the engine moves every site to that release's
+	// images), and the optional {runtime} is frankenphp|legacy for operators
+	// who keep one repository per flavor. Dev builds have no release and must
+	// point this at locally built images (see .env.example).
+	ImageTemplate string `env:"RUNTIME_IMAGE_TEMPLATE,default=ghcr.io/hinkolas/presso-runtime:{release}-php{php}-wp{wp}"`
 	// LegacyEnabled offers the nginx + PHP-FPM runtime (PHP 7.4-8.1), which
 	// WordPress releases before 6.1 need. Off, those releases and PHP
 	// versions disappear from the UI and are rejected by the API.
@@ -133,7 +141,12 @@ type Runtime struct {
 
 // Edge configures the shared Caddy edge container.
 type Edge struct {
-	Image string `env:"EDGE_IMAGE,default=presso-edge:dev"`
+	// Image may contain {release}, replaced by the engine's release tag at
+	// load time (the edge ships with every release, like the runtimes).
+	Image string `env:"EDGE_IMAGE,default=ghcr.io/hinkolas/presso-edge:{release}"`
+	// RawImage keeps the unresolved EDGE_IMAGE so the updater can name
+	// the edge image of a release that is not this one. Set by Validate.
+	RawImage string
 	// HTTPListen/HTTPSListen are the public host ports.
 	HTTPListen  string `env:"EDGE_HTTP_LISTEN,default=0.0.0.0:80"`
 	HTTPSListen string `env:"EDGE_HTTPS_LISTEN,default=0.0.0.0:443"`
@@ -149,6 +162,25 @@ type Edge struct {
 	// TTL, available for stale-while-revalidate and stale-if-error. The system
 	// plugin advertises 24h in its Cache-Control, so keep this at least that.
 	StaleFor time.Duration `env:"EDGE_STALE_FOR,default=24h"`
+}
+
+// Panel configures how the admin UI is exposed. With Domain set, the edge
+// terminates TLS for it and proxies to the engine; direct requests to the
+// engine port are then only accepted from loopback and private networks
+// (the edge, an SSH tunnel, a LAN), so the panel is never served in plain
+// HTTP to the internet.
+type Panel struct {
+	Domain string `env:"PANEL_DOMAIN,default="`
+}
+
+// Update configures the self-update check against GitHub releases. Check=false
+// disables it entirely (air-gapped hosts); APIBase is overridable so the whole
+// flow can be exercised against a local fake feed.
+type Update struct {
+	Check    bool          `env:"UPDATE_CHECK,default=true"`
+	Interval time.Duration `env:"UPDATE_CHECK_INTERVAL,default=6h"`
+	Repo     string        `env:"UPDATE_REPO,default=Hinkolas/presso"`
+	APIBase  string        `env:"UPDATE_API_URL,default=https://api.github.com"`
 }
 
 // Observe configures the background workers that collect metrics.
@@ -202,6 +234,34 @@ func (a *API) Validate() error {
 	// job (cmd/pressod wires it), so config need not import compat.
 	if !strings.Contains(a.ImageTemplate, "{php}") || !strings.Contains(a.ImageTemplate, "{wp}") {
 		return fmt.Errorf("RUNTIME_IMAGE_TEMPLATE: must contain {php} and {wp}")
+	}
+	// {release} names the images published with this engine's release. A dev
+	// build has none, so it must run against locally built images; failing
+	// here beats a confusing pull error on the first site.
+	release := version.Release()
+	if release == "" && strings.Contains(a.ImageTemplate, "{release}") {
+		return fmt.Errorf("RUNTIME_IMAGE_TEMPLATE: uses {release} but %s is not a release build; set RUNTIME_IMAGE_TEMPLATE=presso-runtime:php{php}-wp{wp} (locally built images, see .env.example)", version.Version)
+	}
+	a.Edge.RawImage = a.Edge.Image
+	if strings.Contains(a.Edge.Image, "{release}") {
+		if release == "" {
+			return fmt.Errorf("EDGE_IMAGE: uses {release} but %s is not a release build; set EDGE_IMAGE=presso-edge:dev (task build:edge, see .env.example)", version.Version)
+		}
+		a.Edge.Image = strings.ReplaceAll(a.Edge.Image, "{release}", release)
+	}
+	if a.Panel.Domain != "" {
+		a.Panel.Domain = strings.ToLower(strings.TrimSpace(a.Panel.Domain))
+		if !edge.ValidHost(a.Panel.Domain) {
+			return fmt.Errorf("PANEL_DOMAIN: %q is not a valid hostname", a.Panel.Domain)
+		}
+	}
+	if a.Update.Check {
+		if a.Update.Interval < time.Minute {
+			return fmt.Errorf("UPDATE_CHECK_INTERVAL: must be at least 1m")
+		}
+		if !strings.Contains(a.Update.Repo, "/") || !strings.HasPrefix(a.Update.APIBase, "http") {
+			return fmt.Errorf("UPDATE_REPO must be owner/name and UPDATE_API_URL an http(s) URL")
+		}
 	}
 	if a.CronInterval <= 0 || a.StatsInterval <= 0 || a.MetricsRetention <= 0 {
 		return fmt.Errorf("CRON_INTERVAL, STATS_INTERVAL, METRICS_RETENTION: must be positive")

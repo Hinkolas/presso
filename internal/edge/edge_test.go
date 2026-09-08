@@ -52,6 +52,29 @@ func TestRender(t *testing.T) {
 		t.Error("page cache rendered for a site with page_cache=false")
 	}
 
+	if strings.Contains(out, "panel") {
+		t.Error("panel vhost rendered without PanelHost")
+	}
+	withPanel, err := Render(sites, Options{PanelHost: "Panel.Example.com", PanelUpstream: "host.docker.internal:7080"}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []string{"https://panel.example.com {", "reverse_proxy host.docker.internal:7080 {", "flush_interval -1", "header X-Presso-Edge panel"} {
+		if !strings.Contains(withPanel, c) {
+			t.Errorf("panel: missing %q in:\n%s", c, withPanel)
+		}
+	}
+	panel := withPanel[strings.Index(withPanel, "https://panel.example.com {"):strings.Index(withPanel, "# site demo")]
+	if strings.Contains(panel, "cache {") {
+		t.Error("panel vhost must not be cached")
+	}
+	if _, err := Render(sites, Options{PanelHost: "bad host", PanelUpstream: "u:1"}, time.Now()); err == nil {
+		t.Error("invalid panel host accepted")
+	}
+	if _, err := Render(sites, Options{PanelHost: "panel.example.com"}, time.Now()); err == nil {
+		t.Error("panel host without upstream accepted")
+	}
+
 	if _, err := Render([]SiteRoute{{ID: "x", Slug: "x", Hosts: []string{"bad host"}, Upstream: "u:1"}}, Options{}, time.Now()); err == nil {
 		t.Error("invalid host accepted")
 	}

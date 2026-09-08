@@ -54,6 +54,11 @@ type Options struct {
 	CacheAdminListen string
 	// CacheDir is the badger directory inside the container.
 	CacheDir string
+	// PanelHost, when set, publishes the engine's admin UI and API on that
+	// hostname with automatic TLS, proxied to PanelUpstream (the engine as
+	// seen from inside the edge container, e.g. host.docker.internal:7080).
+	PanelHost     string
+	PanelUpstream string
 }
 
 func (o Options) withDefaults() Options {
@@ -155,6 +160,23 @@ var caddyfileTmpl = template.Must(template.New("caddyfile").Funcs(template.FuncM
 	header {{ .Marker }} unknown
 	respond "presso: no site is configured for this host" 404
 }
+{{- if .Opts.PanelHost }}
+
+# presso admin panel: TLS terminated here, proxied to the engine on the host.
+# No page cache; flush_interval -1 streams server-sent events as they come.
+https://{{ .Opts.PanelHost }} {
+	header {{ .Marker }} panel
+	header -Server
+	encode zstd gzip
+	log {
+		output stdout
+		format json
+	}
+	reverse_proxy {{ .Opts.PanelUpstream }} {
+		flush_interval -1
+	}
+}
+{{- end }}
 {{ range .Sites }}
 # site {{ .Slug }} ({{ .ID }})
 {{ join .Addresses ", " }} {
@@ -205,6 +227,15 @@ type renderSite struct {
 // so the output is stable; generated is stamped into the header comment.
 func Render(sites []SiteRoute, opts Options, generated time.Time) (string, error) {
 	opts = opts.withDefaults()
+	if opts.PanelHost != "" {
+		opts.PanelHost = strings.ToLower(strings.TrimSpace(opts.PanelHost))
+		if !validHost(opts.PanelHost) {
+			return "", fmt.Errorf("edge: invalid panel host %q", opts.PanelHost)
+		}
+		if opts.PanelUpstream == "" {
+			return "", errors.New("edge: panel host set without an upstream")
+		}
+	}
 	sorted := make([]SiteRoute, len(sites))
 	copy(sorted, sites)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Slug < sorted[j].Slug })

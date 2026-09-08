@@ -6,27 +6,34 @@
 # branch per WordPress major on its newest PHP), printed by
 # `pressod runtime-matrix`. Widen the policy in matrix.json to build more.
 #
+# Images are published per engine release and carry the release tag:
+# <IMAGE>:<release>-php8.5-wp7.1. The release workflow calls this one with the
+# tag; every release rebuilds the bases, which is how OS and PHP security
+# updates reach sites (no more moving tags, so an existing host is never
+# surprised by an image that changed under the same name).
+#
 # Pull requests (and dispatches with push=false) build two sample pairs, one
 # per flavor, on amd64 only and smoke-test them without pushing.
 name: runtime
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - runtime/**
-      - internal/compat/matrix.json
-      - .github/workflows/runtime.yml
+  workflow_call:
+    inputs:
+      release:
+        description: Release tag the images are published under (e.g. v0.1.0)
+        type: string
+        required: true
   pull_request:
     paths:
       - runtime/**
       - internal/compat/matrix.json
       - .github/workflows/runtime.yml
-  schedule:
-    # Weekly base rebuild picks up OS and PHP security updates.
-    - cron: "20 4 * * 1"
   workflow_dispatch:
     inputs:
+      release:
+        description: Tag prefix to publish under (a release tag, or e.g. "dev")
+        type: string
+        default: dev
       legacy:
         description: Include the nginx + PHP-FPM versions (7.4, 8.0, 8.1)
         type: boolean
@@ -43,6 +50,7 @@ permissions:
 env:
   IMAGE: ghcr.io/hinkolas/presso-runtime
   BASE_IMAGE: ghcr.io/hinkolas/presso-runtime-base
+  RELEASE: ${{ inputs.release }}
   SAMPLE_TAGS: php8.5-wp7.1 php8.1-wp5.9.16
 
 jobs:
@@ -81,9 +89,14 @@ jobs:
           ' <<<"$pairs")" >> "$GITHUB_OUTPUT"
           push=false
           case "$EVENT" in
-            push|schedule) push=true ;;
+            # Called from the release workflow (the caller's event is the tag push).
+            push) push=true ;;
             workflow_dispatch) [ "$IN_PUSH" = true ] && push=true ;;
           esac
+          if [ "$push" = true ] && [ -z "$RELEASE" ]; then
+            echo "::error::a release tag prefix is required to publish" >&2
+            exit 1
+          fi
           echo "push=$push" >> "$GITHUB_OUTPUT"
 
   # --- Publishing path -------------------------------------------------------
@@ -146,8 +159,8 @@ jobs:
           set -euo pipefail
           refs=""
           for f in /tmp/digests/*; do refs="$refs $BASE_IMAGE@$(cat "$f")"; done
-          docker buildx imagetools create -t "$BASE_IMAGE:php${{ matrix.php }}" $refs
-          docker buildx imagetools inspect "$BASE_IMAGE:php${{ matrix.php }}"
+          docker buildx imagetools create -t "$BASE_IMAGE:$RELEASE-php${{ matrix.php }}" $refs
+          docker buildx imagetools inspect "$BASE_IMAGE:$RELEASE-php${{ matrix.php }}"
 
   image:
     needs: [matrix, base-merge]
@@ -173,9 +186,9 @@ jobs:
           file: runtime/Dockerfile
           platforms: linux/amd64,linux/arm64
           build-args: |
-            BASE_IMAGE=${{ env.BASE_IMAGE }}:php${{ matrix.php }}
+            BASE_IMAGE=${{ env.BASE_IMAGE }}:${{ env.RELEASE }}-php${{ matrix.php }}
             WP_VERSION=${{ matrix.wp }}
-          tags: ${{ env.IMAGE }}:${{ matrix.tag }}
+          tags: ${{ env.IMAGE }}:${{ env.RELEASE }}-${{ matrix.tag }}
           push: true
 
   verify:
@@ -191,7 +204,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: runtime/scripts/smoke.sh "$IMAGE:${{ matrix.tag }}"
+      - run: runtime/scripts/smoke.sh "$IMAGE:$RELEASE-${{ matrix.tag }}"
 
   # --- Pull requests: build and smoke-test one sample per flavor -------------
 

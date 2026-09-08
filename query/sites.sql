@@ -35,6 +35,9 @@ UPDATE sites SET name = ?, php_version = ?, image = ?, runtime = ?, page_cache =
 WHERE id = ?
 RETURNING *;
 
+-- name: SetSiteImage :exec
+UPDATE sites SET image = ?, runtime = ?, php_version = ?, updated_at = ? WHERE id = ?;
+
 -- name: SetSiteWPVersion :exec
 UPDATE sites SET wp_version = ?, updated_at = ? WHERE id = ?;
 

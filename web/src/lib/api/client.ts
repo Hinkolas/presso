@@ -82,6 +82,16 @@ export function errorText(err: unknown, fallback = 'Something went wrong.'): str
 			return 'The site is not running.';
 		case 'docker_unavailable':
 			return 'Docker is unavailable.';
+		case 'engine_updating':
+			return 'presso is updating itself. Site operations resume after it restarts.';
+		case 'update_unavailable':
+			return err.message || 'Self-update is not available on this host.';
+		case 'update_current':
+			return 'presso is already on the latest release.';
+		case 'no_release':
+			return 'No release has been published yet.';
+		case 'panel_via_edge':
+			return err.message || 'The panel is served through the edge.';
 		case 'not_found':
 			return 'Not found.';
 		case 'forbidden':

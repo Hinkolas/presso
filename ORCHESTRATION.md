@@ -137,9 +137,14 @@ Implemented in this repo (see README.md for the dev loop):
   and SNI, no dependence on public DNS, and the preview shows what visitors
   get through the page cache.
 
+- Install and update: `install.sh` (Docker, binary, systemd unit, first
+  admin), tag-driven releases, self-update from the UI with an automatic
+  runtime rollout; see "Release and update" below. Rollback of the engine is
+  manual (`pressod.previous`, `install.sh --version`).
+
 Deferred, in roughly the order they are likely needed: migration plugin /
-SSH pull / archive import, backups and snapshots,
-update-with-rollback, domain change operation, staging and maintenance mode,
+SSH pull / archive import, backups and snapshots, automatic
+update-rollback, domain change operation, staging and maintenance mode,
 mail relay, outbound-HTTP allowlist, multi-host, harness CLI.
 
 Edge cache notes learned while building (Souin `cache-handler`):
@@ -156,6 +161,49 @@ Edge cache notes learned while building (Souin `cache-handler`):
   restarts (insertion errors); the engine never calls it.
 - The edge runs `caddy run --resume`, so a restarted container comes back
   with the last pushed config before the engine re-pushes.
+
+## Release and update
+
+One version string names everything. A tag `vX.Y.Z` produces the `pressod`
+binary (GitHub release), `ghcr.io/hinkolas/presso-edge:vX.Y.Z` and
+`ghcr.io/hinkolas/presso-runtime:vX.Y.Z-php<php>-wp<wp>` for every pair in
+the compat build policy; the release is a draft until all images exist. The
+engine renders `{release}` in `EDGE_IMAGE` and `RUNTIME_IMAGE_TEMPLATE` from
+its own `version.Version`, so there are no moving tags, no digests to track
+and no force-pulls: a host on v0.1.0 runs v0.1.0 images, and only that.
+Dev builds (`v0.0.0-dev`) have no release and must point both settings at
+locally built images; the config refuses to start otherwise.
+
+Install (`install.sh`): host binary under systemd, `/etc/presso/presso.env`
+with a generated `AUTH_SECRET`, `/var/lib/presso` for state, Docker via
+get.docker.com when missing, first admin via `pressod user create
+--password-stdin`. With `PANEL_DOMAIN` the edge gets an HTTPS vhost proxying
+to `host.docker.internal:7080` (the edge container carries the host-gateway
+extra host) and the engine only accepts non-internal routes from loopback and
+private peers (raw TCP peer, captured before proxy headers are trusted).
+
+Update (`internal/update`): the checker polls `/repos/<repo>/releases/latest`
+every `UPDATE_CHECK_INTERVAL`, persists the result in `platform_kv` and
+publishes `system.update`. `POST /v1/system/actions/update` enqueues the
+global `engine.update` job: check → drain (the runner stops accepting site
+jobs and waits for running ones, since a restart fails unfinished jobs) →
+download + SHA-256 verify + `pressod version` probe → best-effort pre-pull of
+the new edge and runtime images → atomic swap next to the current binary
+(`pressod.previous` kept) → restart. Once the job row is final the process
+shuts down gracefully and `syscall.Exec`s the new binary (same PID; systemd
+`Restart=always` is the safety net). On boot the new binary compares
+`platform_kv engine.version`, records itself and enqueues `engine.rollout`:
+every site whose resolved image differs gets its row updated; running sites
+are recreated (recreate now runs `wp core update-db`), stopped ones are
+rebuilt on their next start. The platform reconciler recreates the edge
+(image in the spec hash; pull before remove) and force-pushes the config once
+per engine version (`edge.rendered_by`), since `caddy run --resume` would
+otherwise keep the previous render. Sites whose PHP is no longer built for
+their branch are reported and left alone.
+
+Not automated: rollback. Migrations are forward-only, so downgrading is safe
+only across releases that added none; `install.sh --version vX.Y.Z` or the
+kept `pressod.previous` are the manual path.
 
 ## Edge page cache
 

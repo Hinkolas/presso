@@ -48,6 +48,31 @@ tasks:
     cmds:
       - docker build -t pressod:dev -f build/pressod.Dockerfile .
 
+  # --- Release ---
+  # Releases are cut by pushing a version tag; .github/workflows/release.yml
+  # runs goreleaser, builds the edge and runtime images under that tag and
+  # publishes the GitHub release last. These two rehearse the binary part.
+  release:check:
+    desc: Validate .goreleaser.yaml
+    cmds:
+      - goreleaser check
+
+  release:snapshot:
+    desc: Build the release artifacts locally into dist/ (no tag, no publish)
+    cmds:
+      - goreleaser release --snapshot --clean --skip=publish
+
+  release:tag:
+    desc: "Tag and push a release: task release:tag V=v0.1.0"
+    preconditions:
+      - sh: test -n "{{.V}}"
+        msg: "pass the version: task release:tag V=v0.1.0"
+      - sh: git diff --quiet && git diff --cached --quiet
+        msg: "commit or stash your changes first"
+    cmds:
+      - git tag -a "{{.V}}" -m "{{.V}}"
+      - git push origin "{{.V}}"
+
   # Runtime images are two-stage: one base per PHP version (FrankenPHP for
   # >= 8.2, nginx + PHP-FPM below) and a thin WordPress layer per tag. CI
   # publishes the full matrix to ghcr.io (.github/workflows/runtime.yml);

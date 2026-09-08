@@ -77,6 +77,67 @@ build/                Dockerfiles for pressod and the edge
 web/                  SvelteKit UI (adapter-static)
 ```
 
+## Install
+
+One command on a fresh Linux host (Debian/Ubuntu tested; amd64 or arm64,
+systemd). It installs Docker Engine when missing, the `pressod` release
+binary, a systemd unit and the first admin account:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash
+```
+
+Non-interactive form:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash -s -- \
+  --panel-domain panel.example.com --acme-email you@example.com --email you@example.com --yes
+```
+
+What it leaves behind: `/usr/local/bin/pressod`, `/etc/presso/presso.env`
+(secrets, generated once and never rewritten: `AUTH_SECRET` encrypts the
+database and per-site credentials at rest), `/var/lib/presso` (SQLite,
+screenshots) and `presso.service`. Ports 80 and 443 are the edge; 7080 is the
+engine. With a panel domain, the edge serves the admin UI at
+`https://<panel-domain>` with an automatic certificate (point the DNS record
+at the host first) and the engine port refuses public peers; without one,
+reach the panel through an SSH tunnel:
+`ssh -L 7080:127.0.0.1:7080 root@host` → http://127.0.0.1:7080.
+
+Upgrades happen from the panel (System → Updates, see below). Re-running the
+installer also upgrades (or `--version vX.Y.Z` pins one); `install.sh
+--uninstall [--purge]` removes the service and binary (and, with `--purge`,
+every presso container, volume and the data).
+
+## Releases and updates
+
+Everything ships from a version tag. `task release:tag V=v0.1.0` (or `git
+tag v0.1.0 && git push origin v0.1.0`) triggers `.github/workflows/release.yml`:
+
+1. goreleaser builds `pressod` for linux/amd64 and linux/arm64 with the UI
+   embedded and creates a **draft** GitHub release with the tarballs, a
+   SHA-256 checksum file and `install.sh`.
+2. The edge image is pushed as `ghcr.io/hinkolas/presso-edge:v0.1.0`.
+3. The runtime images are built for every pair in the compat matrix's build
+   policy and pushed as `ghcr.io/hinkolas/presso-runtime:v0.1.0-php8.5-wp7.1`
+   (bases as `presso-runtime-base:v0.1.0-php8.5`), then smoke-tested.
+4. The draft is published. Hosts poll `/releases/latest`, which never returns
+   drafts, so an update is only offered once every image exists.
+
+A release is one version string that names everything: the engine derives
+its edge and runtime image references from its own version (`{release}` in
+`EDGE_IMAGE` / `RUNTIME_IMAGE_TEMPLATE`). Updating the engine therefore
+updates the runtimes. From System → Updates, "Update to vX.Y.Z" runs the
+`engine.update` job: it waits for site jobs to finish, downloads and verifies
+the binary, pre-pulls the new images, swaps the binary atomically (the old
+one stays as `pressod.previous`) and re-execs. The new engine notices the
+version change on boot and enqueues `engine.rollout`, which recreates every
+running site on the new runtime image (stopped sites move on their next
+start) and runs `wp core update-db`; the platform reconciler recreates the
+edge. Pre-release tags (`v0.2.0-rc.1`) are published as pre-releases and are
+never offered to stable hosts. `task release:snapshot` rehearses the binary
+build locally.
+
 ## Development
 
 Requirements: Go 1.26, Node 22, Docker, [task](https://taskfile.dev), [sqlc](https://sqlc.dev).
@@ -84,7 +145,7 @@ Requirements: Go 1.26, Node 22, Docker, [task](https://taskfile.dev), [sqlc](htt
 ```sh
 cp .env.example .env            # set AUTH_SECRET (openssl rand -base64 32)
 task build:edge                 # the edge image the engine starts (minutes)
-task build:runtime PHP=8.5 WP=7.1   # one local runtime image; see RUNTIME_IMAGE_TEMPLATE in .env.example
+task build:runtime PHP=8.5 WP=7.1   # one local runtime image (dev builds must use local images; see .env.example)
 task user -- create --email you@example.com --role admin
 task dev                        # engine on :7080; creates network, MariaDB, Redis, edge
 task dev:web                    # UI dev server on :5173 (proxies /api to :7080)

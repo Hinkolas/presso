@@ -52,6 +52,13 @@ const (
 	codePHPUnsupported  = "php_unsupported"
 	codePHPIncompatible = "php_incompatible"
 	codeLegacyDisabled  = "legacy_disabled"
+
+	// Engine update (internal/update) and the panel guard.
+	codeUpdateUnavailable = "update_unavailable"
+	codeUpdateCurrent     = "update_current"
+	codeNoRelease         = "no_release"
+	codeEngineUpdating    = "engine_updating"
+	codePanelViaEdge      = "panel_via_edge"
 )
 
 // writeInternalError logs the real error and reports an opaque 500.
@@ -112,6 +119,8 @@ func writeSiteError(ctx context.Context, w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, codeLegacyDisabled, err.Error())
 	case errors.Is(err, site.ErrInvalidInput), errors.Is(err, jobs.ErrUnknownKind):
 		writeError(w, http.StatusBadRequest, codeBadRequest, err.Error())
+	case errors.Is(err, jobs.ErrPaused):
+		writeError(w, http.StatusConflict, codeEngineUpdating, "the engine is updating; site operations resume after it restarts")
 	case errors.Is(err, jobs.ErrQueueFull):
 		writeError(w, http.StatusServiceUnavailable, codeConflict, "the job queue is full, try again shortly")
 	case errors.Is(err, platform.ErrNotReady):

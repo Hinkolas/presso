@@ -23,6 +23,7 @@ import (
 	"github.com/Hinkolas/presso/internal/platform"
 	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
+	"github.com/Hinkolas/presso/internal/update"
 )
 
 // Deps is everything the router needs. Each optional field documents what its
@@ -46,6 +47,8 @@ type Deps struct {
 	Hub      *events.Hub
 	Docker   docker.Client
 	Platform *platform.Service
+	// Update backs the self-update status and actions; nil hides them.
+	Update *update.Service
 	// WebUI, when set, serves every path the API does not claim.
 	WebUI http.Handler
 	// Shutdown, when set, ends long-lived streams (events, logs) as soon as
@@ -79,6 +82,13 @@ func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
+	// The panel guard reads the raw TCP peer (PeerContext), so it must run
+	// before realIP rewrites RemoteAddr from proxy headers.
+	panelDomain := ""
+	if d.Config != nil {
+		panelDomain = d.Config.Panel.Domain
+	}
+	r.Use(panelGuard(panelDomain))
 	// realIP must precede everything that reads RemoteAddr (rate-limit keys,
 	// session metadata).
 	r.Use(realIP)
@@ -97,7 +107,7 @@ func NewRouter(d Deps) http.Handler {
 	})
 
 	ah := &authHandlers{auth: d.Auth}
-	sh := &systemHandlers{version: d.Version, cfg: d.Config, catalog: d.Catalog, dk: d.Docker, platform: d.Platform, st: d.Store, started: time.Now()}
+	sh := &systemHandlers{version: d.Version, cfg: d.Config, catalog: d.Catalog, dk: d.Docker, platform: d.Platform, st: d.Store, update: d.Update, started: time.Now()}
 	r.Route("/v1", func(r chi.Router) {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(30 * time.Second))
@@ -124,6 +134,7 @@ func NewRouter(d Deps) http.Handler {
 				r.Get("/system/meta", sh.meta)
 				r.Get("/system/runtime", sh.runtime)
 				r.Get("/system/status", sh.status)
+				r.With(RequireAdmin).Post("/system/actions/{action}", sh.action)
 
 				if d.Sites != nil {
 					siteH := &siteHandlers{sites: d.Sites, st: d.Store}

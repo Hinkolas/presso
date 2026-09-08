@@ -9,7 +9,7 @@ export type DockerInfo = {
 	error?: string;
 };
 
-export type ComponentName = 'network' | 'mariadb' | 'redis' | 'edge';
+export type ComponentName = 'network' | 'mariadb' | 'redis' | 'edge' | 'browser';
 
 export type PlatformComponent = {
 	name: ComponentName;
@@ -32,6 +32,28 @@ export type SystemStatus = {
 		volumes_bytes: number;
 	};
 	uptime_seconds: number;
+	/** Self-update state; absent when the engine runs without the updater. */
+	update?: UpdateStatus;
+};
+
+/** Self-update state (/v1/system/status `update`, system.update events). */
+export type UpdateStatus = {
+	/** Running version, e.g. "v0.1.0" or "v0.0.0-dev". */
+	current: string;
+	release_build: boolean;
+	/** Whether this process can replace its own binary; `unsupported_reason` says why not. */
+	supported: boolean;
+	unsupported_reason?: string;
+	/** Newest published release known; "" before the first successful check. */
+	latest: string;
+	available: boolean;
+	url: string;
+	published_at: string | null;
+	checked_at: string | null;
+	error: string;
+	/** Queued or running engine.update / engine.rollout job. */
+	job_id: string | null;
+	job_kind?: string;
 };
 
 export type SystemMeta = { version: string };

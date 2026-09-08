@@ -171,6 +171,9 @@
 			></span>
 		{:else if item.label === 'System' && runningJobs}
 			<span class="size-2 breathe rounded-full bg-busy" title="{runningJobs} running"></span>
+		{:else if item.label === 'System' && live.update?.available}
+			<span class="size-2 rounded-full bg-brand" title="presso {live.update.latest} is available"
+			></span>
 		{/if}
 	</a>
 	<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -293,6 +296,16 @@
 
 		<main bind:this={mainEl} class="min-h-0 flex-1 overflow-y-auto overscroll-none">
 			<div class="w-full max-w-[1400px] px-5 pt-6 pb-16 sm:px-8 sm:pt-9 lg:px-12">
+				{#if live.restarting}
+					<div
+						class="mb-6 flex items-center gap-3 rounded-control border border-rule bg-sunken px-4 py-3 text-sm text-ink"
+						role="status"
+					>
+						<span class="size-2 breathe rounded-full bg-busy"></span>
+						presso is restarting into {live.restarting}. The app reloads on its own once the engine
+						and the edge are back.
+					</div>
+				{/if}
 				{#if data.apiDown}
 					<div class="mx-auto mt-24 max-w-md text-center">
 						<h1 class="display text-3xl">The engine is not answering</h1>

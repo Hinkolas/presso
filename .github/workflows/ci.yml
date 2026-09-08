@@ -22,6 +22,13 @@ jobs:
       - run: go vet $(go list ./... | grep -v '/web/')
       - run: go test $(go list ./... | grep -v '/web/')
 
+  install-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n install.sh
+      - run: shellcheck --severity=warning install.sh
+
   web:
     runs-on: ubuntu-latest
     defaults:

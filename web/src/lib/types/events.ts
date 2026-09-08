@@ -3,13 +3,14 @@
 
 import type { Job, JobEvent } from './job';
 import type { Site } from './site';
-import type { PlatformComponent } from './system';
+import type { PlatformComponent, UpdateStatus } from './system';
 
 export type LiveEvent =
 	| { type: 'site.status'; time: string; payload: Site }
 	| { type: 'site.deleted'; time: string; payload: { id: string } }
 	| { type: 'job.updated'; time: string; payload: Job }
 	| { type: 'job.event'; time: string; payload: JobEvent }
-	| { type: 'platform.status'; time: string; payload: PlatformComponent[] };
+	| { type: 'platform.status'; time: string; payload: PlatformComponent[] }
+	| { type: 'system.update'; time: string; payload: UpdateStatus };
 
 export type LiveEventType = LiveEvent['type'];

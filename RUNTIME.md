@@ -362,7 +362,7 @@ Images are built in two stages (`runtime/`, published by
    PHP extensions (mysqli, gd, imagick, intl, zip, exif, bcmath, soap,
    opcache, redis), WP-CLI, the two users (web 1000, ops 1001,
    `scripts/users.sh`), `php/presso.ini`, the web server config and
-   `/usr/local/bin/presso-serve`. Multi-arch (amd64 + arm64), rebuilt weekly.
+   `/usr/local/bin/presso-serve`. Multi-arch (amd64 + arm64), rebuilt with every release.
 2. One thin **image** per WordPress/PHP pair, `presso-runtime:php{php}-wp{wp}`
    (`Dockerfile`): `wp core download --version` (`scripts/wordpress.sh`, core
    root-owned and read-only), wp-config.php, the system plugin, drop-ins,
@@ -412,10 +412,13 @@ Entrypoint on start (`entrypoint.sh`, identical for both flavors):
 server alone), `/-/fpm-ping` in the FPM flavor (php-fpm itself), and `SELECT
 1` on the site database when one is configured.
 
-Core upgrade = new image tag. Recreate the container with the same volume, run
-`wp core update-db`. Rollback = previous tag. Docker shares image layers across
-all containers from the same image, so core exists once on disk regardless of
-site count; OPcache is still per container.
+Core upgrade = new image tag. Images are published per engine release as
+`ghcr.io/hinkolas/presso-runtime:<release>-php<php>-wp<wp>`, so updating the
+engine (System → Updates) is what moves sites: the rollout job recreates the
+container with the same volume and the recreate job runs `wp core update-db`.
+Rollback = previous tag. Docker shares image layers across all containers
+from the same image, so core exists once on disk regardless of site count;
+OPcache is still per container.
 
 ## Non-goals (for now)
 

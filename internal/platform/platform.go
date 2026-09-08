@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // registers the "mysql" driver
@@ -35,6 +36,7 @@ import (
 	"github.com/Hinkolas/presso/internal/secrets"
 	"github.com/Hinkolas/presso/internal/store"
 	"github.com/Hinkolas/presso/internal/utils"
+	"github.com/Hinkolas/presso/internal/version"
 )
 
 // Container names are fixed: the engine finds them by name after a restart.
@@ -50,6 +52,11 @@ const (
 	kvRedisPassword   = "redis.default_password"
 	kvEdgeLastApplied = "edge.last_applied_at"
 	kvEdgeLastError   = "edge.last_error"
+	// kvEdgeRenderedBy is the engine version that last pushed the edge config.
+	// A new engine version re-pushes once, since a recreated edge restores its
+	// previous config from the /config volume (caddy run --resume) and would
+	// otherwise keep serving a stale render.
+	kvEdgeRenderedBy = "edge.rendered_by"
 )
 
 // Component is the observed state of one shared piece.
@@ -80,6 +87,10 @@ type Service struct {
 	db         *sql.DB
 	rdb        *redis.Client
 	startedAt  time.Time
+	// edgeDirty is set when the edge container was (re)created and cleared
+	// after a config push succeeded, so the fresh Caddy gets our config even
+	// if the first push races its startup.
+	edgeDirty atomic.Bool
 }
 
 func New(cfg *config.API, dk docker.Client, st *store.Store, box *secrets.Box, hub *events.Hub, edgeClient *edge.Client) *Service {
@@ -136,21 +147,25 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		spec, err := s.mariadbSpec(ctx)
 		var info *docker.ContainerInfo
 		if err == nil {
-			info, err = s.ensureContainer(ctx, spec)
+			info, _, err = s.ensureContainer(ctx, spec)
 		}
 		record("mariadb", info, s.cfg.MariaDBImage, err)
 
 		spec, err = s.redisSpec(ctx)
 		if err == nil {
-			info, err = s.ensureContainer(ctx, spec)
+			info, _, err = s.ensureContainer(ctx, spec)
 		}
 		record("redis", info, s.cfg.RedisImage, err)
 
-		info, err = s.ensureContainer(ctx, s.edgeSpec())
+		var created bool
+		info, created, err = s.ensureContainer(ctx, s.edgeSpec())
+		if created {
+			s.edgeDirty.Store(true)
+		}
 		record("edge", info, s.cfg.Edge.Image, err)
 
 		if s.cfg.Shots.Enabled {
-			info, err = s.ensureContainer(ctx, s.browserSpec())
+			info, _, err = s.ensureContainer(ctx, s.browserSpec())
 			record("browser", info, s.cfg.Shots.Image, err)
 		}
 	} else {
@@ -171,7 +186,10 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		errs = append(errs, err)
 		slog.WarnContext(ctx, "platform: redis acls", "err", err)
 	}
-	if err := s.ensureEdgeConfig(ctx, false); err != nil && ctx.Err() == nil {
+	// Force a push when the edge is fresh or a newer engine renders the
+	// config; otherwise only when Caddy is not carrying ours at all.
+	force := s.edgeDirty.Load() || s.getKV(ctx, kvEdgeRenderedBy) != version.Version
+	if err := s.ensureEdgeConfig(ctx, force); err != nil && ctx.Err() == nil {
 		errs = append(errs, err)
 	}
 
@@ -297,6 +315,9 @@ func (s *Service) edgeSpec() docker.Spec {
 		Labels:         managedLabels("edge"),
 		Network:        s.cfg.Network,
 		NetworkAliases: []string{"edge"},
+		// The panel vhost proxies to the engine on the host (Linux needs the
+		// host-gateway entry; Docker Desktop resolves the name anyway).
+		ExtraHosts: []string{"host.docker.internal:host-gateway"},
 		Mounts: []docker.Mount{
 			{Type: docker.MountVolume, Source: NameEdge + "-data", Target: "/data"},
 			{Type: docker.MountVolume, Source: NameEdge + "-config", Target: "/config"},
@@ -395,56 +416,71 @@ func specHash(spec docker.Spec) string {
 		fmt.Fprintf(&b, "%s:%s:%s;", m.Type, m.Source, m.Target)
 	}
 	fmt.Fprintf(&b, "|%d|%d|%s", spec.MemoryBytes, spec.NanoCPUs, spec.RestartPolicy)
+	// Same rule as Entrypoint: only specs that set extra hosts contribute
+	// them, so components without any keep their hash across upgrades.
+	if len(spec.ExtraHosts) > 0 {
+		b.WriteString("|")
+		b.WriteString(strings.Join(spec.ExtraHosts, "\x00"))
+	}
 	sum := sha256.Sum256([]byte(b.String()))
 	return hex.EncodeToString(sum[:8])
 }
 
 // ensureContainer creates, recreates (on spec change) or starts a named
-// container and returns its inspected state.
-func (s *Service) ensureContainer(ctx context.Context, spec docker.Spec) (*docker.ContainerInfo, error) {
+// container and returns its inspected state; created reports whether a new
+// container was made in this call.
+func (s *Service) ensureContainer(ctx context.Context, spec docker.Spec) (info *docker.ContainerInfo, created bool, err error) {
 	if spec.Labels == nil {
 		spec.Labels = map[string]string{}
 	}
 	spec.Labels[labelHash] = specHash(spec)
 
-	info, err := s.dk.InspectContainer(ctx, spec.Name)
+	info, err = s.dk.InspectContainer(ctx, spec.Name)
 	switch {
 	case err == nil && info.Labels[labelHash] != spec.Labels[labelHash]:
 		slog.InfoContext(ctx, "platform: recreating container with changed spec", "name", spec.Name)
+		// Pull first: the old container keeps serving while a new image
+		// downloads, so an upgrade takes the edge down for seconds, not for
+		// the length of the pull.
+		if err := s.dk.EnsureImage(ctx, spec.Image, nil); err != nil {
+			return info, false, err
+		}
 		if err := s.dk.RemoveContainer(ctx, info.ID, true); err != nil {
-			return info, err
+			return info, false, err
 		}
 		fallthrough
 	case errors.Is(err, docker.ErrNotFound):
 		if err := s.dk.EnsureImage(ctx, spec.Image, nil); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		for _, m := range spec.Mounts {
 			if m.Type == docker.MountVolume {
 				if err := s.dk.EnsureVolume(ctx, m.Source, managedLabels(spec.Labels[docker.LabelKind])); err != nil {
-					return nil, err
+					return nil, false, err
 				}
 			}
 		}
 		id, err := s.dk.CreateContainer(ctx, spec)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if err := s.dk.StartContainer(ctx, id); err != nil {
-			return nil, err
+			return nil, true, err
 		}
 		slog.InfoContext(ctx, "platform: started container", "name", spec.Name, "image", spec.Image)
-		return s.dk.InspectContainer(ctx, id)
+		info, err = s.dk.InspectContainer(ctx, id)
+		return info, true, err
 	case err != nil:
-		return nil, err
+		return nil, false, err
 	}
 	if !info.Running() {
 		if err := s.dk.StartContainer(ctx, info.ID); err != nil {
-			return info, err
+			return info, false, err
 		}
-		return s.dk.InspectContainer(ctx, info.ID)
+		info, err = s.dk.InspectContainer(ctx, info.ID)
+		return info, false, err
 	}
-	return info, nil
+	return info, false, nil
 }
 
 // --- secrets in platform_kv ---
@@ -703,8 +739,10 @@ func (s *Service) ensureEdgeConfig(ctx context.Context, force bool) error {
 		s.setKV(ctx, kvEdgeLastError, err.Error())
 		return err
 	}
+	s.edgeDirty.Store(false)
 	s.setKV(ctx, kvEdgeLastError, "")
 	s.setKV(ctx, kvEdgeLastApplied, time.Now().UTC().Format(time.RFC3339))
+	s.setKV(ctx, kvEdgeRenderedBy, version.Version)
 	return nil
 }
 

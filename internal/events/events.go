@@ -18,6 +18,8 @@ const (
 	TypeJobUpdated     = "job.updated"
 	TypeJobEvent       = "job.event"
 	TypePlatformStatus = "platform.status"
+	// TypeSystemUpdate carries the update check result (internal/update).
+	TypeSystemUpdate = "system.update"
 )
 
 type Event struct {
