@@ -8,9 +8,11 @@
 # WordPress 6.0-6.3 lose their .php suffix and the theme fatals on boot).
 # The checksum wordpress.org publishes next to the tarball is verified.
 #
-# The stock wp-content (default themes, akismet, hello.php, index.php) is
-# moved aside as the seed for an empty volume; the real path becomes the
-# mount point.
+# The stock wp-content is moved aside as the seed for an empty volume; the
+# real path becomes the mount point. The seed is trimmed first: the bundled
+# plugins (Akismet, Hello Dolly) go, and of the three bundled themes only the
+# one core activates on install (WP_DEFAULT_THEME, which differs per release)
+# stays, so a new site starts with nothing to clean up in wp-admin.
 set -eu
 version="$1"
 url="https://wordpress.org/wordpress-${version}.tar.gz"
@@ -23,6 +25,13 @@ wp core version --allow-root --path=/var/www/html > /opt/presso/wp-version
 [ "$(cat /opt/presso/wp-version)" = "$version" ] || { echo "core reports $(cat /opt/presso/wp-version), expected $version" >&2; exit 1; }
 mv /var/www/html/wp-content /opt/presso/wp-content-seed
 mkdir /var/www/html/wp-content
+default_theme=$(sed -n "s/.*define( 'WP_DEFAULT_THEME', '\([a-z0-9-]*\)' ).*/\1/p" /var/www/html/wp-includes/default-constants.php)
+[ -d "/opt/presso/wp-content-seed/themes/$default_theme" ] || { echo "default theme '$default_theme' not found in the seed" >&2; exit 1; }
+for t in /opt/presso/wp-content-seed/themes/*/; do
+	[ "$(basename "$t")" = "$default_theme" ] || rm -rf "$t"
+done
+rm -rf /opt/presso/wp-content-seed/plugins/akismet /opt/presso/wp-content-seed/plugins/hello.php
+echo "seed keeps theme $default_theme; bundled plugins removed"
 rm -f /var/www/html/wp-config-sample.php /var/www/html/readme.html /var/www/html/license.txt
 chown -R root:root /var/www/html /opt/presso
 find /var/www/html /opt/presso -type d -exec chmod 0755 {} +

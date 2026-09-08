@@ -3,7 +3,8 @@
  * Module: enforce. Platform-wide hardening and de-bloat defaults that need a
  * hook inside the request (RUNTIME.md section 7 / 14): XML-RPC and pingbacks
  * off, heartbeat throttled, emoji script gone, generator/RSD/WLW links gone,
- * automatic updates off (the image owns core; the engine runs updates).
+ * automatic updates off (the image owns core; the engine runs updates),
+ * the "WordPress Events and News" dashboard widget gone.
  * Everything here is additive: a site exported without the plugin still works.
  */
 
@@ -31,6 +32,16 @@ function boot(): void {
 	add_filter( 'wp_is_application_passwords_available', '__return_true' );
 
 	add_action( 'init', __NAMESPACE__ . '\\remove_head_cruft' );
+	add_action( 'wp_dashboard_setup', __NAMESPACE__ . '\\remove_dashboard_feed' );
+}
+
+/**
+ * The "WordPress Events and News" widget: a feed nobody asked for that also
+ * makes the dashboard call api.wordpress.org on every load. Everything else
+ * on the dashboard stays.
+ */
+function remove_dashboard_feed(): void {
+	remove_meta_box( 'dashboard_primary', 'dashboard', 'side' );
 }
 
 function strip_pingback_header( array $headers ): array {

@@ -163,6 +163,9 @@ and no WordPress query pattern benefits from MySQL-8-only features.
 - XML-RPC disabled by default; pingbacks off.
 - Heartbeat API throttled.
 - Emoji detection script and other legacy front-end extras removed.
+- Bundled plugins (Akismet, Hello Dolly) and the two inactive default themes
+  are not seeded; a new site starts with the one theme core activates.
+- "WordPress Events and News" dashboard widget removed.
 - Outbound HTTP: block or allowlist during front-end requests; run update
   checks from cron only.
 - Performant translations (core 6.5+) on.
@@ -254,7 +257,7 @@ orchestrator; no site-owner toggles):
 - cache: Cache-Control decisions, surrogate-key header, purge calls
   (section 4).
 - enforce: disable XML-RPC and pingbacks, throttle heartbeat, remove emoji
-  script, block outbound HTTP during front-end requests (pre_http_request
+  script and the Events and News dashboard widget, block outbound HTTP during front-end requests (pre_http_request
   allowlist), move update checks to cron, disable cart fragments when empty.
 - mail: route wp_mail via SMTP relay from env (phpmailer_init).
 - login: one-click login for engine and harness. Engine mints a short-lived
@@ -384,7 +387,8 @@ master dies, the other is stopped and the container exits non-zero so the
 restart policy and the engine's health wait see it.
 
 Entrypoint on start (`entrypoint.sh`, identical for both flavors):
-- Seed the wp-content volume on first boot (default theme, uploads dir).
+- Seed the wp-content volume on first boot (the default theme only, no
+  bundled plugins; uploads dir).
 - Copy/refresh the object-cache.php drop-in into wp-content (drop-ins cannot
   be relocated; the system plugin can, via WPMU_PLUGIN_DIR).
 - Fix ownership per the two-user model (section 8).
