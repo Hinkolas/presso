@@ -1,4 +1,5 @@
-<!-- Activity: recent operations from the API merged with live job.updated events. -->
+<!-- Activity tab on System: recent operations from the API merged with live
+     job.updated events. -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { api, errorText } from '$lib/api/client';
@@ -9,7 +10,6 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Empty from '$lib/components/Empty.svelte';
-	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
@@ -91,24 +91,19 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Activity · presso</title>
-</svelte:head>
-
-<PageHeader title="Activity" subtitle={loaded === null ? 'Loading recent operations.' : summary}>
-	{#snippet actions()}
-		{#if all.length > 0}
-			<Segmented
-				bind:value={filter}
-				options={[
-					{ value: 'all', label: 'All' },
-					{ value: 'running', label: 'Running' },
-					{ value: 'failed', label: 'Failed' }
-				]}
-			/>
-		{/if}
-	{/snippet}
-</PageHeader>
+<div class="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+	<p class="text-md text-ink-2">{loaded === null ? 'Loading recent operations.' : summary}</p>
+	{#if all.length > 0}
+		<Segmented
+			bind:value={filter}
+			options={[
+				{ value: 'all', label: 'All' },
+				{ value: 'running', label: 'Running' },
+				{ value: 'failed', label: 'Failed' }
+			]}
+		/>
+	{/if}
+</div>
 
 {#if error}
 	<Alert class="mb-5">{error}</Alert>

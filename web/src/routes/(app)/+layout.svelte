@@ -1,7 +1,7 @@
-<!-- App shell: a sidebar with the three places to go (Sites, Activity,
-     System; platform health sits on the System row), a topbar for search and
-     the account, and the page below. One event stream is opened here and
-     shared by every page. -->
+<!-- App shell: a sidebar with Sites up top and, pinned to the bottom, System
+     (platform health sits on its row) and the account card; a topbar for the
+     breadcrumb and search; the page below. One event stream is opened here
+     and shared by every page. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -31,26 +31,21 @@
 	const user = $derived(session.user ?? data.user);
 
 	type NavItem = { href: string; label: string; icon: IconName; match: (p: string) => boolean };
-	const nav: NavItem[] = [
+	const primary: NavItem[] = [
 		{
 			href: resolve('/'),
 			label: 'Sites',
 			icon: 'sites',
 			match: (p) => p === '/' || p.startsWith('/sites')
-		},
-		{
-			href: resolve('/jobs'),
-			label: 'Activity',
-			icon: 'jobs',
-			match: (p) => p.startsWith('/jobs')
-		},
-		{
-			href: resolve('/system'),
-			label: 'System',
-			icon: 'system',
-			match: (p) => p.startsWith('/system')
 		}
 	];
+	// System also owns the job history (its Activity tab and /jobs/{id}).
+	const system: NavItem = {
+		href: resolve('/system'),
+		label: 'System',
+		icon: 'system',
+		match: (p) => p.startsWith('/system') || p.startsWith('/jobs')
+	};
 
 	const siteCount = $derived.by(() => {
 		let n = 0;
@@ -65,7 +60,8 @@
 
 	// Platform health for the dot on the System row: every component reported
 	// ok. A dropped event stream is surfaced here too, since the data on screen
-	// may be stale until it reconnects.
+	// may be stale until it reconnects. Running jobs show there as well, since
+	// the job history is a tab of System.
 	const platformState = $derived.by(() => {
 		if (!live.connected && live.generation > 0) return 'offline';
 		const comps = live.platform;
@@ -87,9 +83,10 @@
 	const crumbs = $derived.by(() => {
 		const p = page.url.pathname;
 		if (p.startsWith('/sites/')) return ['Sites', sites.get(page.params.id ?? '')?.name ?? 'Site'];
-		if (p.startsWith('/jobs/')) return ['Activity', 'Job'];
-		if (p.startsWith('/jobs')) return ['Activity'];
-		if (p.startsWith('/system')) return ['System'];
+		if (p.startsWith('/jobs/')) return ['System', 'Activity', 'Job'];
+		if (p.startsWith('/system')) {
+			return page.url.searchParams.get('tab') === 'activity' ? ['System', 'Activity'] : ['System'];
+		}
 		if (p.startsWith('/account')) return ['Account security'];
 		return ['Sites'];
 	});
@@ -167,13 +164,13 @@
 		<span class="flex-1">{item.label}</span>
 		{#if item.label === 'Sites' && siteCount}
 			<span class="text-sm text-ink-3 num">{siteCount}</span>
-		{:else if item.label === 'Activity' && runningJobs}
-			<span class="size-2 breathe rounded-full bg-busy" title="{runningJobs} running"></span>
 		{:else if item.label === 'System' && platformState && platformState !== 'ok'}
 			<span
 				class="size-2 rounded-full {platformState === 'error' ? 'bg-danger' : 'breathe bg-busy'}"
 				title={platformTitle}
 			></span>
+		{:else if item.label === 'System' && runningJobs}
+			<span class="size-2 breathe rounded-full bg-busy" title="{runningJobs} running"></span>
 		{/if}
 	</a>
 	<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -209,10 +206,49 @@
 		</div>
 
 		<nav class="flex flex-col gap-1" aria-label="Sections">
-			{#each nav as item (item.label)}
+			{#each primary as item (item.label)}
 				{@render navLink(item)}
 			{/each}
 		</nav>
+
+		<div class="mt-auto flex flex-col gap-3">
+			<nav class="flex flex-col gap-1" aria-label="Host">
+				{@render navLink(system)}
+			</nav>
+			<Menu
+				items={accountItems}
+				label="Account"
+				align="left"
+				triggerClass="flex w-full items-center gap-3 rounded-control border border-rule bg-ground px-2.5 py-2 text-left transition-colors hover:bg-sunken aria-expanded:bg-sunken"
+			>
+				{#snippet header()}
+					<p class="truncate text-sm font-medium text-ink">{user?.name || user?.email || '–'}</p>
+					<p class="truncate text-xs text-ink-2">
+						{[user?.name ? user.email : '', user?.role === 'admin' ? 'administrator' : '']
+							.filter(Boolean)
+							.join(' · ')}
+					</p>
+				{/snippet}
+				{#snippet children({ open })}
+					<span
+						class="grid size-9 shrink-0 place-items-center rounded-control-sm bg-ink text-xs font-semibold text-surface"
+					>
+						{initials}
+					</span>
+					<span class="min-w-0 flex-1">
+						<span class="block truncate text-sm font-medium text-ink"
+							>{user?.name || firstName}</span
+						>
+						<span class="block truncate text-xs text-ink-2">{user?.email || 'Account'}</span>
+					</span>
+					<Icon
+						name="chevron-down"
+						size={16}
+						class="shrink-0 text-ink-3 transition-transform duration-150 {open ? 'rotate-180' : ''}"
+					/>
+				{/snippet}
+			</Menu>
+		</div>
 	</aside>
 
 	<div class="flex h-full min-w-0 flex-1 flex-col">
@@ -255,33 +291,6 @@
 					>⌘K</kbd
 				>
 			</button>
-
-			<Menu
-				items={accountItems}
-				label="Account"
-				align="right"
-				triggerClass="flex items-center gap-2.5 rounded-full py-0.5 pr-1.5 pl-0.5 text-left transition-colors hover:bg-sunken aria-expanded:bg-sunken"
-			>
-				{#snippet header()}
-					<p class="truncate text-sm font-medium text-ink">{user?.name || user?.email || '–'}</p>
-					<p class="truncate text-xs text-ink-2">
-						{user?.name ? user.email : ''}{user?.role === 'admin' ? ' · administrator' : ''}
-					</p>
-				{/snippet}
-				{#snippet children({ open })}
-					<span
-						class="grid size-[34px] place-items-center rounded-full bg-ink text-xs font-semibold text-surface"
-					>
-						{initials}
-					</span>
-					<span class="hidden text-sm font-medium text-ink sm:block">{firstName}</span>
-					<Icon
-						name="chevron-down"
-						size={16}
-						class="text-ink-3 transition-transform duration-150 {open ? 'rotate-180' : ''}"
-					/>
-				{/snippet}
-			</Menu>
 		</header>
 
 		<main bind:this={mainEl} class="min-h-0 flex-1 overflow-y-auto overscroll-none">

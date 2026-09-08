@@ -8,13 +8,17 @@ sidebar that has room to grow.
 
 ## Shell
 
-- A 260px sidebar carries navigation only: Sites, Activity (the job
-  history, at `/jobs`) and System. Platform health is a dot on the System
-  row, shown only when something is wrong or the event stream dropped; the
-  verdict itself is the System page subtitle. Nothing else is padded in:
-  new sections (domains, backups, hosts) get a row when they get a page.
-- A 64px topbar carries the breadcrumb, the global search (⌘K opens the
-  command palette) and the account menu.
+- A 260px sidebar: Sites at the top; pinned to the bottom, System and the
+  account card (avatar, name, email; opens the account menu upward). The
+  System row carries a dot when a component is bad, the event stream
+  dropped, or a job is running; the health verdict itself is the System
+  page subtitle. Nothing else is padded in: new sections (domains,
+  backups, hosts) get a row when they get a page.
+- System has two tabs (`?tab=`): Overview (components, Docker, edge, disk)
+  and Activity, the job history. `/jobs` redirects to the Activity tab;
+  job detail pages stay at `/jobs/{id}` and read as System › Activity › Job.
+- A 64px topbar carries the breadcrumb and the global search (⌘K opens the
+  command palette).
 - Pages live in a 1400px column with 48px side padding and 36px above.
 
 ## Tokens
