@@ -237,11 +237,12 @@
 	}
 }
 
-/* Headline voice: Instrument Serif, regular weight, slightly tight. */
+/* Headline voice: Instrument Serif, regular weight. The face is condensed by
+   design, so tracking is opened up slightly rather than tightened. */
 @utility display {
 	font-family: var(--font-serif);
 	font-weight: 400;
-	letter-spacing: -0.01em;
+	letter-spacing: 0.01em;
 	text-wrap: balance;
 }
 

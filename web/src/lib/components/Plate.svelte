@@ -124,7 +124,7 @@
 			<StatusPill status={shown} soft />
 		</div>
 
-		<div class="flex items-center gap-6 text-sm text-ink-2">
+		<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-2">
 			{#if setup}
 				<span>Started {formatRelative(job?.created_at ?? site.updated_at)}</span>
 			{:else if site.status === 'stopped'}
@@ -142,11 +142,11 @@
 					>{site.status_message || 'Something went wrong'}</span
 				>
 			{:else}
-				<span class="num"
+				<span class="whitespace-nowrap num"
 					><strong class="font-semibold text-ink">{formatNumber(m?.requests ?? 0)}</strong> requests this
 					hour</span
 				>
-				<span class="num"
+				<span class="whitespace-nowrap num"
 					><strong class="font-semibold text-ink">{m && m.requests ? cacheRatio(m) : '–'}</strong> from
 					cache</span
 				>

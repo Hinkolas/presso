@@ -66,6 +66,16 @@ palette values.
   Sites page toggles between them with `Segmented` and remembers the choice
   (`?view=grid|list` overrides for a visit). `Thumb` renders the preview
   or a placeholder with the site's initial.
+- `SiteRow` is a plate laid out sideways, not a table row: 120px thumb,
+  name and domain, a fixed-width status column, then the hour's numbers as
+  value-over-caption cells (`w-18`, right-aligned) so they read as columns
+  down the list without a header. A site that is not serving puts what it
+  is doing where the numbers would be: the failure in `text-danger-ink`,
+  "Stopped 3 h ago · Start", or the setup step and its bar. Rows stack with
+  `gap-3`. The list is a `@container`; p95 appears from `@4xl` (56rem) and
+  the runtime cell from `@5xl` (64rem). Under 44rem of content width the
+  page measures itself, hides the view toggle and shows the grid card in
+  one column instead: the row never folds.
 - `Panel` is a plate with an optional title row; `Table` is a plate around a
   table. `Menu` is the overflow menu. `CommandPalette` is the ⌘K search.
 - Status wording is shared through `components/status.ts` (`toneOf`,

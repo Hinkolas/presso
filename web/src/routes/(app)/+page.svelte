@@ -1,6 +1,8 @@
-<!-- Sites: every site on this host, as a grid of plates or a list. The
-     initial GET is merged with live site.status events; the list view also
-     fetches an hour of request buckets per site for p95. -->
+<!-- Sites: every site on this host, as a grid of plates or a list of rows.
+     The initial GET is merged with live site.status events; the list view
+     also fetches an hour of request buckets per site for p95. Under 44rem of
+     content width the list gives way to the grid card, which stacks into one
+     column and is the right shape for a phone. -->
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
 	import { afterNavigate, replaceState } from '$app/navigation';
@@ -20,11 +22,16 @@
 	import Select from '$lib/components/Select.svelte';
 	import SiteRow from '$lib/components/SiteRow.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
-	import Table, { th } from '$lib/components/Table.svelte';
 
 	type View = 'grid' | 'list';
 	const VIEW_KEY = 'presso.sites.view';
 	let view = $state<View>('grid');
+	// The list needs room for its columns; narrower than this the grid card
+	// takes over and the toggle goes away. Same number as the row's comment.
+	const LIST_MIN = 44 * 16;
+	let width = $state(Infinity);
+	const narrow = $derived(width < LIST_MIN);
+	const shownView = $derived<View>(narrow ? 'grid' : view);
 	$effect(() => {
 		// ?view= wins for this visit; otherwise the remembered choice.
 		const q = page.url.searchParams.get('view');
@@ -123,7 +130,7 @@
 		}
 	}
 	$effect(() => {
-		if (view !== 'list') return;
+		if (shownView !== 'list') return;
 		const ids = all.filter((s) => s.status === 'running').map((s) => s.id);
 		for (const id of ids) loadHour(id);
 		const t = setInterval(() => ids.forEach(loadHour), 60_000);
@@ -147,16 +154,18 @@
 	{#snippet actions()}
 		{#if all.length > 0}
 			<Select bind:value={filter} options={filterOptions} label="Filter by status" />
-			<Segmented
-				value={view}
-				options={[
-					{ value: 'grid', label: 'Grid', icon: 'grid' },
-					{ value: 'list', label: 'List', icon: 'list' }
-				]}
-				iconOnly
-				label="View"
-				onchange={setView}
-			/>
+			{#if !narrow}
+				<Segmented
+					value={view}
+					options={[
+						{ value: 'grid', label: 'Grid', icon: 'grid' },
+						{ value: 'list', label: 'List', icon: 'list' }
+					]}
+					iconOnly
+					label="View"
+					onchange={setView}
+				/>
+			{/if}
 		{/if}
 		{#if isAdmin()}
 			<Button variant="primary" onclick={openCreateSite} icon="plus">New site</Button>
@@ -164,58 +173,49 @@
 	{/snippet}
 </PageHeader>
 
-{#if error}
-	<Alert class="mb-6">{error}</Alert>
-{/if}
+<!-- Measured so the list can hand over to the grid card when the column is
+     narrow; also the container the rows' column queries resolve against. -->
+<div class="@container" bind:clientWidth={width}>
+	{#if error}
+		<Alert class="mb-6">{error}</Alert>
+	{/if}
 
-{#if loaded === null}
-	<div class="grid gap-7 lg:grid-cols-2" aria-busy="true">
-		{#each [0, 1] as i (i)}
-			<div class="overflow-hidden frame">
-				<div class="aspect-[16/10] animate-pulse bg-sunken"></div>
-				<div class="flex flex-col gap-3 border-t border-rule p-6">
-					<Skeleton class="h-6 w-1/2" />
-					<Skeleton class="h-4 w-1/3" />
+	{#if loaded === null}
+		<div class="grid gap-7 lg:grid-cols-2" aria-busy="true">
+			{#each [0, 1] as i (i)}
+				<div class="overflow-hidden frame">
+					<div class="aspect-[16/10] animate-pulse bg-sunken"></div>
+					<div class="flex flex-col gap-3 border-t border-rule p-6">
+						<Skeleton class="h-6 w-1/2" />
+						<Skeleton class="h-4 w-1/3" />
+					</div>
 				</div>
-			</div>
-		{/each}
-	</div>
-{:else if all.length === 0}
-	<Empty
-		title="Create your first site"
-		text="A new WordPress site takes about a minute: the runtime container, its database and cache, and a route at the edge."
-	>
-		{#if isAdmin()}
-			<Button variant="primary" onclick={openCreateSite} icon="plus">New site</Button>
-		{/if}
-	</Empty>
-{:else if shown.length === 0}
-	<Empty title="No site matches" text="Nothing has this status right now.">
-		<Button onclick={() => (filter = 'all')}>Show all statuses</Button>
-	</Empty>
-{:else if view === 'grid'}
-	<div class="grid gap-7 lg:grid-cols-2">
-		{#each shown as s (s.id)}
-			<Plate site={s} />
-		{/each}
-	</div>
-{:else}
-	<Table>
-		<thead>
-			<tr>
-				<th class={th}>Site</th>
-				<th class={th}>Status</th>
-				<th class="{th} text-right">Requests, 1 h</th>
-				<th class="{th} text-right">From cache</th>
-				<th class="{th} text-right">p95</th>
-				<th class="{th} text-right">Runtime</th>
-				<th class={th}><span class="sr-only">Actions</span></th>
-			</tr>
-		</thead>
-		<tbody>
+			{/each}
+		</div>
+	{:else if all.length === 0}
+		<Empty
+			title="Create your first site"
+			text="A new WordPress site takes about a minute: the runtime container, its database and cache, and a route at the edge."
+		>
+			{#if isAdmin()}
+				<Button variant="primary" onclick={openCreateSite} icon="plus">New site</Button>
+			{/if}
+		</Empty>
+	{:else if shown.length === 0}
+		<Empty title="No site matches" text="Nothing has this status right now.">
+			<Button onclick={() => (filter = 'all')}>Show all statuses</Button>
+		</Empty>
+	{:else if shownView === 'grid'}
+		<div class="grid gap-7 lg:grid-cols-2">
+			{#each shown as s (s.id)}
+				<Plate site={s} />
+			{/each}
+		</div>
+	{:else}
+		<div class="flex flex-col gap-3">
 			{#each shown as s (s.id)}
 				<SiteRow site={s} hour={hours.get(s.id)} />
 			{/each}
-		</tbody>
-	</Table>
-{/if}
+		</div>
+	{/if}
+</div>
