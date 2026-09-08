@@ -121,12 +121,36 @@ func New(d Deps) *Service {
 		platform: d.Platform, edge: d.Edge, shots: d.Shots, now: func() time.Time { return time.Now().UTC() },
 	}
 	if s.jobs != nil {
-		s.jobs.Register(JobProvision, s.runProvision)
-		s.jobs.Register(JobStart, s.runStart)
-		s.jobs.Register(JobStop, s.runStop)
-		s.jobs.Register(JobRestart, s.runRestart)
-		s.jobs.Register(JobRecreate, s.runRecreate)
-		s.jobs.Register(JobDelete, s.runDelete)
+		// The plans mirror the Reporter.Step calls in jobs.go; the UI draws
+		// its progress bar and "still to do" list from them.
+		image := jobs.Step{Name: "image", Label: "Runtime image"}
+		container := jobs.Step{Name: "container", Label: "Container"}
+		health := jobs.Step{Name: "health", Label: "Health check"}
+		edge := jobs.Step{Name: "edge", Label: "Edge route"}
+		preview := jobs.Step{Name: "preview", Label: "Preview"}
+		s.jobs.Register(JobProvision, s.runProvision,
+			image,
+			jobs.Step{Name: "database", Label: "Database"},
+			jobs.Step{Name: "redis", Label: "Object cache"},
+			jobs.Step{Name: "volume", Label: "Files volume"},
+			container, health,
+			jobs.Step{Name: "wordpress", Label: "WordPress install"},
+			edge,
+			jobs.Step{Name: "warm", Label: "Warm-up"},
+			preview,
+		)
+		s.jobs.Register(JobStart, s.runStart, jobs.Step{Name: "start", Label: "Start container"}, health, preview)
+		s.jobs.Register(JobStop, s.runStop, jobs.Step{Name: "stop", Label: "Stop container"})
+		s.jobs.Register(JobRestart, s.runRestart, jobs.Step{Name: "restart", Label: "Restart container"}, health)
+		s.jobs.Register(JobRecreate, s.runRecreate, image, container, health,
+			jobs.Step{Name: "edge", Label: "Edge and page cache"}, preview)
+		s.jobs.Register(JobDelete, s.runDelete,
+			edge, container,
+			jobs.Step{Name: "database", Label: "Database"},
+			jobs.Step{Name: "redis", Label: "Object cache"},
+			jobs.Step{Name: "volume", Label: "Files volume"},
+			jobs.Step{Name: "record", Label: "Site record"},
+		)
 	}
 	if s.platform != nil {
 		s.platform.SetEdgeRenderer(s.RenderEdge)

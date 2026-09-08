@@ -1,15 +1,17 @@
 <!-- Site detail: preview, identity and the main actions up top; a tab strip
      (?tab=) below. The record comes from GET /v1/sites/{id} and is kept
-     fresh by live events. -->
+     fresh by live events. A job working on the site is followed by the
+     toast at the bottom right, which opens the full timeline. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { api, ApiError, errorText } from '$lib/api/client';
-	import { deletedSites, jobs, seedJob, sites as liveSites } from '$lib/state/live.svelte';
+	import { deletedSites, jobFor, seedJob, sites as liveSites } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
 	import { runtimeLabel } from '$lib/state/capabilities.svelte';
-	import type { Job } from '$lib/types/job';
+	import { isLive } from '$lib/job-progress';
+	import type { Job, JobsResponse } from '$lib/types/job';
 	import type { LoginLinkResponse, Site } from '$lib/types/site';
 	import { formatRelative } from '$lib/format';
 	import { shownStatus } from '$lib/site-actions';
@@ -17,6 +19,7 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import JobToast from '$lib/components/JobToast.svelte';
 	import RuntimeBadge from '$lib/components/RuntimeBadge.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
@@ -31,7 +34,6 @@
 	const id = $derived(page.params.id ?? '');
 
 	let loaded = $state<Site | null>(null);
-	let activeJobId = $state<string | null>(null);
 	let error = $state('');
 	let notFound = $state(false);
 	let loadedFor = $state('');
@@ -42,9 +44,13 @@
 			loaded = res.site;
 			// Let the shell (breadcrumb, palette) know this site by name.
 			if (!liveSites.has(res.site.id)) liveSites.set(res.site.id, res.site);
-			if (res.active_job) {
-				seedJob(res.active_job);
-				activeJobId = res.active_job.id;
+			if (res.active_job) seedJob(res.active_job);
+			else if (res.site.status !== 'running' && res.site.status !== 'stopped') {
+				// Not settled and nothing running: the last job says what happened.
+				api
+					.get<JobsResponse>(`/v1/jobs?site_id=${siteId}&limit=1`)
+					.then((r) => r.jobs.forEach(seedJob))
+					.catch(() => {});
 			}
 			error = '';
 			notFound = false;
@@ -62,22 +68,10 @@
 	const site = $derived(liveSites.get(id) ?? (loadedFor === id ? loaded : null));
 	const deleted = $derived(deletedSites.has(id));
 
-	// The job currently working on this site: the freshest unfinished one the
-	// live stream knows about, else the one the detail call returned.
-	const activeJob = $derived.by(() => {
-		let best: Job | null = null;
-		for (const j of jobs.values()) {
-			if (j.site_id !== id) continue;
-			if (j.status !== 'queued' && j.status !== 'running') continue;
-			if (!best || j.created_at > best.created_at) best = j;
-		}
-		if (best) return best;
-		if (activeJobId) {
-			const j = jobs.get(activeJobId);
-			if (j) return j;
-		}
-		return null;
-	});
+	// The job currently working on this site, if any; locks the controls.
+	const latestJob = $derived(jobFor(id));
+	const activeJob = $derived(latestJob && isLive(latestJob) ? latestJob : null);
+	let timelineOpen = $state(false);
 
 	type Tab = 'overview' | 'metrics' | 'logs' | 'wp' | 'activity' | 'settings';
 	const tabs: { id: Tab; label: string; admin?: boolean }[] = [
@@ -101,7 +95,6 @@
 
 	function onJob(job: Job) {
 		seedJob(job);
-		activeJobId = job.id;
 	}
 
 	let adminBusy = $state(false);
@@ -186,13 +179,18 @@
 				<Icon name="external" size={15} class="text-ink-3" />
 			</a>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			{#if site.status_message}
-				<p
-					class="mt-3 max-w-2xl text-sm {site.status === 'error'
-						? 'text-danger-ink'
-						: 'text-ink-2'}"
-				>
+			{#if site.status === 'error' && site.status_message}
+				<p class="mt-3 max-w-2xl text-sm text-danger-ink">
 					{site.status_message}
+					{#if latestJob && latestJob.status === 'failed'}
+						<button
+							type="button"
+							class="ml-1 font-medium text-ink underline decoration-rule-strong underline-offset-2 hover:decoration-ink"
+							onclick={() => (timelineOpen = true)}
+						>
+							Show what happened
+						</button>
+					{/if}
 				</p>
 			{/if}
 			<p class="mt-3 text-sm text-ink-3">
@@ -265,4 +263,6 @@
 	{:else if tab === 'settings'}
 		<Settings {site} {onJob} />
 	{/if}
+
+	<JobToast {site} bind:open={timelineOpen} />
 {/if}

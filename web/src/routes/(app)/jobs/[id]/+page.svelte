@@ -10,7 +10,7 @@
 	import { formatDateTime, formatDuration, formatRelative, spanMs } from '$lib/format';
 	import type { Job, JobDetailResponse } from '$lib/types/job';
 	import Alert from '$lib/components/Alert.svelte';
-	import JobPanel from '$lib/components/JobPanel.svelte';
+	import JobTimeline from '$lib/components/JobTimeline.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -132,7 +132,7 @@
 		{/if}
 
 		<Panel title="Steps">
-			<JobPanel {job} showLink={false} />
+			<JobTimeline {job} />
 		</Panel>
 	</div>
 {/if}

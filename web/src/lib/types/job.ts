@@ -2,6 +2,9 @@
 
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
+/** One planned phase of a job kind: the `step` name events carry, and a short label. */
+export type JobStep = { name: string; label: string };
+
 export type Job = {
 	id: string;
 	kind: string;
@@ -14,6 +17,8 @@ export type Job = {
 	finished_at: string | null;
 	created_at: string;
 	updated_at: string;
+	/** The steps this kind reports, in order; empty when the engine declared none. */
+	plan: JobStep[];
 };
 
 export type JobEvent = {

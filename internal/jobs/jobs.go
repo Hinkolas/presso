@@ -51,6 +51,34 @@ var (
 // error becomes the job's failure message.
 type Handler func(ctx context.Context, job store.Job, r *Reporter) error
 
+// Step is one planned phase of a job kind: the name the handler passes to
+// Reporter.Step and a short label for the UI, which uses the plan to show
+// what is still to come and how far along a job is. Steps a handler skips
+// (a conditional phase) simply never fire.
+type Step struct {
+	Name  string `json:"name"`
+	Label string `json:"label"`
+}
+
+// plans is the kind → planned steps registry. Kinds are static metadata
+// shared by every runner, so it lives at package level and JobPayload can
+// attach it without a runner in hand.
+var (
+	plansMu sync.RWMutex
+	plans   = map[string][]Step{}
+)
+
+// planFor returns a copy of the plan for kind, or nil when none was declared.
+func planFor(kind string) []Step {
+	plansMu.RLock()
+	defer plansMu.RUnlock()
+	p := plans[kind]
+	if len(p) == 0 {
+		return nil
+	}
+	return append([]Step(nil), p...)
+}
+
 type Runner struct {
 	st       *store.Store
 	hub      *events.Hub
@@ -72,8 +100,14 @@ func New(st *store.Store, hub *events.Hub, workers int) *Runner {
 	}
 }
 
-// Register binds a handler to a job kind. Must happen before Start.
-func (r *Runner) Register(kind string, h Handler) { r.handlers[kind] = h }
+// Register binds a handler to a job kind, with the steps it is expected to
+// report in order. Must happen before Start.
+func (r *Runner) Register(kind string, h Handler, plan ...Step) {
+	r.handlers[kind] = h
+	plansMu.Lock()
+	plans[kind] = append([]Step(nil), plan...)
+	plansMu.Unlock()
+}
 
 // Start fails whatever a previous process left unfinished, then launches the
 // workers. It returns immediately; workers stop when ctx is cancelled and
@@ -257,6 +291,9 @@ type Job struct {
 	FinishedAt *time.Time      `json:"finished_at"`
 	CreatedAt  time.Time       `json:"created_at"`
 	UpdatedAt  time.Time       `json:"updated_at"`
+	// Plan lists the steps this kind reports, in order; empty when the kind
+	// declared none.
+	Plan []Step `json:"plan"`
 }
 
 type Event struct {
@@ -272,6 +309,10 @@ func JobPayload(j store.Job) Job {
 	out := Job{
 		ID: j.ID, Kind: j.Kind, Status: j.Status, Args: json.RawMessage(j.Args), Error: j.Error,
 		CreatedBy: j.CreatedBy, CreatedAt: j.CreatedAt, UpdatedAt: j.UpdatedAt,
+		Plan: planFor(j.Kind),
+	}
+	if out.Plan == nil {
+		out.Plan = []Step{}
 	}
 	if !json.Valid(out.Args) {
 		out.Args = json.RawMessage("{}")

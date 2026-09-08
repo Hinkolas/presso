@@ -5,7 +5,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 import { api } from '$lib/api/client';
 import type { LiveEvent } from '$lib/types/events';
-import type { Job, JobEvent } from '$lib/types/job';
+import type { Job, JobDetailResponse, JobEvent, JobsResponse } from '$lib/types/job';
 import type { Site } from '$lib/types/site';
 import type { PlatformComponent, SystemStatus } from '$lib/types/system';
 
@@ -120,10 +120,46 @@ export function seedJob(job: Job): void {
 	if (!cur || cur.updated_at <= job.updated_at) jobs.set(job.id, job);
 }
 
+/** The job to follow for a site: the freshest unfinished one, else the most
+ *  recent one the stream (or a seed) knows about; null when none. */
+export function jobFor(siteId: string): Job | null {
+	let active: Job | null = null;
+	let latest: Job | null = null;
+	for (const j of jobs.values()) {
+		if (j.site_id !== siteId) continue;
+		if (!latest || j.created_at > latest.created_at) latest = j;
+		if (j.status === 'queued' || j.status === 'running') {
+			if (!active || j.created_at > active.created_at) active = j;
+		}
+	}
+	return active ?? latest;
+}
+
+/** Fetch a job's record and event log once, so a timeline opened mid-run
+ *  shows the steps that happened before this page was loaded. */
+export async function loadJob(jobId: string): Promise<void> {
+	const r = await api.get<JobDetailResponse>(`/v1/jobs/${jobId}`);
+	seedJob(r.job);
+	seedJobEvents(jobId, r.events);
+}
+
 /** Fill the live maps from the API once, so the shell (counts, health chip,
- *  breadcrumbs, palette) has data before the first event arrives. */
+ *  breadcrumbs, palette, running-job badge) has data before the first event
+ *  arrives. Unfinished jobs also get their event log, so progress on a site
+ *  card or in the toast is complete after a reload. */
 export async function seedLive(): Promise<void> {
 	await Promise.all([
+		api
+			.get<JobsResponse>('/v1/jobs?limit=50')
+			.then((r) => {
+				for (const j of r.jobs) seedJob(j);
+				return Promise.all(
+					r.jobs
+						.filter((j) => j.status === 'queued' || j.status === 'running')
+						.map((j) => loadJob(j.id).catch(() => {}))
+				);
+			})
+			.catch(() => {}),
 		api
 			.get<{ sites: Site[] }>('/v1/sites')
 			.then((r) => {

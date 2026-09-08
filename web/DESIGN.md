@@ -93,6 +93,38 @@ palette values.
   button) and `header` for a non-interactive block above the items; arrow
   keys move through items. Every icon-only action in a table is
   `Button variant="ghost" size="sm" icon=…` with an `aria-label`.
+- `Sheet` is the side panel: a plate that slides in at the right edge on
+  the native `<dialog>`, for detail that belongs beside the page rather than
+  on top of it (a job's timeline). `title`, `subtitle`, an `aside` snippet
+  next to the title (a StatusPill), scrolling body, fixed `footer`.
+- `ProgressBar` is the one track (1.5px `md`, 1px `sm`): brass while in
+  motion, green complete, red stopped short; `value` null sweeps.
+
+## Following a job
+
+The engine declares each job kind's steps (`plan` on the job payload) and
+`lib/job-progress.ts` folds the plan and the event log into done / active /
+todo / skipped / failed steps, a position and a fraction. Everything that
+shows a job reads that model, never the raw events:
+
+- On the Sites page a site being set up or torn down keeps its card; the
+  preview area becomes the setup face: the step under way, a `ProgressBar`,
+  "Step 5 of 10 · 12 s". The list row puts the same bar and line under the
+  status pill. When the job finishes the card turns into an ordinary one.
+- The site page stays the site page. A job under way is followed by
+  `JobToast`, a small plate at the bottom right (title, current step, bar,
+  counter, elapsed). Clicking it opens the timeline in a `Sheet`; the ×
+  hides it. A success fades out after six seconds; a failure stays until
+  dismissed. The toast only appears for a job seen live on that page: after
+  a reload a failed site shows its message in the header with a "Show what
+  happened" link that opens the same Sheet.
+- `JobTimeline` is the spine of steps (ticked, breathing, hollow, dashed
+  for skipped), each with the handler's wording and its log lines, the
+  failure under the step that hit it, and per-step durations. The Jobs
+  detail page uses it too. There is no "Last operation" panel on Overview.
+- Creating a site closes the wizard and shows the new card (scrolled into
+  view) rather than opening the site; deleting one returns to the Sites
+  page, where the card shows the teardown and then disappears.
 
 ## Creating a site
 

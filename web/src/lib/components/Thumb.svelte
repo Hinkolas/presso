@@ -45,31 +45,8 @@
 				{site.name.trim().charAt(0).toUpperCase() || '?'}
 			</span>
 			{#if size === 'lg'}
-				<span class="text-sm text-ink-3">
-					{site.status === 'provisioning' && site.status_message
-						? site.status_message
-						: placeholder}
-				</span>
-				{#if site.status === 'provisioning'}
-					<div class="h-1.5 w-60 overflow-hidden rounded-full bg-rule">
-						<div class="progress h-full w-1/3 rounded-full bg-busy"></div>
-					</div>
-				{/if}
+				<span class="text-sm text-ink-3">{placeholder}</span>
 			{/if}
 		</div>
 	{/if}
 </div>
-
-<style>
-	@keyframes slide {
-		from {
-			transform: translateX(-100%);
-		}
-		to {
-			transform: translateX(300%);
-		}
-	}
-	.progress {
-		animation: slide 1.8s ease-in-out infinite;
-	}
-</style>

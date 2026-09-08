@@ -1,5 +1,6 @@
 <!-- Overview: what is happening now, the last hour, the configuration, and
-     the lifecycle controls. -->
+     the lifecycle controls. A job under way shows in the page's toast, not
+     here. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -22,7 +23,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Input from '$lib/components/Input.svelte';
-	import JobPanel from '$lib/components/JobPanel.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Panel from '$lib/components/Panel.svelte';
@@ -37,11 +37,8 @@
 	let notice = $state('');
 
 	const admin = $derived(isAdmin());
-	const jobRunning = $derived(
-		activeJob !== null && (activeJob.status === 'queued' || activeJob.status === 'running')
-	);
 	const locked = $derived(
-		jobRunning || site.status === 'provisioning' || site.status === 'deleting'
+		activeJob !== null || site.status === 'provisioning' || site.status === 'deleting'
 	);
 	const running = $derived(site.status === 'running');
 
@@ -157,7 +154,8 @@
 			});
 			onJob(res.job);
 			deleteOpen = false;
-			await goto(resolve(`/jobs/${res.job.id}`));
+			// The card on the Sites page shows the teardown and then goes away.
+			await goto(resolve('/'));
 		} catch (err) {
 			deleteError = errorText(err);
 		} finally {
@@ -194,12 +192,6 @@
 <div class="flex flex-col gap-5">
 	{#if error}<Alert>{error}</Alert>{/if}
 	{#if notice}<Alert tone="success">{notice}</Alert>{/if}
-
-	{#if activeJob}
-		<Panel title={jobRunning ? 'In progress' : 'Last operation'}>
-			<JobPanel job={activeJob} compact />
-		</Panel>
-	{/if}
 
 	<div class="grid gap-5 lg:grid-cols-3">
 		<Panel title="Right now">

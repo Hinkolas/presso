@@ -1,16 +1,20 @@
 <!-- A site in the list: small preview, name, status, and the hour's numbers
-     as right-aligned columns. -->
+     as right-aligned columns. While it is being set up or torn down the
+     status cell carries the step under way and a bar. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { jobs } from '$lib/state/live.svelte';
+	import { createSite } from '$lib/state/create-site.svelte';
+	import { jobEvents, jobFor } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
 	import { runSiteAction, shownStatus } from '$lib/site-actions';
+	import { isLive, jobProgress } from '$lib/job-progress';
 	import { cacheRatio, formatDuration, formatNumber } from '$lib/format';
 	import { branchOf } from '$lib/state/capabilities.svelte';
 	import type { MetricsResponse, Site, SiteAction } from '$lib/types/site';
 	import Icon from './Icon.svelte';
 	import Menu, { type MenuItem } from './Menu.svelte';
+	import ProgressBar from './ProgressBar.svelte';
 	import RuntimeBadge from './RuntimeBadge.svelte';
 	import StatusPill from './StatusPill.svelte';
 	import Thumb from './Thumb.svelte';
@@ -23,11 +27,20 @@
 	const shown = $derived(shownStatus(site));
 	const running = $derived(site.status === 'running');
 	const wp = $derived(branchOf(site.wp_version ?? ''));
-	const activeJob = $derived.by(() => {
-		for (const j of jobs.values()) {
-			if (j.site_id === site.id && (j.status === 'queued' || j.status === 'running')) return j;
-		}
-		return null;
+
+	const setup = $derived(site.status === 'provisioning' || site.status === 'deleting');
+	const job = $derived.by(() => {
+		if (!setup) return null;
+		const j = jobFor(site.id);
+		return j && isLive(j) ? j : null;
+	});
+	const progress = $derived(job ? jobProgress(job, jobEvents.get(job.id) ?? []) : null);
+
+	let el: HTMLTableRowElement | undefined = $state();
+	$effect(() => {
+		if (createSite.justCreated !== site.id || !el) return;
+		el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		createSite.justCreated = null;
 	});
 	// p95 for the hour: the worst minute that saw traffic.
 	const p95 = $derived.by(() => {
@@ -81,7 +94,7 @@
 	}
 </script>
 
-<tr class="cursor-pointer transition-colors hover:bg-sunken/50" onclick={openRow}>
+<tr bind:this={el} class="cursor-pointer transition-colors hover:bg-sunken/50" onclick={openRow}>
 	<td class="{td} py-3">
 		<div class="flex items-center gap-[18px]">
 			<a {href} class="block shrink-0" tabindex="-1" aria-hidden="true">
@@ -112,10 +125,24 @@
 				<span class="max-w-44 truncate text-xs text-ink-2" title={site.status_message}>
 					{site.status_message}
 				</span>
-			{:else if (site.status === 'provisioning' || site.status === 'deleting') && activeJob}
-				<a href={resolve(`/jobs/${activeJob.id}`)} class="text-xs font-medium text-brand"
-					>Follow the job</a
-				>
+			{:else if setup}
+				<ProgressBar
+					class="mt-0.5 w-44"
+					size="sm"
+					value={progress?.total ? progress.fraction : null}
+					label="{site.status === 'deleting' ? 'Deleting' : 'Setting up'} {site.name}"
+				/>
+				<span class="max-w-44 truncate text-xs text-ink-2">
+					{#if progress?.current}
+						{progress.current.label}{progress.total
+							? ` · ${Math.min(progress.position + 1, progress.total)} of ${progress.total}`
+							: ''}
+					{:else if job}
+						Waiting for a worker
+					{:else}
+						{site.status_message || 'In progress'}
+					{/if}
+				</span>
 			{/if}
 		</div>
 	</td>

@@ -4,7 +4,6 @@
      returned job means a recreate is under way. -->
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { resolve } from '$app/paths';
 	import { api, errorText } from '$lib/api/client';
 	import {
 		branchOf,
@@ -89,7 +88,7 @@
 
 	let saving = $state(false);
 	let error = $state('');
-	let saved = $state<Job | null | 'ok'>(null);
+	let saved = $state(false);
 
 	function diff(): UpdateSiteRequest {
 		const body: UpdateSiteRequest = {};
@@ -127,15 +126,12 @@
 		e.preventDefault();
 		saving = true;
 		error = '';
-		saved = null;
+		saved = false;
 		try {
 			const res = await api.patch<{ site: Site; job: Job | null }>(`/v1/sites/${site.id}`, diff());
-			if (res.job) {
-				onJob(res.job);
-				saved = res.job;
-			} else {
-				saved = 'ok';
-			}
+			// A recreate shows in the page's job toast; in-place saves get a line here.
+			if (res.job) onJob(res.job);
+			else saved = true;
 			seen = res.site.updated_at;
 			form = snapshot(res.site);
 		} catch (err) {
@@ -341,13 +337,8 @@
 	{#if error}
 		<Alert>{error}</Alert>
 	{/if}
-	{#if saved === 'ok'}
+	{#if saved}
 		<Alert tone="success">Settings saved.</Alert>
-	{:else if saved}
-		<Alert tone="info">
-			Recreating the container with the new settings. The site is back in a few seconds.
-			<a href={resolve(`/jobs/${saved.id}`)} class="underline underline-offset-2">Follow the job</a>
-		</Alert>
 	{/if}
 
 	<div

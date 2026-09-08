@@ -8,6 +8,7 @@
 	import { tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { api, ApiError, errorText } from '$lib/api/client';
 	import { generatePassword } from '$lib/password';
 	import { slugify } from '$lib/slug';
@@ -198,7 +199,10 @@
 			step = 0;
 			errors = {};
 			closeCreateSite();
-			await goto(resolve(`/sites/${res.site.id}`));
+			// The new card on the Sites page carries the progress; open the
+			// site itself for the full timeline.
+			createSite.justCreated = res.site.id;
+			if (page.url.pathname !== resolve('/')) await goto(resolve('/'));
 		} catch (err) {
 			const target = stepForServerError(err instanceof ApiError ? err.code : '');
 			step = target.step;
