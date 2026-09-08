@@ -17,6 +17,8 @@ export type SiteSettings = {
 	container_memory_mb: number;
 	container_cpus: number;
 	cache_ttl: number;
+	cache_swr: boolean;
+	cache_warm: boolean;
 };
 
 export type SiteDomain = { id: string; host: string; kind: 'primary' | 'alias' };

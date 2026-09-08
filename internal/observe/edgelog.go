@@ -30,11 +30,26 @@ type accessEntry struct {
 	Size    int64   `json:"size"`
 	Dur     float64 `json:"duration"` // seconds
 	Request struct {
-		Host   string `json:"host"`
-		Method string `json:"method"`
-		URI    string `json:"uri"`
+		Host    string              `json:"host"`
+		Method  string              `json:"method"`
+		URI     string              `json:"uri"`
+		Headers map[string][]string `json:"headers"`
 	} `json:"request"`
 	RespHeaders map[string][]string `json:"resp_headers"`
+}
+
+// WarmerUserAgent identifies the engine's own cache warmer (internal/warm).
+// Its requests are real edge traffic but not visitors, so they are dropped
+// from the request metrics.
+const WarmerUserAgent = "presso-warmer/1"
+
+func isWarmer(headers map[string][]string) bool {
+	for _, ua := range headers["User-Agent"] {
+		if strings.HasPrefix(ua, "presso-warmer/") {
+			return true
+		}
+	}
+	return false
 }
 
 // CacheOutcome classifies a response by its Cache-Status header.
@@ -134,6 +149,9 @@ func (a *Aggregator) Ingest(line string, at time.Time) bool {
 	}
 	var e accessEntry
 	if err := json.Unmarshal([]byte(line), &e); err != nil || e.Request.Host == "" {
+		return false
+	}
+	if isWarmer(e.Request.Headers) {
 		return false
 	}
 	siteID, ok := a.resolveSite(e)

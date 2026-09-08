@@ -156,6 +156,7 @@ define( 'PRESSO_SITE_ID', presso_env( 'PRESSO_SITE_ID', '' ) );
 define( 'PRESSO_ENGINE_URL', rtrim( presso_env( 'PRESSO_ENGINE_URL', '' ), '/' ) );
 define( 'PRESSO_CACHE', presso_env( 'PRESSO_CACHE', 'on' ) );
 define( 'PRESSO_CACHE_TTL', (int) presso_env( 'PRESSO_CACHE_TTL', '43200' ) );
+define( 'PRESSO_CACHE_SWR', presso_env( 'PRESSO_CACHE_SWR', 'off' ) );
 define( 'PRESSO_TELEMETRY_SAMPLE', (float) presso_env( 'PRESSO_TELEMETRY_SAMPLE', '0.1' ) );
 
 // --- Bootstrap ---------------------------------------------------------------

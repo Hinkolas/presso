@@ -43,6 +43,7 @@ import (
 	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
 	versionpkg "github.com/Hinkolas/presso/internal/version"
+	"github.com/Hinkolas/presso/internal/warm"
 	"github.com/Hinkolas/presso/internal/webui"
 	"github.com/Hinkolas/presso/migrations"
 )
@@ -137,9 +138,10 @@ func runServe() error {
 	if cfg.Shots.Enabled {
 		shotSvc = shots.New(filepath.Join(cfg.DataDir, "screenshots"), cfg.Shots.Listen, cfg.Shots.Timeout)
 	}
+	warmer := warm.New(warm.Deps{Store: st, Config: cfg})
 	sites := site.New(site.Deps{
 		Config: cfg, Catalog: catalog, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: plat, Edge: edgeClient,
-		Shots: shotSvc,
+		Shots: shotSvc, Warmer: warmer,
 	})
 
 	// Streaming handlers (events, logs) watch this context so shutdown does
@@ -194,6 +196,7 @@ func runServe() error {
 	if cfg.Shots.Enabled {
 		spawn("screenshots", func(ctx context.Context) { sites.ScreenshotLoop(ctx, cfg.Shots.Interval) })
 	}
+	spawn("warm", warmer.Start)
 
 	serveErr := make(chan error, 1)
 	go func() {

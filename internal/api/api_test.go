@@ -348,6 +348,20 @@ func TestSiteLifecycle(t *testing.T) {
 		t.Fatalf("patch: %d %v", res.StatusCode, body)
 	}
 	waitJob(t, a, admin, body["job"].(map[string]any)["id"].(string))
+	// Cache TTL / SWR reach the plugin through the container env: recreate.
+	res, body = a.do("PATCH", "/v1/sites/"+id, admin, map[string]any{"settings": map[string]any{"cache_ttl": 600, "cache_swr": true}})
+	if res.StatusCode != http.StatusOK || body["job"] == nil {
+		t.Fatalf("patch cache: %d %v", res.StatusCode, body)
+	}
+	waitJob(t, a, admin, body["job"].(map[string]any)["id"].(string))
+	if env := strings.Join(a.dk.Created[len(a.dk.Created)-1].Env, "\n"); !strings.Contains(env, "PRESSO_CACHE_SWR=on\n") || !strings.Contains(env, "PRESSO_CACHE_TTL=600\n") {
+		t.Fatalf("env after cache patch: %s", env)
+	}
+	// The warmer opt-in is engine-side: no job.
+	res, body = a.do("PATCH", "/v1/sites/"+id, admin, map[string]any{"settings": map[string]any{"cache_warm": true}})
+	if res.StatusCode != http.StatusOK || body["job"] != nil || body["site"].(map[string]any)["settings"].(map[string]any)["cache_warm"] != true {
+		t.Fatalf("patch cache_warm: %d %v", res.StatusCode, body)
+	}
 
 	// Delete requires the slug.
 	res, body = a.do("DELETE", "/v1/sites/"+id, admin, map[string]any{"confirm": "nope"})

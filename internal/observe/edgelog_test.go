@@ -66,6 +66,16 @@ func TestAggregator(t *testing.T) {
 	if agg.Ingest(`not json`, at) || agg.Ingest(`{"level":"info","msg":"server running"}`, at) {
 		t.Fatal("non-access line counted")
 	}
+	warmer := `{"level":"info","logger":"http.log.access","msg":"handled request","request":{"method":"GET","host":"s.localhost","uri":"/","headers":{"User-Agent":["` + WarmerUserAgent + `"]}},"duration":0.01,"size":1000,"status":200,"resp_headers":{"Cache-Status":["presso; hit"]}}`
+	if agg.Ingest(warmer, at) {
+		t.Fatal("warmer traffic counted")
+	}
+	browser := `{"level":"info","logger":"http.log.access","msg":"handled request","request":{"method":"GET","host":"s.localhost","uri":"/","headers":{"User-Agent":["Mozilla/5.0"]}},"duration":0.01,"size":1000,"status":200,"resp_headers":{"Cache-Status":["presso; hit"]}}`
+	other := NewAggregator(st)
+	other.SetHosts(map[string]uuid.UUID{"s.localhost": site.ID})
+	if !other.Ingest(browser, at) {
+		t.Fatal("browser traffic with headers not counted")
+	}
 	if agg.Pending() != 1 {
 		t.Fatalf("pending: %d", agg.Pending())
 	}

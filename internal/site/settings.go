@@ -20,6 +20,12 @@ type Settings struct {
 	ContainerCPUs     float64 `json:"container_cpus"`
 	// CacheTTL is the page-cache TTL in seconds.
 	CacheTTL int `json:"cache_ttl"`
+	// CacheSWR lets the edge serve an expired page from cache while it
+	// fetches a fresh copy in the background (stale-while-revalidate).
+	CacheSWR bool `json:"cache_swr"`
+	// CacheWarm opts the site into the sitemap cache warmer. Engine-side only:
+	// the container never sees it.
+	CacheWarm bool `json:"cache_warm"`
 }
 
 func DefaultSettings() Settings {
@@ -106,14 +112,18 @@ func parseSettings(raw string) Settings {
 	return s.Normalize()
 }
 
+// ParseSettings is parseSettings for other packages that hold a store.Site.
+func ParseSettings(raw string) Settings { return parseSettings(raw) }
+
 func (s Settings) encode() string {
 	b, _ := json.Marshal(s)
 	return string(b)
 }
 
 // requiresRecreate reports whether moving from a to b needs a new container
-// (anything the entrypoint or PHP reads from the environment).
+// (anything the entrypoint or PHP reads from the environment; the cache TTL
+// and SWR flag count because the system plugin emits them as Cache-Control).
 func requiresRecreate(a, b Settings) bool {
-	a.CacheTTL, b.CacheTTL = 0, 0 // edge-only
+	a.CacheWarm, b.CacheWarm = false, false // engine-only
 	return a != b
 }

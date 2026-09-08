@@ -165,8 +165,8 @@ choice moves the site to another runtime.
 
 The site Settings tab is four panels (General, PHP, Container, Edge cache)
 and a save bar that appears only while the form is dirty, sticky at the
-bottom of the content pane. The name and the cache TTL apply in place;
-anything else recreates the container (mirrors `internal/site/ops.go`), so
+bottom of the content pane. The name and the cache warmer toggle apply in
+place; anything else recreates the container (mirrors `internal/site/ops.go`), so
 those saves go through a confirmation dialog that names the changed fields
 and the short outage. There is no explanatory side column and no standing
 help text.

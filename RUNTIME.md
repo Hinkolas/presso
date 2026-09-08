@@ -89,9 +89,12 @@ The cache and WordPress communicate in both directions:
 
 - WordPress -> edge, per response: Cache-Control (no-store on anything
   personal: logged-in, cart/checkout/account, previews, responses that set a
-  cookie, POST) and a surrogate-key header listing what the page depended on
-  (post IDs in the main query, term IDs, author, home/archive flags, a
-  site-wide tag).
+  cookie, POST; otherwise `public, s-maxage=<PRESSO_CACHE_TTL>, max-age=0,
+  stale-if-error=86400`, plus `stale-while-revalidate=86400` when
+  PRESSO_CACHE_SWR=on) and a surrogate-key header listing what the page
+  depended on (post IDs in the main query, term IDs, author, home/archive
+  flags, a site-wide tag; sitemaps count as archives so publishing purges
+  them for the engine's cache warmer).
 - WordPress -> edge, on change: purge by tag (post/comment/term changes) or
   purge site (menu, widget, theme, customizer, relevant option changes).
   Called on shutdown, non-blocking, authenticated with a per-site token.
@@ -361,6 +364,9 @@ settings UI exposes (`PHP_MEMORY_LIMIT`, `PHP_UPLOAD_MAX_FILESIZE`,
 `PHP_OPCACHE_MEMORY`, `PHP_OPCACHE_REVALIDATE_FREQ`, `PHP_TIMEZONE`). Nothing
 is rendered per site in the FrankenPHP flavor: the static Caddyfile reads the
 variables with inline defaults, and wp-config.php reads `PRESSO_*` directly.
+The cache module reads `PRESSO_CACHE` (on|off), `PRESSO_CACHE_TTL` (seconds)
+and `PRESSO_CACHE_SWR` (on|off); the engine recreates the container when the
+operator changes them, so the emitted Cache-Control never lags the setting.
 
 The FPM flavor renders the same values at boot (`legacy/render.sh`, an
 entrypoint hook running as root) into `/run/presso/`: `nginx.conf` (mirrors

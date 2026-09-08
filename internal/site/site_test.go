@@ -47,11 +47,20 @@ func (f *fakePlatform) DeleteRedisACL(_ context.Context, user string) error {
 func (f *fakePlatform) ApplyEdge(context.Context) error         { f.edgeApplies++; return nil }
 func (f *fakePlatform) SetEdgeRenderer(r platform.EdgeRenderer) { f.render = r }
 
+// fakeWarmer records cache-warm triggers.
+type fakeWarmer struct{ triggers []uuid.UUID }
+
+func (f *fakeWarmer) Trigger(id uuid.UUID) { f.triggers = append(f.triggers, id) }
+func (f *fakeWarmer) Fetch(context.Context, string) (int, string, error) {
+	return 200, "presso; fwd=uri-miss; stored", nil
+}
+
 type harness struct {
 	svc  *Service
 	st   *store.Store
 	dk   *fake.Client
 	pf   *fakePlatform
+	fw   *fakeWarmer
 	jobs *jobs.Runner
 	hub  *events.Hub
 }
@@ -85,7 +94,8 @@ func newHarness(t *testing.T) (*harness, context.Context) {
 	}
 	runner := jobs.New(st, hub, 2)
 	pf := &fakePlatform{}
-	svc := New(Deps{Config: cfg, Catalog: testCatalog(t, true), Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: pf})
+	fw := &fakeWarmer{}
+	svc := New(Deps{Config: cfg, Catalog: testCatalog(t, true), Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: pf, Warmer: fw})
 	// wp core is-installed → not installed (exit 1) on the first call, then
 	// every command succeeds; `wp core version` answers the pinned release.
 	installed := false
@@ -110,7 +120,7 @@ func newHarness(t *testing.T) (*harness, context.Context) {
 	if err := runner.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	return &harness{svc: svc, st: st, dk: dk, pf: pf, jobs: runner, hub: hub}, ctx
+	return &harness{svc: svc, st: st, dk: dk, pf: pf, fw: fw, jobs: runner, hub: hub}, ctx
 }
 
 func (h *harness) waitJob(t *testing.T, ctx context.Context, id uuid.UUID) store.Job {
@@ -246,6 +256,28 @@ func TestCreateProvisionAndDelete(t *testing.T) {
 	name := "Renamed"
 	if _, rj, err := h.svc.Update(ctx, site.ID, UpdateInput{Name: &name}); err != nil || rj != nil {
 		t.Fatalf("rename: %v %v", err, rj)
+	}
+	// Opting into the warmer applies in place and nudges the warmer once.
+	triggers := len(h.fw.triggers)
+	if got, rj, err := h.svc.Update(ctx, site.ID, UpdateInput{Settings: map[string]jsonRaw{"cache_warm": jsonRaw("true")}}); err != nil || rj != nil || !got.Settings.CacheWarm {
+		t.Fatalf("cache_warm: %v %v %+v", err, rj, got.Settings)
+	}
+	if len(h.fw.triggers) != triggers+1 || h.fw.triggers[triggers] != site.ID {
+		t.Fatalf("warmer triggers: %v", h.fw.triggers)
+	}
+	// The cache TTL and SWR feed the plugin's Cache-Control: they recreate,
+	// and the new container carries them.
+	applies := h.pf.edgeApplies
+	got, rj, err := h.svc.Update(ctx, site.ID, UpdateInput{Settings: map[string]jsonRaw{"cache_ttl": jsonRaw("600"), "cache_swr": jsonRaw("true")}})
+	if err != nil || rj == nil || got.Settings.CacheTTL != 600 || !got.Settings.CacheSWR {
+		t.Fatalf("cache settings: %v %v %+v", err, rj, got.Settings)
+	}
+	if h.pf.edgeApplies != applies {
+		t.Fatal("cache settings applied edge-only")
+	}
+	h.waitJob(t, ctx, rj.ID)
+	if env := strings.Join(h.dk.Created[len(h.dk.Created)-1].Env, "\n"); !strings.Contains(env, "PRESSO_CACHE_TTL=600\n") || !strings.Contains(env, "PRESSO_CACHE_SWR=on\n") {
+		t.Fatalf("container env: %s", env)
 	}
 	// Bad setting rejected.
 	if _, _, err := h.svc.Update(ctx, site.ID, UpdateInput{Settings: map[string]jsonRaw{"max_input_vars": jsonRaw("5")}}); !errors.Is(err, ErrInvalidInput) {

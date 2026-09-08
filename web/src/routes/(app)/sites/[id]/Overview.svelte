@@ -176,7 +176,18 @@
 		['Image', site.image || '–'],
 		['Profile', site.profile === 'dev' ? 'Development' : 'Production'],
 		['Plugin and theme installs', site.file_mods === 'locked' ? 'Locked' : 'Allowed'],
-		['Page cache', site.page_cache ? `On, kept up to ${ttlText(site.settings.cache_ttl)}` : 'Off'],
+		[
+			'Page cache',
+			site.page_cache
+				? [
+						`On, kept up to ${ttlText(site.settings.cache_ttl)}`,
+						site.settings.cache_swr ? 'served stale while refreshing' : '',
+						site.settings.cache_warm ? 'kept warm' : ''
+					]
+						.filter(Boolean)
+						.join(', ')
+				: 'Off'
+		],
 		['TLS', site.tls_mode === 'auto' ? 'Automatic certificate' : 'Off'],
 		[
 			'Container limits',

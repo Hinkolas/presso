@@ -169,9 +169,14 @@ Policy (decided):
 - Storage: persistent (disk or Redis backed), never memory-only, so an edge
   restart does not cause a cold-start storm across all sites. Per-site size
   quota so one site cannot evict the others.
-- stale-while-revalidate ON: serve the old copy while refreshing in the
-  background. stale-if-error ON: serve the old copy when the site container is
-  down or erroring. A site with crashing PHP keeps serving cached pages.
+- stale-if-error ON for every site: the system plugin's Cache-Control always
+  carries it, so a site with crashing PHP keeps serving cached pages.
+  stale-while-revalidate is a per-site opt-in (`cache_swr` setting): the
+  plugin adds the directive and the edge then serves an expired page instantly
+  while it refreshes in the background. Both windows are the edge's `stale`
+  (EDGE_STALE_FOR, 24h), for which expired entries stay in the store. Souin
+  decides both from the cached response's own Cache-Control, so the plugin,
+  not the edge config, is where they are switched.
 - Cache key: scheme + host + path + normalized query (tracking params such as
   utm_*, fbclid, gclid stripped; remaining params sorted). Compression
   variants stored separately or compressed at the edge; site containers do not
@@ -182,14 +187,27 @@ Policy (decided):
   wordpress_logged_in_*, wp-postpass_*, comment_author_*, woocommerce_*.
   Everything finer-grained comes from the site via Cache-Control (system
   plugin).
-- Default TTL 12h (below nonce lifetime); site can lower via s-maxage.
+- Default TTL 12h (below nonce lifetime); per site via the `cache_ttl`
+  setting, which reaches the plugin as PRESSO_CACHE_TTL and is emitted as
+  s-maxage. TTL and SWR changes recreate the container: the header is the
+  single source of truth and must not lag the setting.
 - Static assets cached too, long TTL for versioned URLs, tagged so a theme /
   plugin update purges them.
 - Purge API: by tag, by URL, whole site. Per-site token. Tags carry a site
   prefix and the endpoint enforces it so one site cannot purge another.
 - Observability: cache status header (HIT/MISS/BYPASS/STALE) on every
   response; per-site hit ratio in the engine.
-- Optional warming after a site purge (home + top sitemap URLs). Low priority.
+- Cache warmer (`internal/warm`), per-site opt-in via the `cache_warm`
+  setting: the engine fetches the front page plus every sitemap URL through
+  the edge (robots.txt `Sitemap:`, then /wp-sitemap.xml, /sitemap_index.xml,
+  /sitemap.xml; same host only, capped by WARM_MAX_URLS) every WARM_INTERVAL,
+  staggered per site, and 20s after any purge (debounced, one follow-up if
+  triggered mid-run). Requests use the visitor scheme and primary host so
+  they hit the same cache key; alias hosts are not warmed. Traffic carries
+  the `presso-warmer/1` User-Agent and is dropped from request metrics. A
+  still-cached page is an edge hit, so a walk only costs origin renders for
+  pages that expired or were purged. Sitemap responses carry the `:archive`
+  tag so publishing purges them and new URLs are seen on the next walk.
 
 Per-site memory budget (idle, low traffic): roughly 80–150 MB for PHP plus a
 negligible share of Redis/MySQL. A 32 GB host should hold well over a hundred
@@ -241,8 +259,9 @@ Settings surface (initial list):
 - Policy: file modification (locked/open), two-user hardening escape hatch,
   XML-RPC on/off, REST for anonymous on/off, heartbeat interval, outbound
   HTTP allowlist, cron interval.
-- Cache: page cache on/off, default TTL, per-site bypass paths, object cache
-  on/off, device-class vary.
+- Cache: page cache on/off, TTL, stale-while-revalidate on/off, cache warmer
+  on/off (all shipped); per-site bypass paths, object cache on/off,
+  device-class vary.
 - Domains: primary, aliases, redirects, staging flag (see Domains).
 - Mail: relay credentials, from address.
 - Limits: container CPU/memory caps, upload storage quota.

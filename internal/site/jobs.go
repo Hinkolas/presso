@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -223,29 +222,19 @@ func (s *Service) detectWPVersion(ctx context.Context, row *store.Site, containe
 	}
 }
 
-// warm issues one request through the edge so the first visitor gets a hit.
-// Best effort: failures are reported, not fatal.
+// warm issues one request through the edge, on the scheme and host visitors
+// use, so the first visitor gets a hit. Best effort: failures are reported,
+// not fatal. Without a warmer the step is a no-op.
 func (s *Service) warm(ctx context.Context, row store.Site, r *jobs.Reporter) {
-	host, port, err := splitHostPort(s.cfg.Edge.HTTPListen)
-	if err != nil {
+	if s.warmer == nil {
 		return
 	}
-	if host == "0.0.0.0" || host == "" {
-		host = "127.0.0.1"
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s:%d/", host, port), nil)
-	if err != nil {
-		return
-	}
-	req.Host = row.PrimaryDomain
-	client := &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	res, err := client.Do(req)
+	status, cacheStatus, err := s.warmer.Fetch(ctx, siteURL(row.PrimaryDomain, row.TlsMode)+"/")
 	if err != nil {
 		r.Warn(ctx, "warm request failed: "+err.Error())
 		return
 	}
-	res.Body.Close()
-	r.Infof(ctx, "front page responded %d (cache: %s)", res.StatusCode, firstNonEmpty(res.Header.Get("Cache-Status"), "n/a"))
+	r.Infof(ctx, "front page responded %d (cache: %s)", status, firstNonEmpty(cacheStatus, "n/a"))
 }
 
 func firstNonEmpty(vals ...string) string {

@@ -83,6 +83,7 @@ type API struct {
 	Edge
 	Observe
 	Shots
+	Warm
 }
 
 // Platform configures the shared containers pressod reconciles on the host
@@ -144,6 +145,10 @@ type Edge struct {
 	ACMEEmail string `env:"ACME_EMAIL,default="`
 	// DefaultCacheTTL is the page-cache TTL for sites without an override.
 	DefaultCacheTTL time.Duration `env:"EDGE_DEFAULT_CACHE_TTL,default=12h"`
+	// StaleFor is how long an expired page stays in the cache store after its
+	// TTL, available for stale-while-revalidate and stale-if-error. The system
+	// plugin advertises 24h in its Cache-Control, so keep this at least that.
+	StaleFor time.Duration `env:"EDGE_STALE_FOR,default=24h"`
 }
 
 // Observe configures the background workers that collect metrics.
@@ -168,6 +173,19 @@ type Shots struct {
 	Timeout time.Duration `env:"SHOTS_TIMEOUT,default=45s"`
 }
 
+// Warm configures the sitemap cache warmer (internal/warm). Sites opt in one
+// by one through their cache_warm setting; these knobs bound every run.
+type Warm struct {
+	// Interval is how often each opted-in site's sitemap is walked. Re-fetching
+	// a still-cached page is an edge hit, so keep this below the page TTL.
+	Interval time.Duration `env:"WARM_INTERVAL,default=1h"`
+	// Timeout bounds one request through the edge.
+	Timeout time.Duration `env:"WARM_TIMEOUT,default=20s"`
+	// MaxURLs caps the URLs warmed per site and run (one WordPress core
+	// sitemap page holds 2000).
+	MaxURLs int `env:"WARM_MAX_URLS,default=2000"`
+}
+
 // Validate shadows Base.Validate, so it must chain to it explicitly.
 func (a *API) Validate() error {
 	if err := a.Base.Validate(); err != nil {
@@ -190,6 +208,12 @@ func (a *API) Validate() error {
 	}
 	if a.Shots.Interval <= 0 || a.Shots.Timeout <= 0 {
 		return fmt.Errorf("SHOTS_INTERVAL, SHOTS_TIMEOUT: must be positive")
+	}
+	if a.Edge.StaleFor <= 0 {
+		return fmt.Errorf("EDGE_STALE_FOR: must be positive")
+	}
+	if a.Warm.Interval <= 0 || a.Warm.Timeout <= 0 || a.Warm.MaxURLs <= 0 {
+		return fmt.Errorf("WARM_INTERVAL, WARM_TIMEOUT, WARM_MAX_URLS: must be positive")
 	}
 	return nil
 }

@@ -89,6 +89,7 @@ func (s *Service) containerSpec(row store.Site, d decrypted) docker.Spec {
 		"PRESSO_LOGIN_SECRET=" + d.loginSecret,
 		"PRESSO_CACHE=" + onOff(row.PageCache),
 		"PRESSO_CACHE_TTL=" + strconv.Itoa(set.CacheTTL),
+		"PRESSO_CACHE_SWR=" + onOff(set.CacheSWR),
 		"PRESSO_TELEMETRY_SAMPLE=0.1",
 		"PRESSO_WP_MEMORY_LIMIT=" + set.PHPMemoryLimit,
 		"PRESSO_WP_MAX_MEMORY_LIMIT=" + set.PHPMemoryLimit,

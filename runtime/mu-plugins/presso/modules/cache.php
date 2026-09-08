@@ -2,10 +2,13 @@
 /**
  * Module: cache. The WordPress half of the edge page cache (RUNTIME.md
  * section 4). Per response it tells the edge whether the page may be cached
- * (Cache-Control) and what it depended on (Surrogate-Key tags); on content
- * changes it collects the affected tags and, once per request on shutdown,
- * asks the engine to purge them. The edge itself, its hard bypass rules and
- * the purge fan-out are owned by ORCHESTRATION. Disabled by PRESSO_CACHE=off.
+ * and for how long (Cache-Control: s-maxage from PRESSO_CACHE_TTL, always
+ * stale-if-error so an erroring site keeps serving cached pages, and
+ * stale-while-revalidate when PRESSO_CACHE_SWR=on) and what it depended on
+ * (Surrogate-Key tags); on content changes it collects the affected tags and,
+ * once per request on shutdown, asks the engine to purge them. The edge
+ * itself, its hard bypass rules and the purge fan-out are owned by
+ * ORCHESTRATION. Disabled by PRESSO_CACHE=off.
  *
  * Tag namespace: every tag is prefixed with "s" + PRESSO_SITE_ID so one shared
  * edge can hold many sites:
@@ -25,9 +28,12 @@ use function Presso\starts_with;
 
 defined( 'ABSPATH' ) || exit;
 
-const MAX_TAGS   = 100;
-const SHORT_TTL  = 600; // Search results and 404s.
-const NO_STORE   = 'private, no-store, max-age=0';
+const MAX_TAGS     = 100;
+const SHORT_TTL    = 600; // Search results and 404s.
+const NO_STORE     = 'private, no-store, max-age=0';
+// How long the edge keeps an expired page around (its `stale` window, 24h by
+// default; EDGE_STALE_FOR must not be lower). Both stale directives use it.
+const STALE_WINDOW = 86400;
 
 /** Cookie prefixes that mark a personalised session. Mirrors the edge rules. */
 const PERSONAL_COOKIES = array(
@@ -186,7 +192,11 @@ function send_headers(): void {
 	}
 
 	$ttl = ( is_search() || is_404() ) ? SHORT_TTL : env_int( 'PRESSO_CACHE_TTL', 43200, 1 );
-	header( sprintf( 'Cache-Control: public, s-maxage=%d, max-age=0', $ttl ) );
+	$cc  = sprintf( 'public, s-maxage=%d, max-age=0, stale-if-error=%d', $ttl, STALE_WINDOW );
+	if ( env( 'PRESSO_CACHE_SWR', 'off' ) === 'on' ) {
+		$cc .= sprintf( ', stale-while-revalidate=%d', STALE_WINDOW );
+	}
+	header( 'Cache-Control: ' . $cc );
 	// Comma-separated: the edge cache (Souin) splits surrogate keys on commas.
 	header( 'Surrogate-Key: ' . implode( ', ', surrogate_keys() ) );
 }
@@ -202,7 +212,9 @@ function surrogate_keys(): array {
 	if ( is_front_page() || is_home() ) {
 		$tags[] = "$s:home";
 	}
-	if ( is_archive() || is_search() ) {
+	if ( is_archive() || is_search() || get_query_var( 'sitemap' ) ) {
+		// Sitemaps list posts like an archive does; publishing must purge them
+		// so the engine's cache warmer sees new URLs.
 		$tags[] = "$s:archive";
 	}
 	if ( is_404() ) {

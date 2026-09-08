@@ -174,11 +174,23 @@ func (s *Service) hosts(ctx context.Context, id uuid.UUID) ([]string, error) {
 
 // PurgeCache invalidates the site's page cache: everything when tags is
 // empty, otherwise only the given surrogate keys. Tags not carrying the
-// site's prefix are dropped so one site can never purge another.
+// site's prefix are dropped so one site can never purge another. A
+// successful purge nudges the cache warmer so opted-in sites are re-rendered
+// before a visitor asks.
 func (s *Service) PurgeCache(ctx context.Context, id uuid.UUID, tags []string) error {
 	if s.edge == nil {
 		return nil
 	}
+	if err := s.purge(ctx, id, tags); err != nil {
+		return err
+	}
+	if s.warmer != nil {
+		s.warmer.Trigger(id)
+	}
+	return nil
+}
+
+func (s *Service) purge(ctx context.Context, id uuid.UUID, tags []string) error {
 	prefix := "s" + id.String()
 	if len(tags) == 0 {
 		hosts, err := s.hosts(ctx, id)
@@ -380,6 +392,7 @@ func (s *Service) RenderEdge(ctx context.Context) (string, error) {
 	return edge.Render(routes, edge.Options{
 		ACMEEmail:        s.cfg.Edge.ACMEEmail,
 		DefaultTTL:       s.cfg.Edge.DefaultCacheTTL,
+		StaleFor:         s.cfg.Edge.StaleFor,
 		CacheAdminListen: ":" + strconv.Itoa(cacheAdminPort),
 	}, s.now())
 }
@@ -407,8 +420,9 @@ type UpdateInput struct {
 	UpdatedBy  string
 }
 
-// Update applies configuration changes. Container-affecting changes return a
-// recreate job; edge-only changes are pushed synchronously.
+// Update applies configuration changes. Anything the container or the
+// system plugin reads returns a recreate job (which also re-renders the edge
+// and purges the site); the name and the warmer opt-in apply in place.
 func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Site, *store.Job, error) {
 	row, err := s.Get(ctx, id)
 	if err != nil {
@@ -485,7 +499,6 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Sit
 	}
 	recreate := image != row.Image || fileMods != row.FileMods || profile != row.Profile || tls != row.TlsMode ||
 		pageCache != row.PageCache || requiresRecreate(oldSettings, newSettings)
-	edgeOnly := !recreate && (newSettings.CacheTTL != oldSettings.CacheTTL)
 
 	updated, err := s.st.UpdateSiteConfig(ctx, store.UpdateSiteConfigParams{
 		Name: name, PhpVersion: php, Image: image, Runtime: runtime, PageCache: pageCache, FileMods: fileMods,
@@ -495,6 +508,10 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Sit
 		return Site{}, nil, err
 	}
 	s.logActivity(ctx, in.UpdatedBy, id, "site.update", "Settings updated", nil)
+	if s.warmer != nil && newSettings.CacheWarm && !oldSettings.CacheWarm {
+		// Switching the warmer on should do something visible right away.
+		s.warmer.Trigger(id)
+	}
 
 	var job *store.Job
 	if recreate && (row.Status == StatusRunning || row.Status == StatusStopped || row.Status == StatusError) {
@@ -503,10 +520,6 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Sit
 			return Site{}, nil, err
 		}
 		job = &j
-	} else if edgeOnly {
-		if err := s.platform.ApplyEdge(ctx); err != nil {
-			return Site{}, nil, err
-		}
 	}
 	payload, err := s.Payload(ctx, updated)
 	if err != nil {

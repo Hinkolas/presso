@@ -72,6 +72,7 @@ type Service struct {
 	platform Platform
 	edge     *edge.Client
 	shots    *shots.Service // nil disables previews
+	warmer   Warmer         // nil disables the cache warmer
 	now      func() time.Time
 
 	// observed holds the live container health per site, fed by the status
@@ -96,6 +97,15 @@ type Platform interface {
 	SetEdgeRenderer(platform.EdgeRenderer)
 }
 
+// Warmer is what the site lifecycle needs from internal/warm. nil disables it.
+type Warmer interface {
+	// Trigger schedules a debounced warm run for the site; the warmer checks
+	// eligibility (running, page cache on, opted in) itself.
+	Trigger(id uuid.UUID)
+	// Fetch requests one URL through the edge exactly as a visitor would.
+	Fetch(ctx context.Context, url string) (status int, cacheStatus string, err error)
+}
+
 // Deps bundles the collaborators.
 type Deps struct {
 	Config *config.API
@@ -110,6 +120,8 @@ type Deps struct {
 	Edge     *edge.Client
 	// Shots captures front-page previews; nil disables them.
 	Shots *shots.Service
+	// Warmer keeps opted-in sites' page caches warm; nil disables it.
+	Warmer Warmer
 }
 
 func New(d Deps) *Service {
@@ -118,7 +130,7 @@ func New(d Deps) *Service {
 	}
 	s := &Service{
 		cfg: d.Config, catalog: d.Catalog, st: d.Store, dk: d.Docker, box: d.Secrets, hub: d.Hub, jobs: d.Jobs,
-		platform: d.Platform, edge: d.Edge, shots: d.Shots, now: func() time.Time { return time.Now().UTC() },
+		platform: d.Platform, edge: d.Edge, shots: d.Shots, warmer: d.Warmer, now: func() time.Time { return time.Now().UTC() },
 	}
 	if s.jobs != nil {
 		// The plans mirror the Reporter.Step calls in jobs.go; the UI draws
@@ -281,6 +293,9 @@ func siteURL(host, tlsMode string) string {
 	}
 	return "https://" + host
 }
+
+// SiteURL is siteURL for other packages that hold a store.Site.
+func SiteURL(host, tlsMode string) string { return siteURL(host, tlsMode) }
 
 func isLocalhost(host string) bool {
 	return host == "localhost" || strings.HasSuffix(host, ".localhost")

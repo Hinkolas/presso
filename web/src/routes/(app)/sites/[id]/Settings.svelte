@@ -1,7 +1,7 @@
 <!-- Settings tab: PATCH the editable site fields. The save bar at the bottom
      says up front whether the pending changes apply on save or recreate the
-     container (everything except the name and the cache TTL does); a
-     returned job means a recreate is under way. -->
+     container (everything except the name and the cache warmer toggle does);
+     a returned job means a recreate is under way. -->
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { api, errorText } from '$lib/api/client';
@@ -110,15 +110,17 @@
 
 	const pending = $derived(diff());
 	const dirty = $derived(Object.keys(pending).length > 0);
-	// Mirrors internal/site/ops.go: the name and the cache TTL apply in place,
-	// everything else means a new container.
+	// Mirrors internal/site/ops.go: the name and the cache warmer toggle apply
+	// in place (the warmer runs in the engine), everything else means a new
+	// container. That includes the cache TTL and stale-while-revalidate: the
+	// system plugin reads them from the container environment.
 	const recreates = $derived.by(() => {
 		const { name: _n, settings, ...rest } = pending;
 		void _n;
 		if (Object.keys(rest).length) return true;
 		if (!settings) return false;
-		const { cache_ttl: _t, ...others } = settings;
-		void _t;
+		const { cache_warm: _w, ...others } = settings;
+		void _w;
 		return Object.keys(others).length > 0;
 	});
 
@@ -330,6 +332,22 @@
 						bind:value={form.settings.cache_ttl}
 					/>
 				</Field>
+				<div class="sm:col-span-2">
+					<Toggle
+						bind:checked={form.settings.cache_swr}
+						disabled={!form.page_cache}
+						label="Serve stale while refreshing"
+						hint="After the time to live, the first visitor gets the cached copy instantly while the edge fetches a fresh one in the background."
+					/>
+				</div>
+				<div class="sm:col-span-2">
+					<Toggle
+						bind:checked={form.settings.cache_warm}
+						disabled={!form.page_cache}
+						label="Keep the cache warm"
+						hint="Fetches every sitemap URL through the edge on a schedule and after each purge, so visitors rarely hit a cold page. Costs origin renders on large sites."
+					/>
+				</div>
 			</div>
 		</Panel>
 	</div>
