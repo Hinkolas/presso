@@ -33,8 +33,10 @@ Passed locally:
 - Local GoReleaser snapshot rehearsal producing Linux amd64 and arm64 archives
   and checksums, with publication disabled.
 
-**Remaining release gate:** run the reusable Ubuntu verification workflow on
-GitHub before tagging/publishing. The additional nested Linux lifecycle
+The baseline reusable Ubuntu verification workflow passed on `642fb22`,
+including native Linux integration and race tests. The source/notice pipeline
+added afterward still needs CI on its committed changes before tagging.
+The earlier additional nested Linux lifecycle
 rehearsal could not create resource-limited WordPress containers because Docker
 Desktop's nested cgroup hierarchy was in threaded mode. This was an environment
 limitation; the complete lifecycle passed on Docker Desktop, but it is not a
@@ -70,5 +72,8 @@ ruby scripts/check-release-gates.rb
 
 Use `task release:snapshot` for a local binary packaging rehearsal. Snapshot
 artifacts are test artifacts, not a published release. The tag workflow keeps
-publication dependent on verification, binary packaging, edge builds/smoke
-checks, and runtime builds/smoke checks.
+publication dependent on verification, source/notice collection and public
+availability, binary packaging, edge builds/smoke checks, and runtime
+builds/smoke checks. See [the source-delivery rehearsal](docs/license-review/source-delivery.md)
+for coverage, commands, and the distinction between local checks and actual
+anonymous downloads during a publishing run.

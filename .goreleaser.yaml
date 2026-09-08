@@ -24,6 +24,9 @@ builds:
     goarch: [amd64, arm64]
     ldflags:
       - -s -w -X github.com/Hinkolas/presso/internal/version.Version={{ .Tag }}
+    hooks:
+      post:
+        - cmd: python3 scripts/compliance/release.py binary --binary {{ .Path }} --arch {{ .Arch }} --release {{ .Tag }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
@@ -36,9 +39,15 @@ archives:
       - LICENSE
       - NOTICE
       - THIRD_PARTY_NOTICES.md
+      - SOURCE_ACCESS.md
+      - src: compliance-output/binary_{{ .Arch }}/THIRD_PARTY_LICENSES.txt
+        dst: THIRD_PARTY_LICENSES.txt
+      - src: compliance-output/binary_{{ .Arch }}/SOURCE_BUNDLE
+        dst: SOURCE_BUNDLE
       - LICENSE_REVIEW.md
       - docs/license-review/inventory.json
       - docs/license-review/valkey.md
+      - docs/license-review/source-delivery.md
       - web/static/third-party-licenses.txt
       - SECURITY.md
       - CONTRIBUTING.md
@@ -88,7 +97,10 @@ release:
     **Experimental before v1.0.0 — not recommended for production workloads.**
     Pre-1.0 releases may introduce breaking changes, downtime, and data loss.
     Automated backups, restore, rollback, and managed WordPress/plugin security
-    updates are not available yet. Provided as-is under the Apache 2.0 license.
+    updates are not available yet. Original presso code is provided as-is under
+    Apache 2.0; bundled dependencies retain their licenses.
+
+    Matching source bundles and notices: https://github.com/Hinkolas/presso/releases/tag/sources-{{ .Tag }}
 
     Install or upgrade to this exact release with:
 

@@ -47,3 +47,7 @@ go.work.sum
 
 # Generated from the installed frontend dependencies before each web build.
 /web/static/third-party-licenses.txt
+
+/web/static/third-party-manifest.json
+/compliance-output/
+/scripts/compliance/__pycache__/

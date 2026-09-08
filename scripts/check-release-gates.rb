@@ -7,12 +7,14 @@ require 'open3'
 require 'tmpdir'
 release = YAML.load_file(File.join(__dir__, '../.github/workflows/release.yml'))['jobs']
 verify = YAML.load_file(File.join(__dir__, '../.github/workflows/verify.yml'))['jobs']
-required = %w[verify binary edge runtime]
+runtime = YAML.load_file(File.join(__dir__, '../.github/workflows/runtime.yml'))['jobs']
+required = %w[verify source-release binary edge edge-merge runtime]
 raise 'publish must require all artifacts and verification' unless (required - release.fetch('publish').fetch('needs')).empty?
 %w[binary edge runtime].each do |name|
   raise "#{name} can publish before verification" unless Array(release.fetch(name)['needs']).include?('verify')
+  raise "#{name} can publish before source preparation" unless Array(release.fetch(name)['needs']).include?('source-release')
 end
-%w[go install-script web integration].each do |name|
+%w[go install-script web integration compliance].each do |name|
   raise "missing required #{name} verification" unless verify.key?(name)
   raise "#{name} can be conditionally skipped" if verify[name].key?('if') || verify[name]['continue-on-error']
   verify[name].fetch('steps').each do |step|
@@ -80,3 +82,24 @@ root = File.expand_path('..', __dir__)
   end
 end
 puts 'Distribution license and notice copies match.'
+
+# Every image build loads locally. Only the source-verifying wrapper may push
+# new payloads; merge jobs may publish indexes of those already checked images.
+[[release, 'edge'], [runtime, 'base'], [runtime, 'image']].each do |jobs, name|
+  steps = jobs.fetch(name).fetch('steps')
+  builds = steps.select { |step| step.fetch('uses', '').start_with?('docker/build-push-action@') }
+  raise "#{name} has no local image build" if builds.empty?
+  builds.each do |step|
+    config = step.fetch('with')
+    raise "#{name} bypasses source-before-image publication" unless config['load'] == true && !config['push'] && !config.fetch('outputs', '').include?('push=true')
+  end
+  commands = steps.map { |step| step['run'] }.compact
+  raise "#{name} omits verified source publication" unless commands.any? { |cmd| cmd.include?('scripts/compliance/release.py image') && cmd.include?('--push') }
+  raise "#{name} directly pushes an unchecked image" if commands.any? { |cmd| cmd.match?(/docker\s+(push|buildx\s+build)/) }
+end
+raise 'base publication does not require public sources' unless Array(runtime.fetch('base')['needs']).include?('source-release')
+raise 'runtime verification bypasses final indexes' unless Array(runtime.fetch('verify')['needs']).include?('image-merge')
+config = YAML.load_file(File.join(root, '.goreleaser.yaml'))
+raise 'binary source verification hook missing' unless config.fetch('builds').all? { |b| b.fetch('hooks').fetch('post').any? { |h| h.fetch('cmd').include?('scripts/compliance/release.py binary') } }
+raise 'binary sources will not be published' unless release.fetch('binary').fetch('steps').any? { |s| s.fetch('env', {})['PRESSO_PUBLISH_SOURCES'] == '1' }
+puts 'Sources and notices: all image pushes and binary archives require verified materials.'

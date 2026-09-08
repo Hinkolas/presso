@@ -243,13 +243,21 @@ UI and embeds it in `bin/pressod`. CI additionally runs Linux race tests,
 installer checks, a clean frontend build, and Docker integration tests.
 See [RELEASE_VERIFICATION.md](RELEASE_VERIFICATION.md) for release test evidence.
 
-To prepare a release, wait for CI on the committed changes to pass, then run
+To prepare a release, make the repository public and wait for CI on the
+committed changes to pass, then run
 `task release:tag V=v0.1.0-rc.1` with an unused version. This creates and pushes
-the tag. The release workflow requires verification before publishing images
+the tag. The workflow first publishes a separate `sources-<version>` prerelease
+with matching source bundles and third-party notices. It verifies anonymous
+source downloads before pushing each corresponding image. Source preparation
+fails if the repository is private; it does not change visibility for you.
+The release workflow requires verification before publishing images
 and keeps the GitHub release in draft until binary, edge, runtime, and smoke
 jobs succeed. All `v0.x` tags and tags with a prerelease suffix are published as
 prereleases and excluded from the stable feed. `task release:snapshot` rehearses
 the binary packaging locally without publishing.
+Source collection requires Python 3.12+, Go, Docker (for image bundles),
+network access to upstream source archives, and several GB of temporary disk
+space. See [SOURCE_ACCESS.md](SOURCE_ACCESS.md) for downloads and retention.
 
 ## Project documentation
 
@@ -268,6 +276,8 @@ Unless otherwise noted, presso's original code and documentation are licensed
 under the [Apache License, Version 2.0](LICENSE). Third-party components retain
 their own licenses, including the vendored GPLv3 Redis Object Cache drop-in.
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Release archives and images also carry generated `THIRD_PARTY_LICENSES.txt`
+and matching [source-access instructions](SOURCE_ACCESS.md).
 
 External pull requests and patches are not being accepted at this time.
 Bug reports and feedback are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).

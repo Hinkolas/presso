@@ -4,11 +4,17 @@ Reviewed on 2026-09-08 against commit `8a80082` and representative local build
 artifacts. This is a technical compliance review, not a legal opinion or a
 certification of every file in the distribution.
 
-**Conclusion: keep Apache 2.0 for original presso code, but do not treat the
-binary/container release as cleared for publication yet.** The unchanged GPLv3
-Redis Object Cache drop-in is not the main blocker. Dependency notices,
-and container source delivery still need follow-up. The subsequent Valkey
-change resolves the default Redis server policy finding (3), as recorded below.
+**Current status:** Apache 2.0 remains the license for original presso code.
+The source-delivery and notice work identified in findings 1–2 is now implemented
+in the release pipeline, with local rehearsals recorded in
+[source-delivery.md](docs/license-review/source-delivery.md). Each final artifact
+must pass those checks again; source materials must be anonymously downloadable
+before its image can be pushed. The Valkey change resolves finding 3.
+
+The findings below preserve the original review's evidence and omissions. They
+are historical observations, not an inventory of a future release. Automation
+checks source identity, retained notices, completeness against the supported
+package inventories, and availability; it does not replace a per-file legal audit.
 
 Making source available and distributing compiled images are different review
 scopes. A pre-1.0 label, a free download, or a no-warranty disclaimer does not
@@ -56,7 +62,7 @@ and [WordPress's license statement](https://en-gb.wordpress.org/about/license/).
 
 ## Findings before publishing artifacts
 
-### 1. Container source delivery has not been established — release blocker
+### 1. Container source delivery — original blocker, delivery pipeline added
 
 The runtime and edge distributions contain more than WordPress source and
 presso's Dockerfiles. The inspected images include packages such as Bash,
@@ -98,7 +104,7 @@ The source-form Redis PHP file is not equivalent to distributing a stripped
 native binary. Docker's own [PHP image documentation](https://raw.githubusercontent.com/docker-library/docs/master/php/README.md#license)
 also makes clear that image users must account for the software inside it.
 
-### 2. Dependency notices are incomplete — release blocker
+### 2. Dependency notices — original blocker, collection and archive gates added
 
 The archives defined in `.goreleaser.yaml` include presso's license and policy
 documents, but not a complete third-party notice bundle for the compiled engine
@@ -192,20 +198,24 @@ This does not satisfy or replace licenses for the upstream base contents.
   inventory. That initial review made no backend substitution; the subsequent
   Valkey change is documented in finding 3 and its separate verification record.
 
-## What remains before release approval
+## Follow-up implementation and release checks
 
-- Resolve findings 1–2 and repeat checks on the exact final image digests for
-  both release architectures. The current functional CI gates do not prove
-  license compliance.
-- Generate and distribute dependency notices and source-access records as part
-  of the build, with checks that detect missing or stale materials.
-- Check that an unauthenticated recipient can obtain the required materials
-  from the public release/package pages. A temporary CI artifact or private
-  repository link is not a reliable public source-distribution mechanism.
-- Obtain specialist legal review if relying on a disputed derivative-work
-  boundary or choosing server overrides with different terms. This review supplies technical
-  evidence and identifies obligations; it does not settle those legal questions.
+- The collector inventories actual linked Go modules, shipped frontend modules,
+  Debian/Alpine source packages, PHP extensions, and WP-CLI Composer packages.
+  It retains source archives, build inputs, and original license/notice files.
+- Binary archives and documented images include `THIRD_PARTY_LICENSES.txt` and
+  `SOURCE_BUNDLE`. The source bundle identifies the inspected payload, records
+  every retained file's hash, and includes presso's source/build instructions.
+- Publishing jobs upload retained source bundles to the public
+  `sources-<version>` prerelease and verify anonymous downloads before image
+  pushes. Private or draft source releases cannot satisfy the gate.
+- The tagged commit repeats these checks for the actual architectures and
+  images. A new/missing dependency, failed download, or failed required job
+  blocks publication; no earlier inventory substitutes for this run.
+- Operators publishing their own modified builds must retain corresponding
+  materials for those builds. See [SOURCE_ACCESS.md](SOURCE_ACCESS.md), including
+  retention and access after moving downloads.
 
 No license conflict found here requires abandoning Apache 2.0 for original
-presso code. The outstanding work is delivering and documenting the separately
-licensed components correctly.
+presso code. The separately licensed components keep their own permissions and
+distribution requirements.

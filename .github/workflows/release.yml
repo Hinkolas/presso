@@ -28,8 +28,18 @@ jobs:
   verify:
     uses: ./.github/workflows/verify.yml
 
-  binary:
+  source-release:
     needs: [verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare public source distribution
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/compliance/release.py prepare --release "$GITHUB_REF_NAME"
+
+  binary:
+    needs: [verify, source-release]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,45 +60,74 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRESSO_PUBLISH_SOURCES: "1"
 
   edge:
-    needs: [verify]
-    runs-on: ubuntu-latest
+    needs: [verify, source-release]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: amd64, runner: ubuntu-latest}
+          - {arch: arm64, runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # The builder stage cross-compiles (xcaddy honours GOOS/GOARCH), so the
-      # arm64 image does not need emulation for the Go build.
       - uses: docker/build-push-action@v6
         with:
           context: build
           file: build/edge.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ env.EDGE_IMAGE }}:${{ github.ref_name }}
-          push: true
-          cache-from: type=gha,scope=edge
-          cache-to: type=gha,scope=edge,mode=max
-      - name: Smoke-test the edge image
+          tags: presso-edge:built
+          load: true
+          cache-from: type=gha,scope=edge-${{ matrix.arch }}
+          cache-to: type=gha,scope=edge-${{ matrix.arch }},mode=max
+      - name: Verify and publish sources before the edge image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          python3 scripts/compliance/release.py image --image presso-edge:built \
+            --target "$EDGE_IMAGE:$GITHUB_REF_NAME-$ARCH" --release "$GITHUB_REF_NAME" \
+            --output /tmp/edge-source-assets --push
+      - name: Smoke-test the documented edge image
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
-          docker run --rm "$EDGE_IMAGE:${{ github.ref_name }}" caddy version
-          docker run --rm "$EDGE_IMAGE:${{ github.ref_name }}" caddy list-modules | grep -q '^http.handlers.cache$'
+          docker run --rm "$EDGE_IMAGE:$GITHUB_REF_NAME-$ARCH" caddy version
+          docker run --rm "$EDGE_IMAGE:$GITHUB_REF_NAME-$ARCH" caddy list-modules | grep -q '^http.handlers.cache$'
+
+  edge-merge:
+    needs: [edge]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker buildx imagetools create -t "$EDGE_IMAGE:$GITHUB_REF_NAME" "$EDGE_IMAGE:$GITHUB_REF_NAME-amd64" "$EDGE_IMAGE:$GITHUB_REF_NAME-arm64"
 
   runtime:
-    needs: [verify]
+    needs: [verify, source-release]
     uses: ./.github/workflows/runtime.yml
     with:
       release: ${{ github.ref_name }}
     secrets: inherit
 
   publish:
-    needs: [verify, binary, edge, runtime]
+    needs: [verify, source-release, binary, edge, edge-merge, runtime]
     runs-on: ubuntu-latest
     steps:
       - name: Publish the draft release

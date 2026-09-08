@@ -44,6 +44,26 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: python3 -m unittest discover -s scripts/compliance -p 'test_*.py' -v
+      - run: cd web && npm ci && npm run build
+      - name: Rehearse real binary source and notice collection
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /tmp/pressod ./cmd/pressod
+          python3 scripts/compliance/collect.py binary /tmp/pressod --out /tmp/engine-compliance
+          python3 scripts/compliance/collect.py verify /tmp/engine-compliance
+
   integration:
     runs-on: ubuntu-latest
     steps:
@@ -53,6 +73,10 @@ jobs:
           go-version-file: go.mod
       - name: Build verification edge
         run: docker build -f build/edge.Dockerfile -t presso-edge:release-verification build
+      - name: Verify real edge source and notice collection
+        run: |
+          python3 scripts/compliance/collect.py image presso-edge:release-verification --out /tmp/edge-compliance
+          python3 scripts/compliance/collect.py verify /tmp/edge-compliance
       - name: Build the default published runtime
         run: |
           go run ./cmd/pressod runtime-matrix > /tmp/presso-matrix.json
@@ -60,6 +84,10 @@ jobs:
           wp=$(jq -r '.include[0].wp' /tmp/presso-matrix.json)
           docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION="$php" -t presso-runtime-base:verification runtime
           docker build -f runtime/Dockerfile --build-arg BASE_IMAGE=presso-runtime-base:verification --build-arg WP_VERSION="$wp" -t presso-runtime:release-verification runtime
+      - name: Verify real runtime source and notice collection
+        run: |
+          python3 scripts/compliance/collect.py image presso-runtime:release-verification --out /tmp/runtime-compliance
+          python3 scripts/compliance/collect.py verify /tmp/runtime-compliance
       - run: docker pull chromedp/headless-shell:stable
       - run: docker pull curlimages/curl:latest
       - run: go test -tags integration -count=1 -timeout 10m ./internal/integration ./internal/platform

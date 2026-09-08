@@ -4,6 +4,14 @@ The root [Apache 2.0 license](LICENSE) applies to original presso code and
 documentation unless a file states otherwise. It does not relicense upstream
 software or dependencies bundled in the binaries or container images.
 
+Released binary archives and presso-published images additionally include
+`THIRD_PARTY_LICENSES.txt`, collected from the actual compiled dependencies and
+image contents. In images it is under `/usr/share/licenses/presso/`, beside
+`SOURCE_BUNDLE`, the inventory, and [source-access instructions](SOURCE_ACCESS.md).
+The version's separate `sources-<version>` prerelease retains matching source
+archives, patches, build recipes, and the original notice files. Publication
+requires successful collection and verified anonymous source downloads.
+
 ## MySQL driver source notice
 
 The `pressod` binary includes `github.com/go-sql-driver/mysql` v1.10.1 under the
@@ -36,7 +44,11 @@ license is retained outside the web root at `/opt/presso/licenses/wordpress.txt`
 The Redis drop-in's license accompanies it under `/opt/presso/dropins/COPYING`.
 The WP-CLI root license and source reference are retained under
 `/opt/presso/licenses/wp-cli.txt` and `wp-cli-source.txt`. This does not replace
-the separate obligations for packages bundled inside the PHAR.
+the separate obligations for packages bundled inside the PHAR; the release
+collector inspects its installed Composer references and includes their sources
+and notices. Oxymel's pinned revision declares MIT in `composer.json` without
+a standalone license file; its declaration, author attribution, and an
+explicitly identified MIT supplement are retained together.
 The Apache license and presso notice accompany the system plugin under
 `/opt/presso/mu-plugins/` and the engine/edge images under
 `/usr/share/licenses/presso/`. Copies under `build/` and `runtime/mu-plugins/`
@@ -68,6 +80,6 @@ service images retain their respective licenses and notices. Dependency versions
 are recorded in `go.mod`/`go.sum`, `web/package-lock.json`, Dockerfiles, and the
 runtime matrix. This file identifies the directly vendored code; it is not a
 complete inventory of every transitive dependency or base-image package.
-The findings and outstanding release work are recorded in
+The original findings and subsequent implementation are recorded in
 [LICENSE_REVIEW.md](LICENSE_REVIEW.md). These notices are not a statement that
 all release artifacts have completed license compliance review.

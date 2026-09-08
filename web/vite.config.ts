@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { readFileSync } from 'node:fs';
 
 // The UI is a static SPA: adapter-static emits web/build with an index.html
 // fallback, and the Go binary embeds and serves it next to /api. In dev the
@@ -9,6 +10,27 @@ import { defineConfig } from 'vite';
 // it sets is first-party on http://localhost:5173.
 export default defineConfig({
 	plugins: [
+		{
+			name: 'verify-bundled-notices',
+			apply: 'build',
+			generateBundle() {
+				const covered = new Set(
+					(
+						JSON.parse(readFileSync('static/third-party-manifest.json', 'utf8')) as {
+							name: string;
+						}[]
+					).map((p) => p.name)
+				);
+				for (const id of this.getModuleIds()) {
+					const match = id.match(/node_modules\/((?:@[^/]+\/)?[^/]+)/);
+					if (match && !covered.has(match[1])) {
+						this.error(
+							`Missing shipped dependency notice for ${match[1]}; update scripts/licenses.mjs`
+						);
+					}
+				}
+			}
+		},
 		tailwindcss(),
 		sveltekit({
 			compilerOptions: {

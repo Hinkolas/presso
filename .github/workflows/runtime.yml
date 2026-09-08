@@ -26,6 +26,8 @@ on:
   pull_request:
     paths:
       - runtime/**
+      - scripts/compliance/**
+      - SOURCE_ACCESS.md
       - internal/compat/matrix.json
       - .github/workflows/runtime.yml
   workflow_dispatch:
@@ -44,7 +46,7 @@ on:
         default: true
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -60,6 +62,7 @@ jobs:
       bases: ${{ steps.gen.outputs.bases }}
       base_runs: ${{ steps.gen.outputs.base_runs }}
       pairs: ${{ steps.gen.outputs.pairs }}
+      pair_runs: ${{ steps.gen.outputs.pair_runs }}
       samples: ${{ steps.gen.outputs.samples }}
       push: ${{ steps.gen.outputs.push }}
     steps:
@@ -82,6 +85,7 @@ jobs:
           # Bases are built once per architecture on native runners.
           echo "base_runs=$(jq -c '.include |= (map(. as $b | ["ubuntu-latest","ubuntu-24.04-arm"] | map($b + {runner: .})) | add)' <<<"$bases")" >> "$GITHUB_OUTPUT"
           echo "pairs=$(jq -c . <<<"$pairs")" >> "$GITHUB_OUTPUT"
+          echo "pair_runs=$(jq -c '.include |= (map(. as $p | [{arch: "amd64", runner: "ubuntu-latest"}, {arch: "arm64", runner: "ubuntu-24.04-arm"}] | map($p + .)) | add)' <<<"$pairs")" >> "$GITHUB_OUTPUT"
           # Samples: one pair per flavor, joined with its base for a one-runner build.
           echo "samples=$(jq -c --argjson bases "$bases" --arg tags "$SAMPLE_TAGS" '
             .include |= map(select(.tag as $t | ($tags | split(" ")) | index($t)))
@@ -101,8 +105,19 @@ jobs:
 
   # --- Publishing path -------------------------------------------------------
 
-  base:
+  source-release:
     needs: matrix
+    if: needs.matrix.outputs.push == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare public source distribution
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/compliance/release.py prepare --release "$RELEASE"
+
+  base:
+    needs: [matrix, source-release]
     if: needs.matrix.outputs.push == 'true'
     strategy:
       fail-fast: false
@@ -110,6 +125,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -124,13 +142,22 @@ jobs:
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             ${{ matrix.debian && format('DEBIAN={0}', matrix.debian) || '' }}
-          # Pushed by digest only; the merge job assembles the tag.
-          outputs: type=image,name=${{ env.BASE_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          tags: presso-runtime-base:built
+          load: true
           cache-from: type=gha,scope=base-php${{ matrix.php }}-${{ matrix.runner }}
           cache-to: type=gha,scope=base-php${{ matrix.php }}-${{ matrix.runner }},mode=max
-      - run: |
+      - name: Verify and publish sources before the base image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PHP: ${{ matrix.php }}
+          RUNNER: ${{ matrix.runner }}
+        run: |
+          set -euo pipefail
+          target="$BASE_IMAGE:$RELEASE-php$PHP-$RUNNER"
+          python3 scripts/compliance/release.py image --image presso-runtime-base:built \
+            --target "$target" --release "$RELEASE" --output /tmp/base-source-assets --push
           mkdir -p /tmp/digests
-          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.runner }}"
+          docker image inspect "$target" --format '{{index .RepoDigests 0}}' | sed 's/.*@//' > "/tmp/digests/$RUNNER"
       - uses: actions/upload-artifact@v4
         with:
           name: base-digest-php${{ matrix.php }}-${{ matrix.runner }}
@@ -167,32 +194,58 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 8
-      matrix: ${{ fromJSON(needs.matrix.outputs.pairs) }}
-    runs-on: ubuntu-latest
+      matrix: ${{ fromJSON(needs.matrix.outputs.pair_runs) }}
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Only `wp core download` runs emulated; the heavy layers come from the
-      # multi-arch base.
+      # Native runners permit inspecting the exact PHP/PHAR shipped per arch.
       - uses: docker/build-push-action@v6
         with:
           context: runtime
           file: runtime/Dockerfile
-          platforms: linux/amd64,linux/arm64
           build-args: |
             BASE_IMAGE=${{ env.BASE_IMAGE }}:${{ env.RELEASE }}-php${{ matrix.php }}
             WP_VERSION=${{ matrix.wp }}
-          tags: ${{ env.IMAGE }}:${{ env.RELEASE }}-${{ matrix.tag }}
-          push: true
+          tags: presso-runtime:built
+          load: true
+      - name: Verify and publish sources before the site image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAIR: ${{ matrix.tag }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          python3 scripts/compliance/release.py image --image presso-runtime:built \
+            --target "$IMAGE:$RELEASE-$PAIR-$ARCH" --release "$RELEASE" \
+            --output /tmp/runtime-source-assets --push
+
+  image-merge:
+    needs: [matrix, image]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.pairs) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - env:
+          PAIR: ${{ matrix.tag }}
+        run: docker buildx imagetools create -t "$IMAGE:$RELEASE-$PAIR" "$IMAGE:$RELEASE-$PAIR-amd64" "$IMAGE:$RELEASE-$PAIR-arm64"
 
   verify:
-    needs: [matrix, image]
+    needs: [matrix, image-merge]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.samples) }}
@@ -217,6 +270,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -237,4 +293,11 @@ jobs:
             WP_VERSION=${{ matrix.wp }}
           tags: presso-runtime:${{ matrix.tag }}
           load: true
-      - run: runtime/scripts/smoke.sh "presso-runtime:${{ matrix.tag }}"
+      - name: Rehearse source and notice packaging without publication
+        env:
+          PAIR: ${{ matrix.tag }}
+        run: |
+          python3 scripts/compliance/release.py image --image "presso-runtime:$PAIR" \
+            --target "presso-runtime:documented-$PAIR" --release "${RELEASE:-dev}" \
+            --output /tmp/sample-source-assets
+      - run: runtime/scripts/smoke.sh "presso-runtime:documented-${{ matrix.tag }}"

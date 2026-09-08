@@ -17,14 +17,21 @@ const packages = [
 	['clsx', 'license']
 ];
 
+const manifest = [];
 const notices = ['Third-party browser code and font notices\n'];
 for (const [name, license] of packages) {
 	const dir = new URL(`node_modules/${name}/`, root);
 	const { version } = JSON.parse(readFileSync(new URL('package.json', dir), 'utf8'));
 	const text = readFileSync(new URL(license, dir), 'utf8');
+	manifest.push({ name, version });
 	if (!text.trim()) throw new Error(`Missing license text for ${name}`);
 	notices.push(`\n${'='.repeat(72)}\n${name} ${version}\n${'='.repeat(72)}\n\n${text}`);
 }
 const output = new URL('static/third-party-licenses.txt', root);
 writeFileSync(output, notices.join('\n'));
 console.log(`Wrote ${packages.length} dependency notices to ${fileURLToPath(output)}`);
+
+writeFileSync(
+	new URL('static/third-party-manifest.json', root),
+	JSON.stringify(manifest, null, 2) + '\n'
+);
