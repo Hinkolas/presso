@@ -187,7 +187,7 @@
 		tabindex="-1"
 		aria-activedescendant="{listId}-{cursor}"
 		onkeydown={onPanelKey}
-		class="fixed z-50 max-h-80 overflow-y-auto rounded-plate bg-surface p-2 shadow-pop outline-none {pos
+		class="fixed z-50 max-h-80 overflow-y-auto rounded-plate bg-pop p-2 shadow-pop outline-none {pos
 			? 'opacity-100'
 			: 'opacity-0'}"
 		style="top:{pos?.top ?? 0}px; left:{pos?.left ?? 0}px; min-width:{Math.max(

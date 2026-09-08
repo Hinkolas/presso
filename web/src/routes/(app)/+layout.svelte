@@ -186,12 +186,12 @@
 		></button>
 	{/if}
 	<aside
-		class="fixed inset-y-0 left-0 z-50 flex h-full w-[260px] shrink-0 flex-col gap-[26px] overflow-y-auto border-r border-rule bg-surface px-4 pt-[22px] pb-5 transition-transform duration-200 ease-out lg:static lg:translate-x-0 {navOpen
+		class="fixed inset-y-0 left-0 z-50 flex h-full w-[260px] shrink-0 flex-col gap-5 overflow-y-auto border-r border-rule bg-surface px-3 pt-4 pb-3 transition-transform duration-200 ease-out lg:static lg:translate-x-0 {navOpen
 			? 'translate-x-0 shadow-dialog'
 			: '-translate-x-full lg:shadow-none'}"
 		aria-label="Navigation"
 	>
-		<div class="flex h-9 items-center justify-between px-2.5">
+		<div class="flex h-9 items-center justify-between px-2">
 			<a href={resolve('/')} class="flex items-center" aria-label="presso home">
 				<Wordmark />
 			</a>
@@ -211,7 +211,7 @@
 			{/each}
 		</nav>
 
-		<div class="mt-auto flex flex-col gap-3">
+		<div class="mt-auto flex flex-col gap-2">
 			<nav class="flex flex-col gap-1" aria-label="Host">
 				{@render navLink(system)}
 			</nav>
@@ -219,14 +219,12 @@
 				items={accountItems}
 				label="Account"
 				align="left"
-				triggerClass="flex w-full items-center gap-3 rounded-control border border-rule bg-ground px-2.5 py-2 text-left transition-colors hover:bg-sunken aria-expanded:bg-sunken"
+				triggerClass="flex w-full items-center gap-3 rounded-control-sm px-2 py-2 text-left transition-colors hover:bg-sunken aria-expanded:bg-sunken"
 			>
 				{#snippet header()}
 					<p class="truncate text-sm font-medium text-ink">{user?.name || user?.email || '–'}</p>
 					<p class="truncate text-xs text-ink-2">
-						{[user?.name ? user.email : '', user?.role === 'admin' ? 'administrator' : '']
-							.filter(Boolean)
-							.join(' · ')}
+						{user?.role === 'admin' ? 'Administrator' : 'Member'}
 					</p>
 				{/snippet}
 				{#snippet children({ open })}

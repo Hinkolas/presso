@@ -48,6 +48,8 @@
 	/* Surfaces */
 	--color-ground: #eef0f3;
 	--color-surface: #ffffff;
+	/* Pop is what floats over a surface (menus, dropdowns); a step lighter than surface in the dark. */
+	--color-pop: #ffffff;
 	--color-sunken: #f3f4f6;
 	--color-rule: #e2e5ea;
 	--color-rule-strong: #cfd4db;
@@ -112,6 +114,7 @@
 		:root {
 			--color-ground: #0f1216;
 			--color-surface: #171b21;
+			--color-pop: #1e242c;
 			--color-sunken: #12161b;
 			--color-rule: #262c35;
 			--color-rule-strong: #363e4a;

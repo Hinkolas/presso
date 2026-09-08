@@ -9,7 +9,8 @@ sidebar that has room to grow.
 ## Shell
 
 - A 260px sidebar: Sites at the top; pinned to the bottom, System and the
-  account card (avatar, name, email; opens the account menu upward). The
+  account card (avatar, name, email; flat, sunken on hover; opens the
+  account menu upward). The
   System row carries a dot when a component is bad, the event stream
   dropped, or a job is running; the health verdict itself is the System
   page subtitle. Nothing else is padded in: new sections (domains,
@@ -28,8 +29,11 @@ All colors, radii and shadows are semantic tokens declared in
 the token classes (`bg-surface`, `text-ink-2`, `border-rule`, ...), never raw
 palette values.
 
-- Surfaces: `ground` (page), `surface` (plates, sidebar, topbar), `sunken`
-  (inset areas), `rule` and `rule-strong` (hairlines and control borders).
+- Surfaces: `ground` (page), `surface` (plates, sidebar, topbar), `pop`
+  (menus and dropdowns floating over a surface; white in light, a step
+  lighter than `surface` in dark so they separate without a border),
+  `sunken` (inset areas), `rule` and `rule-strong` (hairlines and control
+  borders).
 - Text: `ink`, `ink-2` (secondary), `ink-3` (muted).
 - Meaning: `brand` (forest green, primary actions and the "running" state),
   `ok`, `busy` (brass, anything in motion), `danger` (failure only), `info`.
