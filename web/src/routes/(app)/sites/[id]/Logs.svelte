@@ -148,7 +148,7 @@
 		</span>
 	</div>
 
-	<div bind:this={scroller} class="h-[36rem] overflow-auto console p-4">
+	<div bind:this={scroller} class="h-[36rem] console overflow-auto p-4">
 		{#if visible.length === 0}
 			<p class="text-console-dim">
 				{ended ? 'The container stopped writing logs.' : 'Waiting for log lines.'}

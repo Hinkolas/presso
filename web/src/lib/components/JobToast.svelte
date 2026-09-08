@@ -75,7 +75,7 @@
 	const canRetry = $derived(
 		!!job &&
 			job.status === 'failed' &&
-			jobVerb(job.kind) === 'provision' &&
+			['provision', 'recreate', 'start', 'restart', 'stop'].includes(jobVerb(job.kind)) &&
 			site.status === 'error' &&
 			isAdmin()
 	);
@@ -165,7 +165,7 @@
 			<Button size="sm" href={resolve(`/jobs/${job.id}`)}>Open job</Button>
 			{#if canRetry}
 				<Button size="sm" variant="primary" icon="refresh" onclick={retry} busy={retrying}>
-					Retry provisioning
+					Retry
 				</Button>
 			{/if}
 		{/snippet}

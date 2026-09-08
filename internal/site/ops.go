@@ -378,34 +378,30 @@ func (s *Service) RenderEdge(ctx context.Context) (string, error) {
 	}
 	routes := make([]edge.SiteRoute, 0, len(rows))
 	for _, r := range rows {
-		if r.Status == StatusDeleting {
-			continue
-		}
+
 		set := parseSettings(r.Settings)
 		routes = append(routes, edge.SiteRoute{
 			ID: r.ID.String(), Slug: r.Slug, Hosts: bySite[r.ID], TLSMode: r.TlsMode,
-			Upstream:  fmt.Sprintf("%s:%d", NetworkAlias(r.ID.String()), containerPort),
-			PageCache: r.PageCache, CacheTTL: time.Duration(set.CacheTTL) * time.Second,
+			Upstream:    fmt.Sprintf("%s:%d", NetworkAlias(r.ID.String()), containerPort),
+			Unavailable: !r.TrafficReady || r.DesiredState != StatusRunning || r.Status == StatusDeleting || r.Status == StatusProvisioning, PageCache: r.PageCache, CacheTTL: time.Duration(set.CacheTTL) * time.Second,
 		})
 	}
-	_, cacheAdminPort, _ := splitHostPort(s.cfg.Edge.CacheAdminListen)
 	opts := edge.Options{
-		ACMEEmail:        s.cfg.Edge.ACMEEmail,
-		DefaultTTL:       s.cfg.Edge.DefaultCacheTTL,
-		StaleFor:         s.cfg.Edge.StaleFor,
-		CacheAdminListen: ":" + strconv.Itoa(cacheAdminPort),
+		ACMEEmail:  s.cfg.Edge.ACMEEmail,
+		DefaultTTL: s.cfg.Edge.DefaultCacheTTL,
+		StaleFor:   s.cfg.Edge.StaleFor,
 	}
 	if s.cfg.Panel.Domain != "" {
 		// The engine listens on the host; inside the edge container the host
 		// is host.docker.internal (platform adds the host-gateway entry).
-		_, port, err := splitHostPort(s.cfg.HTTPAddr)
+		_, port, err := splitHostPort(s.cfg.InternalHTTPSAddr)
 		if err != nil {
-			return "", fmt.Errorf("edge: HTTP_ADDR %q: %w", s.cfg.HTTPAddr, err)
+			return "", fmt.Errorf("edge: INTERNAL_HTTPS_ADDR %q: %w", s.cfg.InternalHTTPSAddr, err)
 		}
 		opts.PanelHost = s.cfg.Panel.Domain
 		opts.PanelUpstream = "host.docker.internal:" + strconv.Itoa(port)
 	}
-	return edge.Render(routes, opts, s.now())
+	return edge.Render(routes, opts, time.Time{})
 }
 
 func splitHostPort(addr string) (string, int, error) {
@@ -435,6 +431,11 @@ type UpdateInput struct {
 // system plugin reads returns a recreate job (which also re-renders the edge
 // and purges the site); the name and the warmer opt-in apply in place.
 func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Site, *store.Job, error) {
+	s.commands.Lock()
+	defer s.commands.Unlock()
+	if s.jobs.Paused() {
+		return Site{}, nil, jobs.ErrPaused
+	}
 	row, err := s.Get(ctx, id)
 	if err != nil {
 		return Site{}, nil, err
@@ -511,8 +512,12 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Sit
 	recreate := image != row.Image || fileMods != row.FileMods || profile != row.Profile || tls != row.TlsMode ||
 		pageCache != row.PageCache || requiresRecreate(oldSettings, newSettings)
 
+	increment := int64(0)
+	if recreate {
+		increment = 1
+	}
 	updated, err := s.st.UpdateSiteConfig(ctx, store.UpdateSiteConfigParams{
-		Name: name, PhpVersion: php, Image: image, Runtime: runtime, PageCache: pageCache, FileMods: fileMods,
+		RevisionIncrement: increment, Name: name, PhpVersion: php, Image: image, Runtime: runtime, PageCache: pageCache, FileMods: fileMods,
 		TlsMode: tls, Profile: profile, Settings: newSettings.encode(), UpdatedAt: s.now(), ID: id,
 	})
 	if err != nil {
@@ -525,7 +530,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Sit
 	}
 
 	var job *store.Job
-	if recreate && (row.Status == StatusRunning || row.Status == StatusStopped || row.Status == StatusError) {
+	if recreate && row.DesiredState == StatusRunning && (row.Status == StatusRunning || row.Status == StatusError) {
 		j, err := s.jobs.Enqueue(ctx, JobRecreate, nullID(id), nil, in.UpdatedBy)
 		if err != nil {
 			return Site{}, nil, err

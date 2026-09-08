@@ -16,8 +16,11 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,6 +33,7 @@ import (
 	"github.com/Hinkolas/presso/internal/auth"
 	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/config"
+	"github.com/Hinkolas/presso/internal/control"
 	"github.com/Hinkolas/presso/internal/cron"
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/edge"
@@ -130,14 +134,19 @@ func runServe() error {
 		slog.InfoContext(ctx, "docker connected", "version", info.Version, "os", info.OS, "arch", info.Arch)
 	}
 
+	trust, err := control.Open(cfg.DataDir)
+	if err != nil {
+		return err
+	}
+
 	hub := events.New()
-	edgeClient := edge.NewClient(cfg.Edge.AdminListen, cfg.Edge.CacheAdminListen, filepath.Join(cfg.DataDir, "edge"))
+	edgeClient := edge.NewDockerClient(dk, platform.NameEdge, filepath.Join(cfg.DataDir, "edge"))
 	plat := platform.New(cfg, dk, st, box, hub, edgeClient)
 	defer plat.Close()
 	runner := jobs.New(st, hub, 4)
 	var shotSvc *shots.Service // nil when previews are disabled
 	if cfg.Shots.Enabled {
-		shotSvc = shots.New(filepath.Join(cfg.DataDir, "screenshots"), cfg.Shots.Listen, cfg.Shots.Timeout)
+		shotSvc = shots.NewDocker(filepath.Join(cfg.DataDir, "screenshots"), dk, platform.NameBrowser, cfg.Shots.Timeout)
 	}
 	warmer := warm.New(warm.Deps{Store: st, Config: cfg})
 	sites := site.New(site.Deps{
@@ -180,6 +189,18 @@ func runServe() error {
 		ConnContext: api.PeerContext,
 	}
 
+	internalSrv := &http.Server{Addr: cfg.InternalHTTPSAddr, Handler: api.InternalOnly(srv.Handler), ReadHeaderTimeout: 5 * time.Second, ConnContext: api.PeerContext, TLSConfig: trust.ServerTLS()}
+	// Bind both listeners before starting workers so a bad address does not mutate infrastructure.
+	localListener, err := net.Listen("tcp", cfg.HTTPAddr)
+	if err != nil {
+		return err
+	}
+	defer localListener.Close()
+	internalListener, err := net.Listen("tcp", cfg.InternalHTTPSAddr)
+	if err != nil {
+		return err
+	}
+	defer internalListener.Close()
 	// Workers share one context; cancelling it is the first step of shutdown.
 	loopCtx, cancelLoops := context.WithCancel(ctx)
 	defer cancelLoops()
@@ -188,7 +209,6 @@ func runServe() error {
 	}
 	// First boot on a new version: move every site to this release's runtime
 	// images (engine.rollout). The platform reconciler below swaps the edge.
-	updater.OnBoot(ctx)
 
 	var wg sync.WaitGroup
 	spawn := func(name string, fn func(context.Context)) {
@@ -199,10 +219,46 @@ func runServe() error {
 			slog.DebugContext(ctx, "worker stopped", "worker", name)
 		}()
 	}
+	spawn("trust", func(ctx context.Context) {
+		tick := time.NewTicker(time.Hour)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				changed, err := trust.Refresh(ctx)
+				if err != nil {
+					slog.Error("control certificate renewal failed", "err", err)
+				} else if changed {
+					if err := plat.ApplyEdge(ctx); err != nil {
+						slog.Error("edge certificate reload failed", "err", err)
+					}
+				}
+			}
+		}
+	})
 	spawn("sessions", func(ctx context.Context) { sweepLoop(ctx, authSvc) })
 	// The platform reconciler runs first so the edge and shared services exist
 	// before any site work; the status watcher re-inspects sites right after.
-	spawn("platform", func(ctx context.Context) { plat.Run(ctx, time.Minute) })
+	spawn("platform", func(ctx context.Context) {
+		// Reconcile before the first rollout so the safe bootstrap and callbacks
+		// are ready. A temporary infrastructure failure retries without touching sites.
+		for {
+			if err := plat.Reconcile(ctx); err == nil {
+				updater.OnBoot(ctx)
+				break
+			} else {
+				slog.WarnContext(ctx, "initial platform reconciliation failed", "err", err)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(10 * time.Second):
+			}
+		}
+		plat.Run(ctx, time.Minute)
+	})
 	watcher := observe.NewStatusWatcher(dk, sites)
 	spawn("status", watcher.Run)
 	spawn("stats", func(ctx context.Context) { observe.NewStatsSampler(dk, st).Run(ctx, cfg.StatsInterval) })
@@ -215,10 +271,15 @@ func runServe() error {
 	spawn("warm", warmer.Start)
 	spawn("update", updater.Run)
 
-	serveErr := make(chan error, 1)
+	serveErr := make(chan error, 2)
+	go func() {
+		if err := internalSrv.Serve(tls.NewListener(internalListener, internalSrv.TLSConfig)); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- err
+		}
+	}()
 	go func() {
 		slog.InfoContext(ctx, "listening", "addr", cfg.HTTPAddr, "data_dir", cfg.DataDir)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.Serve(localListener); err != nil && err != http.ErrServerClosed {
 			serveErr <- err
 		}
 	}()
@@ -229,6 +290,7 @@ func runServe() error {
 	select {
 	case err := <-serveErr:
 		return err
+	case <-ctx.Done():
 	case <-sigCtx.Done():
 	case <-updater.RestartRequests():
 		restart = true
@@ -239,7 +301,7 @@ func runServe() error {
 	stopStreams()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	err = srv.Shutdown(shutdownCtx)
+	err = errors.Join(srv.Shutdown(shutdownCtx), internalSrv.Shutdown(shutdownCtx))
 	// Give running jobs a moment to record their outcome.
 	done := make(chan struct{})
 	go func() { runner.Wait(); wg.Wait(); close(done) }()

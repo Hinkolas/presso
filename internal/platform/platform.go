@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -53,9 +54,8 @@ const (
 	kvEdgeLastApplied = "edge.last_applied_at"
 	kvEdgeLastError   = "edge.last_error"
 	// kvEdgeRenderedBy is the engine version that last pushed the edge config.
-	// A new engine version re-pushes once, since a recreated edge restores its
-	// previous config from the /config volume (caddy run --resume) and would
-	// otherwise keep serving a stale render.
+	// A new engine version forces a configuration push; regular reconciliation
+	// additionally verifies the full desired generation.
 	kvEdgeRenderedBy = "edge.rendered_by"
 )
 
@@ -82,6 +82,7 @@ type Service struct {
 
 	renderEdge EdgeRenderer
 
+	edgeMu     sync.Mutex
 	mu         sync.Mutex
 	components []Component
 	db         *sql.DB
@@ -187,7 +188,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		slog.WarnContext(ctx, "platform: redis acls", "err", err)
 	}
 	// Force a push when the edge is fresh or a newer engine renders the
-	// config; otherwise only when Caddy is not carrying ours at all.
+	// config; otherwise compare the complete desired configuration generation.
 	force := s.edgeDirty.Load() || s.getKV(ctx, kvEdgeRenderedBy) != version.Version
 	if err := s.ensureEdgeConfig(ctx, force); err != nil && ctx.Err() == nil {
 		errs = append(errs, err)
@@ -307,11 +308,9 @@ func (s *Service) edgeSpec() docker.Spec {
 	spec := docker.Spec{
 		Name:  NameEdge,
 		Image: s.cfg.Edge.Image,
-		// CADDY_ADMIN makes the bootstrap config's admin API reachable on the
-		// published port; --resume brings back the last pushed config after a
-		// restart (persisted in /config).
-		Env:            []string{"CADDY_ADMIN=0.0.0.0:2019"},
-		Cmd:            []string{"caddy", "run", "--resume", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"},
+		// Every boot uses the safe bootstrap; management is container-loopback.
+		Env:            []string{"CADDY_ADMIN=127.0.0.1:2019"},
+		Cmd:            []string{"caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"},
 		Labels:         managedLabels("edge"),
 		Network:        s.cfg.Network,
 		NetworkAliases: []string{"edge"},
@@ -319,6 +318,7 @@ func (s *Service) edgeSpec() docker.Spec {
 		// host-gateway entry; Docker Desktop resolves the name anyway).
 		ExtraHosts: []string{"host.docker.internal:host-gateway"},
 		Mounts: []docker.Mount{
+			{Type: docker.MountBind, Source: filepath.Join(s.cfg.DataDir, "control", "edge"), Target: "/etc/presso/control", ReadOnly: true},
 			{Type: docker.MountVolume, Source: NameEdge + "-data", Target: "/data"},
 			{Type: docker.MountVolume, Source: NameEdge + "-config", Target: "/config"},
 			{Type: docker.MountVolume, Source: NameEdge + "-cache", Target: "/cache"},
@@ -340,8 +340,6 @@ func (s *Service) edgeSpec() docker.Spec {
 		{s.cfg.Edge.HTTPListen, 80, "tcp"},
 		{s.cfg.Edge.HTTPSListen, 443, "tcp"},
 		{s.cfg.Edge.HTTPSListen, 443, "udp"},
-		{s.cfg.Edge.AdminListen, 2019, "tcp"},
-		{s.cfg.Edge.CacheAdminListen, 2020, "tcp"},
 	} {
 		hostIP, port, err := splitListen(p.listen)
 		if err != nil {
@@ -352,20 +350,12 @@ func (s *Service) edgeSpec() docker.Spec {
 	return spec
 }
 
-// browserSpec is the shared headless Chrome that captures site previews.
-// Chrome only binds DevTools to loopback, so (as the image's own run.sh
-// does) a socat shim exposes it on 9222; the shim is driven through bash -c
-// with a quoted "$@" because run.sh appends its arguments unquoted, which
-// would glob-expand the "*" in the resolver rule and split it on spaces. The
-// host resolver rule sends every hostname the browser visits to the edge
-// container, so a site's own URL (demo.localhost, a real domain) renders
-// through the edge with the right Host header and SNI, whatever public DNS
-// says. Certificate errors are ignored because a freshly created site may not
-// have its ACME certificate yet.
+// browserSpec keeps DevTools on container loopback. The engine discovers and
+// attaches through Docker exec; no debugging listener is published.
 func (s *Service) browserSpec() docker.Spec {
-	const launch = `socat TCP4-LISTEN:9222,fork,reuseaddr TCP4:127.0.0.1:9223 & ` +
-		`exec /headless-shell/headless-shell --no-sandbox --use-gl=angle --use-angle=swiftshader ` +
+	const launch = `exec /headless-shell/headless-shell --no-sandbox --use-gl=angle --use-angle=swiftshader ` +
 		`--remote-debugging-address=127.0.0.1 --remote-debugging-port=9223 "$@"`
+
 	spec := docker.Spec{
 		Name:       NameBrowser,
 		Image:      s.cfg.Shots.Image,
@@ -386,9 +376,7 @@ func (s *Service) browserSpec() docker.Spec {
 		LogMaxSize:     "10m",
 		LogMaxFile:     3,
 	}
-	if hostIP, port, err := splitListen(s.cfg.Shots.Listen); err == nil {
-		spec.Ports = []docker.PortBinding{{HostIP: hostIP, HostPort: port, ContainerPort: 9222, Protocol: "tcp"}}
-	}
+
 	return spec
 }
 
@@ -718,22 +706,22 @@ func RedisKeyPrefix(siteID string) string { return "site-" + siteID + ":" }
 func (s *Service) ApplyEdge(ctx context.Context) error { return s.ensureEdgeConfig(ctx, true) }
 
 func (s *Service) ensureEdgeConfig(ctx context.Context, force bool) error {
+	s.edgeMu.Lock()
+	defer s.edgeMu.Unlock()
+	s.edgeDirty.Store(true)
 	if s.renderEdge == nil || s.edge == nil {
 		return nil
-	}
-	if !force {
-		loaded, err := s.edge.Loaded(ctx)
-		if err != nil {
-			return err
-		}
-		if loaded {
-			return nil
-		}
-		slog.InfoContext(ctx, "platform: edge is not running our config, pushing")
 	}
 	caddyfile, err := s.renderEdge(ctx)
 	if err != nil {
 		return err
+	}
+	if !force {
+		matches, err := s.edge.Matches(ctx, caddyfile)
+		if err == nil && matches {
+			s.edgeDirty.Store(false)
+			return nil
+		}
 	}
 	if err := s.edge.Load(ctx, caddyfile); err != nil {
 		s.setKV(ctx, kvEdgeLastError, err.Error())

@@ -12,6 +12,20 @@ import (
 	"github.com/google/uuid"
 )
 
+const completeSiteApplication = `-- name: CompleteSiteApplication :exec
+UPDATE sites SET applied_revision = config_revision, applied_image = image, updated_at = ? WHERE id = ?
+`
+
+type CompleteSiteApplicationParams struct {
+	UpdatedAt time.Time
+	ID        uuid.UUID
+}
+
+func (q *Queries) CompleteSiteApplication(ctx context.Context, arg CompleteSiteApplicationParams) error {
+	_, err := q.db.ExecContext(ctx, completeSiteApplication, arg.UpdatedAt, arg.ID)
+	return err
+}
+
 const countSitesByStatus = `-- name: CountSitesByStatus :many
 SELECT status, count(*) AS n FROM sites GROUP BY status
 `
@@ -52,7 +66,7 @@ INSERT INTO sites (
     admin_email, settings, container_id, volume_name, created_at, updated_at,
     runtime, wp_version
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version
+RETURNING id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version, desired_state, traffic_ready, config_revision, applied_revision, applied_image
 `
 
 type CreateSiteParams struct {
@@ -150,6 +164,11 @@ func (q *Queries) CreateSite(ctx context.Context, arg CreateSiteParams) (Site, e
 		&i.UpdatedAt,
 		&i.Runtime,
 		&i.WpVersion,
+		&i.DesiredState,
+		&i.TrafficReady,
+		&i.ConfigRevision,
+		&i.AppliedRevision,
+		&i.AppliedImage,
 	)
 	return i, err
 }
@@ -217,7 +236,7 @@ func (q *Queries) DeleteSiteDomain(ctx context.Context, arg DeleteSiteDomainPara
 }
 
 const getSiteByID = `-- name: GetSiteByID :one
-SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version FROM sites WHERE id = ?
+SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version, desired_state, traffic_ready, config_revision, applied_revision, applied_image FROM sites WHERE id = ?
 `
 
 func (q *Queries) GetSiteByID(ctx context.Context, id uuid.UUID) (Site, error) {
@@ -253,12 +272,17 @@ func (q *Queries) GetSiteByID(ctx context.Context, id uuid.UUID) (Site, error) {
 		&i.UpdatedAt,
 		&i.Runtime,
 		&i.WpVersion,
+		&i.DesiredState,
+		&i.TrafficReady,
+		&i.ConfigRevision,
+		&i.AppliedRevision,
+		&i.AppliedImage,
 	)
 	return i, err
 }
 
 const getSiteBySlug = `-- name: GetSiteBySlug :one
-SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version FROM sites WHERE slug = ?
+SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version, desired_state, traffic_ready, config_revision, applied_revision, applied_image FROM sites WHERE slug = ?
 `
 
 func (q *Queries) GetSiteBySlug(ctx context.Context, slug string) (Site, error) {
@@ -294,6 +318,11 @@ func (q *Queries) GetSiteBySlug(ctx context.Context, slug string) (Site, error) 
 		&i.UpdatedAt,
 		&i.Runtime,
 		&i.WpVersion,
+		&i.DesiredState,
+		&i.TrafficReady,
+		&i.ConfigRevision,
+		&i.AppliedRevision,
+		&i.AppliedImage,
 	)
 	return i, err
 }
@@ -313,6 +342,32 @@ func (q *Queries) GetSiteDomainByHost(ctx context.Context, lower string) (SiteDo
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const interruptSiteApplications = `-- name: InterruptSiteApplications :exec
+UPDATE sites SET traffic_ready = 0, applied_revision = 0, status = 'error',
+ status_message = 'application interrupted by engine restart; retry explicitly',
+ desired_state = CASE WHEN EXISTS (SELECT 1 FROM jobs WHERE jobs.site_id = sites.id AND jobs.kind = 'site.stop' AND jobs.status IN ('queued','running')) THEN 'stopped' ELSE desired_state END
+WHERE id IN (SELECT site_id FROM jobs WHERE status IN ('queued','running') AND kind IN ('site.provision','site.start','site.stop','site.restart','site.recreate','site.delete'))
+`
+
+func (q *Queries) InterruptSiteApplications(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, interruptSiteApplications)
+	return err
+}
+
+const invalidateSiteApplication = `-- name: InvalidateSiteApplication :exec
+UPDATE sites SET applied_revision = 0, traffic_ready = 0, updated_at = ? WHERE id = ?
+`
+
+type InvalidateSiteApplicationParams struct {
+	UpdatedAt time.Time
+	ID        uuid.UUID
+}
+
+func (q *Queries) InvalidateSiteApplication(ctx context.Context, arg InvalidateSiteApplicationParams) error {
+	_, err := q.db.ExecContext(ctx, invalidateSiteApplication, arg.UpdatedAt, arg.ID)
+	return err
 }
 
 const listAllDomains = `-- name: ListAllDomains :many
@@ -382,7 +437,7 @@ func (q *Queries) ListSiteDomains(ctx context.Context, siteID uuid.UUID) ([]Site
 }
 
 const listSites = `-- name: ListSites :many
-SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version FROM sites ORDER BY created_at DESC
+SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version, desired_state, traffic_ready, config_revision, applied_revision, applied_image FROM sites ORDER BY created_at DESC
 `
 
 func (q *Queries) ListSites(ctx context.Context) ([]Site, error) {
@@ -424,6 +479,11 @@ func (q *Queries) ListSites(ctx context.Context) ([]Site, error) {
 			&i.UpdatedAt,
 			&i.Runtime,
 			&i.WpVersion,
+			&i.DesiredState,
+			&i.TrafficReady,
+			&i.ConfigRevision,
+			&i.AppliedRevision,
+			&i.AppliedImage,
 		); err != nil {
 			return nil, err
 		}
@@ -439,7 +499,7 @@ func (q *Queries) ListSites(ctx context.Context) ([]Site, error) {
 }
 
 const listSitesByStatus = `-- name: ListSitesByStatus :many
-SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version FROM sites WHERE status = ? ORDER BY created_at
+SELECT id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version, desired_state, traffic_ready, config_revision, applied_revision, applied_image FROM sites WHERE status = ? ORDER BY created_at
 `
 
 func (q *Queries) ListSitesByStatus(ctx context.Context, status string) ([]Site, error) {
@@ -481,6 +541,11 @@ func (q *Queries) ListSitesByStatus(ctx context.Context, status string) ([]Site,
 			&i.UpdatedAt,
 			&i.Runtime,
 			&i.WpVersion,
+			&i.DesiredState,
+			&i.TrafficReady,
+			&i.ConfigRevision,
+			&i.AppliedRevision,
+			&i.AppliedImage,
 		); err != nil {
 			return nil, err
 		}
@@ -493,6 +558,27 @@ func (q *Queries) ListSitesByStatus(ctx context.Context, status string) ([]Site,
 		return nil, err
 	}
 	return items, nil
+}
+
+const restoreSiteApplication = `-- name: RestoreSiteApplication :exec
+UPDATE sites SET applied_revision = ?, applied_image = ?, traffic_ready = 0, updated_at = ? WHERE id = ?
+`
+
+type RestoreSiteApplicationParams struct {
+	AppliedRevision int64
+	AppliedImage    string
+	UpdatedAt       time.Time
+	ID              uuid.UUID
+}
+
+func (q *Queries) RestoreSiteApplication(ctx context.Context, arg RestoreSiteApplicationParams) error {
+	_, err := q.db.ExecContext(ctx, restoreSiteApplication,
+		arg.AppliedRevision,
+		arg.AppliedImage,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
 }
 
 const setSiteContainerID = `-- name: SetSiteContainerID :exec
@@ -510,8 +596,23 @@ func (q *Queries) SetSiteContainerID(ctx context.Context, arg SetSiteContainerID
 	return err
 }
 
+const setSiteDesiredState = `-- name: SetSiteDesiredState :exec
+UPDATE sites SET desired_state = ?, updated_at = ? WHERE id = ?
+`
+
+type SetSiteDesiredStateParams struct {
+	DesiredState string
+	UpdatedAt    time.Time
+	ID           uuid.UUID
+}
+
+func (q *Queries) SetSiteDesiredState(ctx context.Context, arg SetSiteDesiredStateParams) error {
+	_, err := q.db.ExecContext(ctx, setSiteDesiredState, arg.DesiredState, arg.UpdatedAt, arg.ID)
+	return err
+}
+
 const setSiteImage = `-- name: SetSiteImage :exec
-UPDATE sites SET image = ?, runtime = ?, php_version = ?, updated_at = ? WHERE id = ?
+UPDATE sites SET config_revision = config_revision + CASE WHEN image <> ?1 OR runtime <> ?2 OR php_version <> ?3 THEN 1 ELSE 0 END, image = ?1, runtime = ?2, php_version = ?3, updated_at = ?4 WHERE id = ?5
 `
 
 type SetSiteImageParams struct {
@@ -554,6 +655,21 @@ func (q *Queries) SetSiteStatus(ctx context.Context, arg SetSiteStatusParams) er
 	return err
 }
 
+const setSiteTraffic = `-- name: SetSiteTraffic :exec
+UPDATE sites SET traffic_ready = ?, updated_at = ? WHERE id = ?
+`
+
+type SetSiteTrafficParams struct {
+	TrafficReady bool
+	UpdatedAt    time.Time
+	ID           uuid.UUID
+}
+
+func (q *Queries) SetSiteTraffic(ctx context.Context, arg SetSiteTrafficParams) error {
+	_, err := q.db.ExecContext(ctx, setSiteTraffic, arg.TrafficReady, arg.UpdatedAt, arg.ID)
+	return err
+}
+
 const setSiteWPVersion = `-- name: SetSiteWPVersion :exec
 UPDATE sites SET wp_version = ?, updated_at = ? WHERE id = ?
 `
@@ -570,24 +686,25 @@ func (q *Queries) SetSiteWPVersion(ctx context.Context, arg SetSiteWPVersionPara
 }
 
 const updateSiteConfig = `-- name: UpdateSiteConfig :one
-UPDATE sites SET name = ?, php_version = ?, image = ?, runtime = ?, page_cache = ?, file_mods = ?,
-    tls_mode = ?, profile = ?, settings = ?, updated_at = ?
-WHERE id = ?
-RETURNING id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version
+UPDATE sites SET name = ?1, php_version = ?2, image = ?3, runtime = ?4, page_cache = ?5, file_mods = ?6,
+    tls_mode = ?7, profile = ?8, settings = ?9, config_revision = config_revision + ?10, updated_at = ?11
+WHERE id = ?12
+RETURNING id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image, profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user, redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user, admin_email, settings, container_id, volume_name, created_at, updated_at, runtime, wp_version, desired_state, traffic_ready, config_revision, applied_revision, applied_image
 `
 
 type UpdateSiteConfigParams struct {
-	Name       string
-	PhpVersion string
-	Image      string
-	Runtime    string
-	PageCache  bool
-	FileMods   string
-	TlsMode    string
-	Profile    string
-	Settings   string
-	UpdatedAt  time.Time
-	ID         uuid.UUID
+	Name              string
+	PhpVersion        string
+	Image             string
+	Runtime           string
+	PageCache         bool
+	FileMods          string
+	TlsMode           string
+	Profile           string
+	Settings          string
+	RevisionIncrement int64
+	UpdatedAt         time.Time
+	ID                uuid.UUID
 }
 
 func (q *Queries) UpdateSiteConfig(ctx context.Context, arg UpdateSiteConfigParams) (Site, error) {
@@ -601,6 +718,7 @@ func (q *Queries) UpdateSiteConfig(ctx context.Context, arg UpdateSiteConfigPara
 		arg.TlsMode,
 		arg.Profile,
 		arg.Settings,
+		arg.RevisionIncrement,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -635,6 +753,11 @@ func (q *Queries) UpdateSiteConfig(ctx context.Context, arg UpdateSiteConfigPara
 		&i.UpdatedAt,
 		&i.Runtime,
 		&i.WpVersion,
+		&i.DesiredState,
+		&i.TrafficReady,
+		&i.ConfigRevision,
+		&i.AppliedRevision,
+		&i.AppliedImage,
 	)
 	return i, err
 }

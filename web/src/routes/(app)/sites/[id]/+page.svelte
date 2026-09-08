@@ -179,6 +179,20 @@
 				<Icon name="external" size={15} class="text-ink-3" />
 			</a>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			{#if site.configuration_pending}
+				<p class="mt-3 max-w-2xl text-sm text-ink-2" role="status">
+					{#if site.desired_state === 'stopped'}Settings saved. They will apply when you start the
+						site.
+					{:else if site.status === 'error'}Configuration was not applied. Retry to finish applying
+						it.
+					{:else}Configuration changes are pending.{/if}
+				</p>
+			{/if}
+			{#if !site.traffic_ready && site.desired_state === 'running'}
+				<p class="mt-2 text-sm text-ink-2">
+					Traffic is disabled until setup and validation succeed.
+				</p>
+			{/if}
 			{#if site.status === 'error' && site.status_message}
 				<p class="mt-3 max-w-2xl text-sm text-danger-ink">
 					{site.status_message}

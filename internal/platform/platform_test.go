@@ -17,7 +17,7 @@ func testConfig() *config.API {
 	return &config.API{
 		Platform: config.Platform{Managed: true, Network: "presso-test", MariaDBImage: "mariadb:11.4", MariaDBListen: "127.0.0.1:3306",
 			RedisImage: "redis:7-alpine", RedisListen: "127.0.0.1:6379", RedisMaxMemory: "64mb"},
-		Edge: config.Edge{Image: "presso-edge:test", HTTPListen: "0.0.0.0:80", HTTPSListen: "0.0.0.0:443", AdminListen: "127.0.0.1:2019", CacheAdminListen: "127.0.0.1:2020"},
+		Edge: config.Edge{Image: "presso-edge:test", HTTPListen: "0.0.0.0:80", HTTPSListen: "0.0.0.0:443"},
 	}
 }
 
@@ -100,11 +100,13 @@ func TestReconcileCreatesAndRecreates(t *testing.T) {
 func TestEdgeSpecPorts(t *testing.T) {
 	svc := New(testConfig(), fake.New(), nil, nil, nil, nil)
 	spec := svc.edgeSpec()
-	if len(spec.Ports) != 5 {
+	if len(spec.Ports) != 3 {
 		t.Fatalf("ports: %+v", spec.Ports)
 	}
-	if spec.Ports[3].HostIP != "127.0.0.1" || spec.Ports[3].ContainerPort != 2019 {
-		t.Fatalf("admin port must be loopback: %+v", spec.Ports[3])
+	for _, p := range spec.Ports {
+		if p.ContainerPort != 80 && p.ContainerPort != 443 {
+			t.Fatalf("management port published: %+v", p)
+		}
 	}
 	if spec.Ports[2].Protocol != "udp" {
 		t.Fatalf("h3 udp port missing: %+v", spec.Ports[2])

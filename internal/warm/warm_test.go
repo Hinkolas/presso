@@ -68,8 +68,8 @@ func TestRunCountsOutcomes(t *testing.T) {
 	if sum.URLs != 3 || sum.Hit != 3 || sum.Errors != 0 || sum.Sitemap != "http://demo.localhost/wp-sitemap.xml" {
 		t.Fatalf("summary: %+v", sum)
 	}
-	if fs.hits["/"] != 1 || fs.hits["/a/"] != 1 || fs.hits["/b/"] != 1 {
-		t.Fatalf("hits: %v", fs.hits)
+	if fs.counts()["/"] != 1 || fs.counts()["/a/"] != 1 || fs.counts()["/b/"] != 1 {
+		t.Fatalf("hits: %v", fs.counts())
 	}
 }
 

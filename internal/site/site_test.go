@@ -25,6 +25,7 @@ import (
 type fakePlatform struct {
 	dbs, acls, dropped, deletedACLs []string
 	edgeApplies                     int
+	edgeError                       error
 	render                          platform.EdgeRenderer
 }
 
@@ -44,7 +45,7 @@ func (f *fakePlatform) DeleteRedisACL(_ context.Context, user string) error {
 	f.deletedACLs = append(f.deletedACLs, user)
 	return nil
 }
-func (f *fakePlatform) ApplyEdge(context.Context) error         { f.edgeApplies++; return nil }
+func (f *fakePlatform) ApplyEdge(context.Context) error         { f.edgeApplies++; return f.edgeError }
 func (f *fakePlatform) SetEdgeRenderer(r platform.EdgeRenderer) { f.render = r }
 
 // fakeWarmer records cache-warm triggers.
@@ -90,7 +91,7 @@ func newHarness(t *testing.T) (*harness, context.Context) {
 	cfg := &config.API{
 		Platform: config.Platform{Network: "presso", EngineInternalURL: "http://host.docker.internal:7080"},
 		Runtime:  config.Runtime{ImageTemplate: testTemplate, LegacyEnabled: true},
-		Edge:     config.Edge{HTTPListen: "127.0.0.1:1", CacheAdminListen: "127.0.0.1:2020", DefaultCacheTTL: 12 * time.Hour},
+		Edge:     config.Edge{HTTPListen: "127.0.0.1:1", DefaultCacheTTL: 12 * time.Hour},
 	}
 	runner := jobs.New(st, hub, 2)
 	pf := &fakePlatform{}
@@ -235,7 +236,7 @@ func TestCreateProvisionAndDelete(t *testing.T) {
 		t.Fatalf("update: %v %v %+v", err, rj, updated)
 	}
 	h.waitJob(t, ctx, rj.ID)
-	if len(h.dk.Created) != 2 || h.dk.Created[1].Image != "presso-runtime:php8.4-wp7.1" {
+	if len(h.dk.Created) != 3 || h.dk.Created[2].Image != "presso-runtime:php8.4-wp7.1" {
 		t.Fatalf("recreate: %d", len(h.dk.Created))
 	}
 	legacyPHP := "8.1"
@@ -244,7 +245,7 @@ func TestCreateProvisionAndDelete(t *testing.T) {
 		t.Fatalf("update to legacy: %v %v %+v", err, rj, updated)
 	}
 	h.waitJob(t, ctx, rj.ID)
-	if spec := h.dk.Created[2]; spec.Labels[docker.LabelRuntime] != compat.RuntimeLegacy || spec.Labels[docker.LabelWPVersion] != "7.1" {
+	if spec := h.dk.Created[3]; spec.Labels[docker.LabelRuntime] != compat.RuntimeLegacy || spec.Labels[docker.LabelWPVersion] != "7.1" {
 		t.Fatalf("labels: %v", spec.Labels)
 	}
 	// Incompatible PHP for the site's WordPress release is refused.

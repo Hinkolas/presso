@@ -33,6 +33,12 @@ export type SiteMetrics1h = {
 };
 
 export type Site = {
+	desired_state: 'running' | 'stopped';
+	traffic_ready: boolean;
+	config_revision: number;
+	applied_revision: number;
+	applied_image: string;
+	configuration_pending: boolean;
 	id: string;
 	slug: string;
 	name: string;

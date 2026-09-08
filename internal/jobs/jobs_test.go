@@ -157,3 +157,51 @@ func TestStartFailsLeftovers(t *testing.T) {
 		t.Fatalf("expected leftover marked failed, got %+v", jobs)
 	}
 }
+
+func TestGlobalJobCanWaitWithOneSiteWorker(t *testing.T) {
+	st := testdb.New(t)
+	r := New(st, nil, 1)
+	siteRow, err := st.CreateSite(context.Background(), store.CreateSiteParams{
+		ID: uuid.New(), Slug: "s", Name: "s", Status: "running", PrimaryDomain: "s.localhost", TlsMode: "off",
+		PhpVersion: "8.3", Image: "img", Profile: "prod", FileMods: "locked", PageCache: true,
+		DbName: "d", DbUser: "u", DbPasswordEnc: []byte("x"), RedisUser: "r", RedisPasswordEnc: []byte("x"),
+		SaltsEnc: []byte("x"), PurgeTokenHash: []byte("x"), LoginSecretEnc: []byte("x"), AdminUser: "a",
+		AdminEmail: "a@b.c", Settings: "{}", VolumeName: "v", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Register("child", func(context.Context, store.Job, *Reporter) error { return nil })
+	r.Register("parent", func(ctx context.Context, _ store.Job, report *Reporter) error {
+		child, err := r.Enqueue(ctx, "child", uuid.NullUUID{UUID: siteRow.ID, Valid: true}, nil, "test")
+		if err != nil {
+			return err
+		}
+		for {
+			j, err := st.GetJob(ctx, child.ID)
+			if err != nil {
+				return err
+			}
+			if j.Status == StatusSucceeded {
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Millisecond * 10):
+			}
+		}
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := r.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	j, err := r.Enqueue(ctx, "parent", uuid.NullUUID{}, nil, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitStatus(t, st, j.ID, StatusSucceeded)
+	cancel()
+	r.Wait()
+}

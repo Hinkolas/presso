@@ -10,12 +10,20 @@ package shots
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Hinkolas/presso/internal/docker"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,10 +48,12 @@ const (
 // Service captures and stores previews. A nil *Service is safe to use: every
 // method reports ErrUnavailable or a zero value.
 type Service struct {
-	dir     string
-	base    string // DevTools HTTP endpoint, e.g. http://127.0.0.1:9222
-	timeout time.Duration
-	mu      sync.Mutex
+	dk        docker.Client
+	container string
+	dir       string
+	base      string // DevTools HTTP endpoint, e.g. http://127.0.0.1:9222
+	timeout   time.Duration
+	mu        sync.Mutex
 }
 
 // New returns a service storing previews in dir and talking to the DevTools
@@ -69,11 +79,24 @@ func (s *Service) Capture(ctx context.Context, url string) ([]byte, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	if err := s.reachable(ctx); err != nil {
+	endpoint := s.base
+	var closeBridge func()
+	if s.dk != nil {
+		var err error
+		endpoint, closeBridge, err = s.bridge(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		}
+		defer closeBridge()
+	} else if err := s.reachable(ctx); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
+	var options []chromedp.RemoteAllocatorOption
+	if s.dk != nil {
+		options = append(options, chromedp.NoModifyURL)
+	}
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(ctx, endpoint, options...)
 
-	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(ctx, s.base)
 	defer cancelAlloc()
 	tabCtx, cancelTab := chromedp.NewContext(allocCtx)
 	// Cancel closes the target; a plain context cancel would leave the tab
@@ -187,4 +210,70 @@ func (s *Service) Remove(id uuid.UUID) error {
 		return err
 	}
 	return nil
+}
+
+// NewDocker talks to the browser's container-loopback endpoint through Docker.
+func NewDocker(dir string, dk docker.Client, container string, timeout time.Duration) *Service {
+	return &Service{dir: dir, dk: dk, container: container, timeout: timeout}
+}
+
+// bridge exposes exactly one capability-protected WebSocket path for one capture.
+// HTTP discovery travels through Docker directly and is never published locally.
+func (s *Service) bridge(ctx context.Context) (string, func(), error) {
+	tr := docker.LoopbackTransport(s.dk, s.container, 9223)
+	client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
+	req, _ := http.NewRequestWithContext(ctx, "GET", "http://127.0.0.1:9223/json/version", nil)
+	res, err := client.Do(req)
+	if err != nil {
+		return "", nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return "", nil, fmt.Errorf("browser discovery status %d", res.StatusCode)
+	}
+	var discovery struct {
+		URL string `json:"webSocketDebuggerUrl"`
+	}
+	if err = json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&discovery); err != nil {
+		return "", nil, err
+	}
+	u, err := url.Parse(discovery.URL)
+	if err != nil || !strings.HasPrefix(u.Path, "/devtools/browser/") || strings.Contains(u.Path, "..") {
+		return "", nil, errors.New("invalid browser debugger path")
+	}
+	token := make([]byte, 32)
+	if _, err = rand.Read(token); err != nil {
+		return "", nil, err
+	}
+	path := "/" + hex.EncodeToString(token) + u.Path
+	target, _ := url.Parse("http://127.0.0.1:9223")
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = tr
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return "", nil, err
+	}
+	bridgeCtx, cancelBridge := context.WithCancel(ctx)
+	server := &http.Server{BaseContext: func(net.Listener) context.Context { return bridgeCtx }, ReadHeaderTimeout: 5 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path || r.Method != "GET" || !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			http.NotFound(w, r)
+			return
+		}
+		r.URL.Path = u.Path
+		r.URL.RawPath = ""
+		r.Host = "127.0.0.1:9223"
+		proxy.ServeHTTP(w, r)
+	})}
+	done := make(chan struct{})
+	var once sync.Once
+	closeBridge := func() { once.Do(func() { close(done); cancelBridge(); _ = server.Close(); tr.CloseIdleConnections() }) }
+	go func() { _ = server.Serve(listener) }()
+	go func() {
+		select {
+		case <-ctx.Done():
+			closeBridge()
+		case <-done:
+		}
+	}()
+	return "ws://" + listener.Addr().String() + path, closeBridge, nil
 }

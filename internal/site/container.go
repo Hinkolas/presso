@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -119,6 +120,7 @@ func (s *Service) containerSpec(row store.Site, d decrypted) docker.Spec {
 		Mounts: []docker.Mount{
 			{Type: docker.MountVolume, Source: row.VolumeName, Target: wpPath + "/wp-content"},
 			{Type: docker.MountTmpfs, Target: "/tmp"},
+			{Type: docker.MountBind, Source: filepath.Join(s.cfg.DataDir, "control", "ca.pem"), Target: "/opt/presso/control-ca.pem", ReadOnly: true},
 		},
 		ExtraHosts:    []string{"host.docker.internal:host-gateway"},
 		MemoryBytes:   int64(set.ContainerMemoryMB) << 20,
@@ -135,6 +137,7 @@ func siteLabels(row store.Site) map[string]string {
 	return docker.Labels("site", map[string]string{
 		docker.LabelSiteID: row.ID.String(), docker.LabelSlug: row.Slug,
 		docker.LabelRuntime: row.Runtime, docker.LabelWPVersion: row.WpVersion,
+		"presso.config_revision": strconv.FormatInt(row.ConfigRevision, 10),
 	})
 }
 

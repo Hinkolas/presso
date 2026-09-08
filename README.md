@@ -36,19 +36,28 @@ repo's Go code, binary `pressod`), **presso-web** (the UI), **presso-harness**
 ## Topology (single host)
 
 ```
-host: pressod (:7080 API + UI, docker.sock, SQLite in DATA_DIR)
+host: pressod (127.0.0.1:7080 API + UI, :7081 internal HTTPS, docker.sock, SQLite)
 docker network "presso":
-  presso-edge       :80 :443 public · 127.0.0.1:2019 admin · 127.0.0.1:2020 cache API
+  presso-edge       :80 :443 public; admin/cache on container loopback only
   presso-mariadb    127.0.0.1:3306      one database + user per site
   presso-redis      127.0.0.1:6379      one ACL user + key prefix per site
-  presso-browser    127.0.0.1:9222      headless Chrome (DevTools) for page previews
+  presso-browser    no published ports; DevTools on container loopback only
   presso-site-<slug>  no published ports; the edge proxies to site-<id>:8080
 ```
 
-pressod runs on the host and reaches the shared services through ports
-published on loopback; everything per site goes through the Docker API
-(exec, health, logs, stats). Site containers reach the engine at
-`host.docker.internal:7080` for cache purges.
+pressod reaches edge and browser management through streaming Docker exec
+connections. MariaDB and Redis publish host-loopback ports. Site containers
+send purge callbacks to `https://host.docker.internal:7081`, verify the engine
+using their mounted public CA, and authenticate using per-site bearer tokens.
+Panel requests on that listener additionally require the edge's client
+certificate. The local panel always binds a loopback IP, including without a
+panel domain. Forwarding headers are trusted only from the authenticated edge.
+
+Trust lives under `DATA_DIR/control`: keep the CA and keys together. The edge
+receives only `control/edge`; sites receive only `control/ca.pem`. Leaf
+certificates renew automatically before expiry. Missing or invalid trust files
+are an error; restore them rather than replacing the CA. These changes target
+fresh installations; no development installation is reset or migrated for you.
 
 ## Layout
 
@@ -98,9 +107,9 @@ What it leaves behind: `/usr/local/bin/pressod`, `/etc/presso/presso.env`
 (secrets, generated once and never rewritten: `AUTH_SECRET` encrypts the
 database and per-site credentials at rest), `/var/lib/presso` (SQLite,
 screenshots) and `presso.service`. Ports 80 and 443 are the edge; 7080 is the
-engine. With a panel domain, the edge serves the admin UI at
+loopback panel; 7081 is the internal TLS listener. With a panel domain, the edge serves the admin UI at
 `https://<panel-domain>` with an automatic certificate (point the DNS record
-at the host first) and the engine port refuses public peers; without one,
+at the host first) and authenticates to the engine with a client certificate; without a domain,
 reach the panel through an SSH tunnel:
 `ssh -L 7080:127.0.0.1:7080 root@host` → http://127.0.0.1:7080.
 
@@ -157,7 +166,7 @@ Open http://localhost:5173 (dev) or http://localhost:7080 (embedded build),
 create a site, and visit `http://<slug>.localhost` once the provisioning job
 finishes. `task nuke` removes every presso container and volume (dev only).
 
-Ports 80/443 (edge), 3306, 6379, 2019, 2020, 9222 (loopback) and 7080 must
+Ports 80/443 (edge), 3306/6379/7080 (loopback), and 7081 (internal TLS) must
 be free on the host.
 
 Conventions: every package states its responsibility and boundary in a doc

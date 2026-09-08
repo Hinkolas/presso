@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -46,6 +45,8 @@ func (s *Service) Recreate(ctx context.Context, id uuid.UUID, by string) (store.
 }
 
 func (s *Service) lifecycle(ctx context.Context, id uuid.UUID, kind, by string, allowed ...string) (store.Job, error) {
+	s.commands.Lock()
+	defer s.commands.Unlock()
 	row, err := s.Get(ctx, id)
 	if err != nil {
 		return store.Job{}, err
@@ -53,18 +54,50 @@ func (s *Service) lifecycle(ctx context.Context, id uuid.UUID, kind, by string, 
 	if !containsString(allowed, row.Status) {
 		return store.Job{}, fmt.Errorf("%w: site is %s", ErrNotReady, row.Status)
 	}
-	return s.enqueue(ctx, row, kind, nil, by)
+	if s.jobs.Paused() {
+		return store.Job{}, jobs.ErrPaused
+	}
+	if active, err := s.ActiveJob(ctx, id); err != nil {
+		return store.Job{}, err
+	} else if active != nil {
+		return store.Job{}, ErrJobRunning
+	}
+	desired := row.DesiredState
+	switch kind {
+	case JobStart, JobRestart:
+		desired = StatusRunning
+	case JobStop:
+		desired = StatusStopped
+	}
+	if desired != row.DesiredState {
+		if err := s.st.SetSiteDesiredState(ctx, store.SetSiteDesiredStateParams{DesiredState: desired, UpdatedAt: s.now(), ID: id}); err != nil {
+			return store.Job{}, err
+		}
+	}
+	job, err := s.enqueue(ctx, row, kind, nil, by)
+	if err != nil {
+		s.applicationFailed(ctx, id, err)
+	}
+	return job, err
 }
 
 // Retry re-runs provisioning for a site stuck in error before it ever ran,
 // reusing the original job's (encrypted) install arguments.
 func (s *Service) Retry(ctx context.Context, id uuid.UUID, by string) (store.Job, error) {
+	s.commands.Lock()
+	defer s.commands.Unlock()
 	row, err := s.Get(ctx, id)
 	if err != nil {
 		return store.Job{}, err
 	}
 	if row.Status != StatusError && row.Status != StatusProvisioning {
 		return store.Job{}, ErrNotRetryable
+	}
+	if row.DesiredState == StatusStopped {
+		return s.enqueue(ctx, row, JobStop, nil, by)
+	}
+	if row.AppliedImage != "" {
+		return s.enqueue(ctx, row, JobRecreate, nil, by)
 	}
 	history, err := s.st.ListJobsBySite(ctx, store.ListJobsBySiteParams{SiteID: nullID(id), Limit: 50})
 	if err != nil {
@@ -86,6 +119,11 @@ func (s *Service) Retry(ctx context.Context, id uuid.UUID, by string) (store.Job
 // Delete marks the site for removal and enqueues the teardown. confirm must
 // equal the slug.
 func (s *Service) Delete(ctx context.Context, id uuid.UUID, confirm string, keepVolume bool, by string) (store.Job, error) {
+	s.commands.Lock()
+	defer s.commands.Unlock()
+	if s.jobs.Paused() {
+		return store.Job{}, jobs.ErrPaused
+	}
 	row, err := s.Get(ctx, id)
 	if err != nil {
 		return store.Job{}, err
@@ -191,8 +229,7 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 	}
 	s.detectWPVersion(ctx, &row, cid)
 
-	r.Step(ctx, "edge", "Publishing route at the edge")
-	if err := s.platform.ApplyEdge(ctx); err != nil {
+	if err := s.activate(ctx, row, cid, r); err != nil {
 		return fail("edge", err)
 	}
 
@@ -248,59 +285,27 @@ func firstNonEmpty(vals ...string) string {
 }
 
 func (s *Service) runStart(ctx context.Context, job store.Job, r *jobs.Reporter) error {
-	row, err := s.Get(ctx, job.SiteID.UUID)
-	if err != nil {
-		return err
+	if err := s.st.SetSiteDesiredState(ctx, store.SetSiteDesiredStateParams{DesiredState: StatusRunning, UpdatedAt: s.now(), ID: job.SiteID.UUID}); err != nil {
+		return s.applicationFailed(ctx, job.SiteID.UUID, err)
 	}
-	r.Step(ctx, "start", "Starting container")
-	info, err := s.dk.InspectContainer(ctx, ContainerName(row.Slug))
-	switch {
-	case isNotFound(err), err == nil && info.Image != row.Image:
-		// A stopped site whose row moved to a newer runtime image (engine
-		// update rollout) gets its container rebuilt on the way up.
-		if err == nil {
-			r.Info(ctx, "runtime image changed, recreating the container on "+row.Image)
-		} else {
-			r.Info(ctx, "container missing, recreating it")
-		}
-		if err := s.dk.EnsureImage(ctx, row.Image, func(line string) { r.Info(ctx, line) }); err != nil {
-			s.setStatus(ctx, row.ID, StatusError, "image: "+err.Error())
-			return err
-		}
-		d, derr := s.decrypt(row)
-		if derr != nil {
-			return derr
-		}
-		cid, cerr := s.ensureContainer(ctx, row, d, false)
-		if cerr != nil {
-			return cerr
-		}
-		info = &docker.ContainerInfo{ID: cid}
-	case err != nil:
-		return err
-	}
-	if err := s.dk.StartContainer(ctx, info.ID); err != nil {
-		s.setStatus(ctx, row.ID, StatusError, "start: "+err.Error())
-		return err
-	}
-	r.Step(ctx, "health", "Waiting for the container to become healthy")
-	if err := s.waitHealthy(ctx, info.ID, 2*time.Minute); err != nil {
-		s.setStatus(ctx, row.ID, StatusError, "health: "+err.Error())
-		return err
-	}
-	if row.WpVersion == "" {
-		s.detectWPVersion(ctx, &row, info.ID)
-	}
-	s.screenshot(ctx, row, r)
-	s.setStatus(ctx, row.ID, StatusRunning, "")
-	s.logActivity(ctx, job.CreatedBy, row.ID, "site.start", "Site started", nil)
-	return nil
+	return s.runRecreate(ctx, job, r)
 }
 
-func (s *Service) runStop(ctx context.Context, job store.Job, r *jobs.Reporter) error {
+func (s *Service) runStop(ctx context.Context, job store.Job, r *jobs.Reporter) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			s.applicationFailed(ctx, job.SiteID.UUID, retErr)
+		}
+	}()
 	row, err := s.Get(ctx, job.SiteID.UUID)
 	if err != nil {
 		return err
+	}
+	if err := s.st.SetSiteDesiredState(ctx, store.SetSiteDesiredStateParams{DesiredState: StatusStopped, UpdatedAt: s.now(), ID: row.ID}); err != nil {
+		return err
+	}
+	if err := s.quiesce(ctx, row, r); err != nil {
+		return s.applicationFailed(ctx, row.ID, err)
 	}
 	r.Step(ctx, "stop", "Stopping container")
 	info, err := s.dk.InspectContainer(ctx, ContainerName(row.Slug))
@@ -318,35 +323,24 @@ func (s *Service) runStop(ctx context.Context, job store.Job, r *jobs.Reporter) 
 }
 
 func (s *Service) runRestart(ctx context.Context, job store.Job, r *jobs.Reporter) error {
-	row, err := s.Get(ctx, job.SiteID.UUID)
-	if err != nil {
-		return err
-	}
-	r.Step(ctx, "restart", "Restarting container")
-	info, err := s.dk.InspectContainer(ctx, ContainerName(row.Slug))
-	if err != nil {
-		return err
-	}
-	if err := s.dk.RestartContainer(ctx, info.ID, 10*time.Second); err != nil {
-		s.setStatus(ctx, row.ID, StatusError, "restart: "+err.Error())
-		return err
-	}
-	r.Step(ctx, "health", "Waiting for the container to become healthy")
-	if err := s.waitHealthy(ctx, info.ID, 2*time.Minute); err != nil {
-		s.setStatus(ctx, row.ID, StatusError, "health: "+err.Error())
-		return err
-	}
-	s.setStatus(ctx, row.ID, StatusRunning, "")
-	s.logActivity(ctx, job.CreatedBy, row.ID, "site.restart", "Site restarted", nil)
-	return nil
+	return s.runStart(ctx, job, r)
 }
 
 // runRecreate replaces the container with one rendered from the current row
 // (new image, PHP settings, limits) and refreshes the edge.
-func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Reporter) error {
+func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Reporter) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			s.applicationFailed(ctx, job.SiteID.UUID, retErr)
+		}
+	}()
 	row, err := s.Get(ctx, job.SiteID.UUID)
 	if err != nil {
 		return err
+	}
+	if row.DesiredState == StatusStopped {
+		r.Info(ctx, "Settings saved; configuration applies on next Start")
+		return nil
 	}
 	d, err := s.decrypt(row)
 	if err != nil {
@@ -355,6 +349,12 @@ func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Report
 	r.Step(ctx, "image", fmt.Sprintf("Ensuring runtime image %s (WordPress %s, PHP %s, %s)", row.Image, row.WpVersion, row.PhpVersion, row.Runtime))
 	if err := s.dk.EnsureImage(ctx, row.Image, func(line string) { r.Info(ctx, line) }); err != nil {
 		s.setStatus(ctx, row.ID, StatusError, "image: "+err.Error())
+		return err
+	}
+	if err := s.quiesce(ctx, row, r); err != nil {
+		return err
+	}
+	if err := s.st.InvalidateSiteApplication(ctx, store.InvalidateSiteApplicationParams{UpdatedAt: s.now(), ID: row.ID}); err != nil {
 		return err
 	}
 	r.Step(ctx, "container", "Recreating container")
@@ -378,18 +378,12 @@ func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Report
 	// may need runs here (idempotent, a no-op when nothing changed).
 	r.Step(ctx, "wordpress", "Running the WordPress database upgrade")
 	if res, err := s.exec(ctx, cid, 3*time.Minute, "core", "update-db"); err != nil {
-		r.Warn(ctx, "wp core update-db failed: "+err.Error())
+		return fmt.Errorf("database upgrade: %w", err)
 	} else if res.ExitCode != 0 {
-		r.Warn(ctx, "wp core update-db exited "+strconv.Itoa(res.ExitCode)+": "+strings.TrimSpace(string(res.Stderr)))
-	} else if line := strings.TrimSpace(string(res.Stdout)); line != "" {
-		r.Info(ctx, line)
+		return fmt.Errorf("database upgrade exited %d: %s", res.ExitCode, strings.TrimSpace(string(res.Stderr)))
 	}
-	r.Step(ctx, "edge", "Refreshing the edge and purging the page cache")
-	if err := s.platform.ApplyEdge(ctx); err != nil {
-		r.Warn(ctx, "edge apply failed: "+err.Error())
-	}
-	if err := s.PurgeCache(ctx, row.ID, nil); err != nil {
-		r.Warn(ctx, "cache purge failed: "+err.Error())
+	if err := s.activate(ctx, row, cid, r); err != nil {
+		return err
 	}
 	s.screenshot(ctx, row, r)
 	s.setStatus(ctx, row.ID, StatusRunning, "")
@@ -406,18 +400,10 @@ func (s *Service) runDelete(ctx context.Context, job store.Job, r *jobs.Reporter
 		KeepVolume bool `json:"keep_volume"`
 	}
 	_ = json.Unmarshal([]byte(job.Args), &args)
-	hosts, _ := s.hosts(ctx, row.ID)
 
-	r.Step(ctx, "edge", "Removing the route from the edge")
-	if err := s.platform.ApplyEdge(ctx); err != nil {
-		r.Warn(ctx, "edge apply failed: "+err.Error())
+	if err := s.quiesce(ctx, row, r); err != nil {
+		return s.deleteFailed(ctx, row.ID, "edge", err)
 	}
-	if s.edge != nil && len(hosts) > 0 {
-		if err := s.edge.PurgeHosts(ctx, hosts); err != nil {
-			r.Warn(ctx, "cache purge failed: "+err.Error())
-		}
-	}
-
 	r.Step(ctx, "container", "Removing container")
 	if info, err := s.dk.InspectContainer(ctx, ContainerName(row.Slug)); err == nil {
 		if err := s.dk.RemoveContainer(ctx, info.ID, true); err != nil {
@@ -452,6 +438,9 @@ func (s *Service) runDelete(ctx context.Context, job store.Job, r *jobs.Reporter
 	}
 	if err := s.shots.Remove(row.ID); err != nil {
 		r.Warn(ctx, "preview: "+err.Error())
+	}
+	if err := s.platform.ApplyEdge(ctx); err != nil {
+		return fmt.Errorf("remove deleted route: %w", err)
 	}
 	s.observed.Delete(row.ID)
 	if s.hub != nil {
@@ -507,7 +496,7 @@ func (s *Service) ObserveContainer(ctx context.Context, siteID uuid.UUID, info *
 	switch {
 	case info == nil:
 		newStatus, msg = StatusError, "container missing"
-	case info.State == "running" && (row.Status == StatusStopped || observerOwned(row)):
+	case info.State == "running" && info.Health != "unhealthy" && row.DesiredState == StatusRunning && row.TrafficReady && row.ConfigRevision == row.AppliedRevision && observerOwned(row):
 		// Only undo states the observer itself produced; a job failure stays
 		// visible until an operator retries or a job succeeds.
 		newStatus, msg = StatusRunning, ""

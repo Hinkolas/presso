@@ -2,23 +2,28 @@ package warm
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 // fakeSite serves the documents in docs by path and counts requests.
 type fakeSite struct {
+	mu   sync.Mutex
 	docs map[string]string
 	hits map[string]int
 }
 
 func (f *fakeSite) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
 	f.hits[r.URL.Path]++
+	f.mu.Unlock()
 	if loc, ok := f.docs["redirect:"+r.URL.Path]; ok {
 		http.Redirect(w, r, loc, http.StatusMovedPermanently)
 		return
@@ -32,6 +37,12 @@ func (f *fakeSite) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Status", "presso; hit")
 	}
 	w.Write([]byte(body))
+}
+
+func (f *fakeSite) counts() map[string]int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return maps.Clone(f.hits)
 }
 
 func newFake(docs map[string]string) (*fakeSite, *httptest.Server, *Fetcher) {
@@ -83,8 +94,8 @@ func TestDiscoverWordPressCore(t *testing.T) {
 	if source != "http://demo.localhost/wp-sitemap.xml" {
 		t.Fatalf("source: %q", source)
 	}
-	if fs.hits["/missing.xml"] != 1 || fs.hits["/sitemap_index.xml"] != 0 {
-		t.Fatalf("fetches: %v", fs.hits)
+	if fs.counts()["/missing.xml"] != 1 || fs.counts()["/sitemap_index.xml"] != 0 {
+		t.Fatalf("fetches: %v", fs.counts())
 	}
 
 	// The cap counts the front page.
@@ -107,8 +118,8 @@ func TestDiscoverFallbacks(t *testing.T) {
 	if len(urls) != 3 || source != "http://demo.localhost/sitemap_index.xml" {
 		t.Fatalf("yoast: %v %q", urls, source)
 	}
-	if fs.hits["/robots.txt"] != 1 {
-		t.Fatalf("robots not consulted: %v", fs.hits)
+	if fs.counts()["/robots.txt"] != 1 {
+		t.Fatalf("robots not consulted: %v", fs.counts())
 	}
 
 	// A 200 HTML page where the sitemap should be is not a sitemap.

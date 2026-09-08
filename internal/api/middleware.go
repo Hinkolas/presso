@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/Hinkolas/presso/internal/auth"
+	"github.com/Hinkolas/presso/internal/control"
 )
 
 // SessionCookie carries the bearer token for the embedded web UI. The API
@@ -116,7 +117,7 @@ func clearSessionCookie(w http.ResponseWriter, r *http.Request) {
 }
 
 func isHTTPS(r *http.Request) bool {
-	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+	return r.TLS != nil
 }
 
 // requestLogger emits one slog line per request. It sits inside RequestID so
@@ -166,6 +167,10 @@ func versionHeader(version string) func(http.Handler) http.Handler {
 // middleware is deprecated for using the leftmost, client-spoofable value.)
 func realIP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !control.IsEdge(r.TLS) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
 			r.RemoteAddr = ip
 		} else if xff := r.Header.Get("X-Forwarded-For"); xff != "" {

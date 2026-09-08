@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"time"
 )
 
@@ -55,6 +56,9 @@ func Labels(kind string, extra map[string]string) map[string]string {
 
 // Client is the subset of the Docker API presso uses.
 type Client interface {
+	// DialLoopback opens a byte stream through Docker exec, never a published port.
+	// Only the fixed infrastructure management ports are accepted.
+	DialLoopback(ctx context.Context, container string, port int) (net.Conn, error)
 	// Ping reports daemon reachability and version.
 	Ping(ctx context.Context) (Info, error)
 

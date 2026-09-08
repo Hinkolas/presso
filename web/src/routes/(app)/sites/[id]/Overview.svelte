@@ -173,7 +173,8 @@
 		['WordPress', site.wp_version || '–'],
 		['PHP', site.php_version],
 		['Runtime', runtimeLabel(site.runtime)],
-		['Image', site.image || '–'],
+		['Target image', site.image || '–'],
+		['Last applied image', site.applied_image || 'Not yet applied'],
 		['Profile', site.profile === 'dev' ? 'Development' : 'Production'],
 		['Plugin and theme installs', site.file_mods === 'locked' ? 'Locked' : 'Allowed'],
 		[
@@ -336,7 +337,7 @@
 							icon="refresh"
 							onclick={() => action('retry')}
 							busy={busy === 'retry'}
-							disabled={locked}>Retry provisioning</Button
+							disabled={locked}>Retry</Button
 						>
 					{/if}
 					<Button onclick={() => action('recreate')} busy={busy === 'recreate'} disabled={locked}

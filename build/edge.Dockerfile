@@ -14,11 +14,12 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH xcaddy build \
     --with github.com/darkweak/storages/badger/caddy
 
 FROM caddy:2
+RUN apk add --no-cache socat
+COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
-# The engine's bootstrap: admin API reachable on the published port until
-# the real config arrives; --resume restores the last pushed config after a
-# restart (persisted in the /config volume).
-ENV CADDY_ADMIN=0.0.0.0:2019
+# Container-loopback administration; every boot serves an unavailable response
+# until the engine reconciles the current site state.
+ENV CADDY_ADMIN=127.0.0.1:2019
 VOLUME ["/data", "/config", "/cache"]
-EXPOSE 80 443 443/udp 2019 2020
-CMD ["caddy", "run", "--resume", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+EXPOSE 80 443 443/udp
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

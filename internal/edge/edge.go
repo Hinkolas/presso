@@ -12,6 +12,8 @@ package edge
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +26,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/Hinkolas/presso/internal/docker"
 )
 
 // SiteRoute is what the renderer needs to know about one site.
@@ -34,7 +38,8 @@ type SiteRoute struct {
 	TLSMode  string   // auto|off
 	Upstream string   // host:port on the docker network, e.g. site-<id>:8080
 	// PageCache enables the cache handler on cacheable routes.
-	PageCache bool
+	Unavailable bool
+	PageCache   bool
 	// CacheTTL is the default TTL for this site's cached pages (the site's
 	// Cache-Control s-maxage still wins when present).
 	CacheTTL time.Duration
@@ -69,10 +74,10 @@ func (o Options) withDefaults() Options {
 		o.StaleFor = 24 * time.Hour
 	}
 	if o.AdminListen == "" {
-		o.AdminListen = "0.0.0.0:2019"
+		o.AdminListen = "127.0.0.1:2019"
 	}
 	if o.CacheAdminListen == "" {
-		o.CacheAdminListen = ":2020"
+		o.CacheAdminListen = "http://127.0.0.1:2020"
 	}
 	if o.CacheDir == "" {
 		o.CacheDir = "/cache/badger"
@@ -146,9 +151,9 @@ var caddyfileTmpl = template.Must(template.New("caddyfile").Funcs(template.FuncM
 	}
 }
 
-# Cache admin: the module's API answers here and only here. Published by
-# the engine to loopback on the host; never reachable from the internet.
+# Cache admin: container loopback only, reached through Docker exec.
 {{ .Opts.CacheAdminListen }} {
+	bind 127.0.0.1
 	route {
 		cache
 		respond "presso cache admin" 404
@@ -172,7 +177,14 @@ https://{{ .Opts.PanelHost }} {
 		output stdout
 		format json
 	}
-	reverse_proxy {{ .Opts.PanelUpstream }} {
+	reverse_proxy https://{{ .Opts.PanelUpstream }} {
+		transport http {
+			tls_trust_pool file /etc/presso/control/ca.pem
+			tls_client_auth /etc/presso/control/client.pem /etc/presso/control/client-key.pem
+		}
+		header_up X-Real-IP {http.request.remote.host}
+		header_up X-Forwarded-For {http.request.remote.host}
+		header_up X-Forwarded-Proto https
 		flush_interval -1
 	}
 }
@@ -189,6 +201,10 @@ https://{{ .Opts.PanelHost }} {
 		format json
 	}
 	route {
+{{- if .Unavailable }}
+		header Cache-Control "no-store"
+		respond "Site unavailable" 503
+{{- else }}
 		@cacheapi path {{ $.CacheAPIBasePath }}*
 		handle @cacheapi {
 			respond 404
@@ -212,6 +228,7 @@ https://{{ .Opts.PanelHost }} {
 				reverse_proxy {{ .Upstream }}
 			}
 		}
+{{- end }}
 	}
 }
 {{ end }}`))
@@ -316,6 +333,22 @@ func NewClient(adminListen, cacheAdminListen, dir string) *Client {
 	}
 }
 
+// NewDockerClient reaches loopback inside the edge through Docker's authenticated socket.
+func NewDockerClient(d docker.Client, container, dir string) *Client {
+	c := NewClient("127.0.0.1:2019", "127.0.0.1:2020", dir)
+	c.http.Transport = managementTransport{admin: docker.LoopbackTransport(d, container, 2019), cache: docker.LoopbackTransport(d, container, 2020)}
+	return c
+}
+
+type managementTransport struct{ admin, cache http.RoundTripper }
+
+func (t managementTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Host == "127.0.0.1:2020" {
+		return t.cache.RoundTrip(r)
+	}
+	return t.admin.RoundTrip(r)
+}
+
 // ErrUnavailable means the edge admin API did not answer.
 var ErrUnavailable = errors.New("edge: admin api unavailable")
 
@@ -335,6 +368,15 @@ func (c *Client) Load(ctx context.Context, caddyfile string) error {
 		return fmt.Errorf("edge: unexpected adapt response: %s", truncate(adapted, 300))
 	}
 	cfg, err := injectCacheAPI(adaptResult.Result, CacheAPIBasePath)
+	if err != nil {
+		return err
+	}
+	var config map[string]any
+	if err := json.Unmarshal(cfg, &config); err != nil {
+		return err
+	}
+	config["@id"] = generation(caddyfile)
+	cfg, err = json.Marshal(config)
 	if err != nil {
 		return err
 	}
@@ -504,4 +546,28 @@ func (c *Client) doPurge(req *http.Request) error {
 		return fmt.Errorf("edge: purge failed (%d)", res.StatusCode)
 	}
 	return nil
+}
+
+func generation(render string) string {
+	sum := sha256.Sum256([]byte(render))
+	return "presso-" + hex.EncodeToString(sum[:])
+}
+
+// Matches verifies the desired generation against the running configuration.
+func (c *Client) Matches(ctx context.Context, render string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.adminURL+"/config/", nil)
+	if err != nil {
+		return false, err
+	}
+	res, err := c.http.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return false, fmt.Errorf("edge: config status %d", res.StatusCode)
+	}
+	var v map[string]any
+	err = json.NewDecoder(io.LimitReader(res.Body, 8<<20)).Decode(&v)
+	return v["@id"] == generation(render), err
 }

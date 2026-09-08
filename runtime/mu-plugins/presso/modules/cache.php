@@ -362,6 +362,7 @@ function flush(): void {
 			rtrim( $engine, '/' ) . '/v1/internal/sites/' . rawurlencode( $site ) . '/purge',
 			array(
 				'blocking' => false,
+				'sslcertificates' => '/opt/presso/control-ca.pem',
 				'timeout'  => 2,
 				'headers'  => array(
 					'Authorization' => 'Bearer ' . (string) $token,

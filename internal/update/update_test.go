@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -39,15 +40,36 @@ func setVersion(t *testing.T, v string) {
 
 // fakeSites is the rollout's view of internal/site.
 type fakeSites struct {
+	st        *store.Store
+	runner    *jobs.Runner
 	list      []site.Site
 	recreated []uuid.UUID
 	cat       *compat.Catalog
 }
 
 func (f *fakeSites) List(context.Context) ([]site.Site, error) { return f.list, nil }
-func (f *fakeSites) Recreate(_ context.Context, id uuid.UUID, _ string) (store.Job, error) {
+func (f *fakeSites) ApplyRuntime(ctx context.Context, id uuid.UUID, res compat.Resolution, _ string) (*store.Job, error) {
+	row, err := f.st.GetSiteByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if row.Image == res.Image {
+		return nil, nil
+	}
+	err = f.st.SetSiteImage(ctx, store.SetSiteImageParams{Image: res.Image, Runtime: res.Runtime, PhpVersion: res.PHP, ID: id, UpdatedAt: time.Now()})
+	if err != nil {
+		return nil, err
+	}
+	if row.Status == site.StatusStopped {
+		return nil, nil
+	}
 	f.recreated = append(f.recreated, id)
-	return store.Job{ID: uuid.New()}, nil
+	j, err := f.runner.Enqueue(ctx, site.JobRecreate, uuid.NullUUID{UUID: id, Valid: true}, nil, "test")
+	if err != nil {
+		return nil, err
+	}
+	err = f.st.FinishJob(ctx, store.FinishJobParams{ID: j.ID, Status: jobs.StatusSucceeded, UpdatedAt: time.Now()})
+	return &j, err
 }
 func (f *fakeSites) Catalog() *compat.Catalog { return f.cat }
 
@@ -280,9 +302,9 @@ func TestRolloutMovesSites(t *testing.T) {
 	current := mk("current", site.StatusRunning, res.Image, res.WPVersion, res.PHP)
 	undetected := mk("fresh", site.StatusRunning, "reg/presso-runtime:v0.1.0-x", "", res.PHP)
 	view := func(r store.Site) site.Site {
-		return site.Site{ID: r.ID, Slug: r.Slug, Status: r.Status, Image: r.Image, WPVersion: r.WpVersion, PHPVersion: r.PhpVersion}
+		return site.Site{ID: r.ID, Slug: r.Slug, Status: r.Status, DesiredState: r.Status, Image: r.Image, WPVersion: r.WpVersion, PHPVersion: r.PhpVersion}
 	}
-	fs := &fakeSites{cat: cat, list: []site.Site{view(running), view(stopped), view(current), view(undetected)}}
+	fs := &fakeSites{st: st, runner: runner, cat: cat, list: []site.Site{view(running), view(stopped), view(current), view(undetected)}}
 	svc := New(Deps{Config: testConfig(t, "http://127.0.0.1:1"), Store: st, Hub: hub, Jobs: runner, Sites: fs})
 
 	// OnBoot: first boot records the version without a rollout; a changed
@@ -304,8 +326,8 @@ func TestRolloutMovesSites(t *testing.T) {
 
 	// Run the handler directly (a started runner would first fail the
 	// queued row as "left over from a previous process").
-	if err := svc.runRollout(ctx, *job, jobs.NewReporter(runner, job.ID)); err != nil {
-		t.Fatalf("rollout failed: %v", err)
+	if err := svc.runRollout(ctx, *job, jobs.NewReporter(runner, job.ID)); err == nil {
+		t.Fatal("undetected site must fail rollout")
 	}
 	if len(fs.recreated) != 1 || fs.recreated[0] != running.ID {
 		t.Fatalf("recreated: %v (want only %s)", fs.recreated, running.ID)
@@ -326,7 +348,7 @@ func TestRolloutMovesSites(t *testing.T) {
 		text = append(text, e.Level+": "+e.Message)
 	}
 	joined := strings.Join(text, "\n")
-	if !strings.Contains(joined, "stopped is stopped") || !strings.Contains(joined, "warn: stays on its current image: fresh") {
+	if !strings.Contains(joined, "1 deferred until Start") || !strings.Contains(joined, "warn: fresh:") {
 		t.Fatalf("events:\n%s", joined)
 	}
 	_ = current
@@ -340,7 +362,7 @@ func TestPrepullAndDrain(t *testing.T) {
 	cat, _ := compat.New(compat.Default, compat.Options{ImageTemplate: "reg/presso-runtime:{release}-php{php}-wp{wp}", Release: "v0.1.0", LegacyEnabled: true})
 	newest := compat.Default.Latest()
 	res, _ := cat.Resolve(newest.Branch, "")
-	fs := &fakeSites{cat: cat, list: []site.Site{
+	fs := &fakeSites{st: st, runner: runner, cat: cat, list: []site.Site{
 		{ID: uuid.New(), Slug: "a", Status: site.StatusRunning, WPVersion: res.WPVersion, PHPVersion: res.PHP, Image: res.Image},
 		{ID: uuid.New(), Slug: "b", Status: site.StatusStopped, WPVersion: res.WPVersion, PHPVersion: res.PHP, Image: res.Image},
 	}}
@@ -379,4 +401,80 @@ func TestPrepullAndDrain(t *testing.T) {
 func reporterFor(t *testing.T, r *jobs.Runner, id uuid.UUID) *jobs.Reporter {
 	t.Helper()
 	return jobs.NewReporter(r, id)
+}
+
+type rolloutStub struct {
+	list  []site.Site
+	cat   *compat.Catalog
+	apply func(context.Context, uuid.UUID, compat.Resolution, string) (*store.Job, error)
+}
+
+func (f rolloutStub) List(context.Context) ([]site.Site, error) { return f.list, nil }
+func (f rolloutStub) Catalog() *compat.Catalog                  { return f.cat }
+func (f rolloutStub) ApplyRuntime(ctx context.Context, id uuid.UUID, r compat.Resolution, by string) (*store.Job, error) {
+	return f.apply(ctx, id, r, by)
+}
+
+func TestRolloutWaitsForFailuresAndReportsQueueRejection(t *testing.T) {
+	for _, mode := range []string{"child failure", "queue rejection", "success"} {
+		t.Run(mode, func(t *testing.T) {
+			st := testdb.New(t)
+			runner := jobs.New(st, nil, 1)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			runner.Register("test.child", func(context.Context, store.Job, *jobs.Reporter) error {
+				time.Sleep(20 * time.Millisecond)
+				if mode == "child failure" {
+					return errors.New("injected database failure")
+				}
+				return nil
+			})
+			cat, err := compat.New(compat.Default, compat.Options{ImageTemplate: "runtime:php{php}-wp{wp}"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			res, _ := cat.Resolve("", "")
+			var child *store.Job
+			stub := rolloutStub{cat: cat, list: []site.Site{{ID: uuid.New(), Slug: "test", Status: site.StatusRunning, DesiredState: site.StatusRunning, WPVersion: res.WPVersion, PHPVersion: res.PHP}}, apply: func(ctx context.Context, _ uuid.UUID, _ compat.Resolution, _ string) (*store.Job, error) {
+				if mode == "queue rejection" {
+					return nil, jobs.ErrQueueFull
+				}
+				j, err := runner.Enqueue(ctx, "test.child", uuid.NullUUID{}, nil, "test")
+				child = &j
+				return child, err
+			}}
+			svc := New(Deps{Config: testConfig(t, "http://127.0.0.1:1"), Store: st, Jobs: runner, Sites: stub})
+			if err := runner.Start(ctx); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { cancel(); runner.Wait() }()
+			parent, err := st.CreateJob(ctx, store.CreateJobParams{ID: uuid.New(), Kind: JobRollout, Status: jobs.StatusRunning, Args: "{}", CreatedAt: time.Now(), UpdatedAt: time.Now()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = svc.runRollout(ctx, parent, jobs.NewReporter(runner, parent.ID))
+			if mode == "success" && err != nil {
+				t.Fatal(err)
+			}
+			if mode != "success" && err == nil {
+				t.Fatal("rollout reported success despite failure")
+			}
+			if child != nil {
+				state, _ := st.GetJob(ctx, child.ID)
+				if state.Status == jobs.StatusQueued || state.Status == jobs.StatusRunning {
+					t.Fatal("rollout returned before child completed")
+				}
+				events, _ := st.ListJobEvents(ctx, parent.ID)
+				found := false
+				for _, e := range events {
+					if strings.Contains(e.Message, child.ID.String()) {
+						found = true
+					}
+				}
+				if !found {
+					t.Fatal("child ID not recorded")
+				}
+			}
+		})
+	}
 }

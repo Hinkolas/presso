@@ -1,0 +1,65 @@
+name: verify
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # web/ is excluded like task test: node_modules occasionally ships
+      # stray Go packages.
+      - run: go vet $(go list ./... | grep -v '/web/')
+      - run: go test -race $(go list ./... | grep -v '/web/')
+
+  install-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ruby scripts/check-release-gates.rb
+      - run: bash -n install.sh
+      - run: shellcheck --severity=warning install.sh
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build verification edge
+        run: docker build -f build/edge.Dockerfile -t presso-edge:release-verification build
+      - name: Build the default published runtime
+        run: |
+          go run ./cmd/pressod runtime-matrix > /tmp/presso-matrix.json
+          php=$(jq -r '.include[0].php' /tmp/presso-matrix.json)
+          wp=$(jq -r '.include[0].wp' /tmp/presso-matrix.json)
+          docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION="$php" -t presso-runtime-base:verification runtime
+          docker build -f runtime/Dockerfile --build-arg BASE_IMAGE=presso-runtime-base:verification --build-arg WP_VERSION="$wp" -t presso-runtime:release-verification runtime
+      - run: docker pull chromedp/headless-shell:stable
+      - run: docker pull curlimages/curl:latest
+      - run: go test -tags integration -count=1 -timeout 10m ./internal/integration

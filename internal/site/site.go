@@ -62,6 +62,7 @@ const (
 )
 
 type Service struct {
+	commands sync.Mutex
 	cfg      *config.API
 	catalog  *compat.Catalog
 	st       *store.Store
@@ -138,7 +139,9 @@ func New(d Deps) *Service {
 		image := jobs.Step{Name: "image", Label: "Runtime image"}
 		container := jobs.Step{Name: "container", Label: "Container"}
 		health := jobs.Step{Name: "health", Label: "Health check"}
-		edge := jobs.Step{Name: "edge", Label: "Edge route"}
+		unavailable := jobs.Step{Name: "unavailable", Label: "Disable traffic"}
+		validate := jobs.Step{Name: "validate", Label: "Validate WordPress"}
+		publish := jobs.Step{Name: "publish", Label: "Publish traffic"}
 		preview := jobs.Step{Name: "preview", Label: "Preview"}
 		s.jobs.Register(JobProvision, s.runProvision,
 			image,
@@ -147,18 +150,17 @@ func New(d Deps) *Service {
 			jobs.Step{Name: "volume", Label: "Files volume"},
 			container, health,
 			jobs.Step{Name: "wordpress", Label: "WordPress install"},
-			edge,
+			validate, publish,
 			jobs.Step{Name: "warm", Label: "Warm-up"},
 			preview,
 		)
-		s.jobs.Register(JobStart, s.runStart, jobs.Step{Name: "start", Label: "Start container"}, health, preview)
-		s.jobs.Register(JobStop, s.runStop, jobs.Step{Name: "stop", Label: "Stop container"})
-		s.jobs.Register(JobRestart, s.runRestart, jobs.Step{Name: "restart", Label: "Restart container"}, health)
-		s.jobs.Register(JobRecreate, s.runRecreate, image, container, health,
-			jobs.Step{Name: "wordpress", Label: "Database upgrade"},
-			jobs.Step{Name: "edge", Label: "Edge and page cache"}, preview)
+		applyPlan := []jobs.Step{image, unavailable, container, health, {Name: "wordpress", Label: "Database upgrade"}, validate, publish, preview}
+		s.jobs.Register(JobStart, s.runStart, applyPlan...)
+		s.jobs.Register(JobRestart, s.runRestart, applyPlan...)
+		s.jobs.Register(JobRecreate, s.runRecreate, applyPlan...)
+		s.jobs.Register(JobStop, s.runStop, unavailable, jobs.Step{Name: "stop", Label: "Stop container"})
 		s.jobs.Register(JobDelete, s.runDelete,
-			edge, container,
+			unavailable, container,
 			jobs.Step{Name: "database", Label: "Database"},
 			jobs.Step{Name: "redis", Label: "Object cache"},
 			jobs.Step{Name: "volume", Label: "Files volume"},
@@ -178,16 +180,22 @@ func (s *Service) Catalog() *compat.Catalog { return s.catalog }
 
 // Site is the API representation.
 type Site struct {
-	ID            uuid.UUID `json:"id"`
-	Slug          string    `json:"slug"`
-	Name          string    `json:"name"`
-	Status        string    `json:"status"`
-	StatusMessage string    `json:"status_message"`
-	Health        string    `json:"health"`
-	PrimaryDomain string    `json:"primary_domain"`
-	URL           string    `json:"url"`
-	TLSMode       string    `json:"tls_mode"`
-	PHPVersion    string    `json:"php_version"`
+	DesiredState         string    `json:"desired_state"`
+	TrafficReady         bool      `json:"traffic_ready"`
+	ConfigRevision       int64     `json:"config_revision"`
+	AppliedRevision      int64     `json:"applied_revision"`
+	AppliedImage         string    `json:"applied_image"`
+	ConfigurationPending bool      `json:"configuration_pending"`
+	ID                   uuid.UUID `json:"id"`
+	Slug                 string    `json:"slug"`
+	Name                 string    `json:"name"`
+	Status               string    `json:"status"`
+	StatusMessage        string    `json:"status_message"`
+	Health               string    `json:"health"`
+	PrimaryDomain        string    `json:"primary_domain"`
+	URL                  string    `json:"url"`
+	TLSMode              string    `json:"tls_mode"`
+	PHPVersion           string    `json:"php_version"`
 	// WPVersion is the WordPress release the site runs ("" until detected
 	// for sites created before versions were tracked); Runtime is
 	// frankenphp or legacy (nginx + PHP-FPM).
@@ -226,6 +234,7 @@ func (s *Service) Payload(ctx context.Context, row store.Site) (Site, error) {
 
 func (s *Service) payloadWith(row store.Site, domains []store.SiteDomain) Site {
 	out := Site{
+		DesiredState: row.DesiredState, TrafficReady: row.TrafficReady, ConfigRevision: row.ConfigRevision, AppliedRevision: row.AppliedRevision, AppliedImage: row.AppliedImage, ConfigurationPending: row.ConfigRevision != row.AppliedRevision || row.Image != row.AppliedImage || (!row.TrafficReady && row.DesiredState == StatusRunning),
 		ID: row.ID, Slug: row.Slug, Name: row.Name, Status: row.Status, StatusMessage: row.StatusMessage,
 		PrimaryDomain: row.PrimaryDomain, URL: siteURL(row.PrimaryDomain, row.TlsMode), TLSMode: row.TlsMode,
 		PHPVersion: row.PhpVersion, WPVersion: row.WpVersion, Runtime: row.Runtime, Image: row.Image, Profile: row.Profile, FileMods: row.FileMods,
@@ -433,6 +442,11 @@ type provisionArgs struct {
 
 // Create validates, records the site and enqueues provisioning.
 func (s *Service) Create(ctx context.Context, in CreateInput) (Site, store.Job, error) {
+	s.commands.Lock()
+	defer s.commands.Unlock()
+	if s.jobs.Paused() {
+		return Site{}, store.Job{}, jobs.ErrPaused
+	}
 	res, err := in.validate(s.catalog)
 	if err != nil {
 		return Site{}, store.Job{}, err

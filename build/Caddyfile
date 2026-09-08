@@ -1,0 +1,8 @@
+{
+ admin 127.0.0.1:2019
+ auto_https off
+}
+:80 {
+ header Cache-Control "no-store"
+ respond "presso is starting" 503
+}

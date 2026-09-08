@@ -91,6 +91,11 @@ type Site struct {
 	UpdatedAt        time.Time
 	Runtime          string
 	WpVersion        string
+	DesiredState     string
+	TrafficReady     bool
+	ConfigRevision   int64
+	AppliedRevision  int64
+	AppliedImage     string
 }
 
 type SiteContainerMetric struct {

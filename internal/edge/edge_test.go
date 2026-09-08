@@ -23,7 +23,7 @@ func TestRender(t *testing.T) {
 		t.Fatal(err)
 	}
 	checks := []string{
-		"admin 0.0.0.0:2019",
+		"admin 127.0.0.1:2019",
 		"email ops@example.com",
 		"basepath /-/cache",
 		"ttl 12h",
@@ -59,7 +59,7 @@ func TestRender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range []string{"https://panel.example.com {", "reverse_proxy host.docker.internal:7080 {", "flush_interval -1", "header X-Presso-Edge panel"} {
+	for _, c := range []string{"https://panel.example.com {", "reverse_proxy https://host.docker.internal:7080 {", "flush_interval -1", "header X-Presso-Edge panel"} {
 		if !strings.Contains(withPanel, c) {
 			t.Errorf("panel: missing %q in:\n%s", c, withPanel)
 		}

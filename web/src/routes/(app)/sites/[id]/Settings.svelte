@@ -367,7 +367,9 @@
 		aria-hidden={!dirty && !saving}
 	>
 		<p class="mr-auto text-sm text-ink-2">
-			{#if recreates}
+			{#if recreates && site.desired_state === 'stopped'}
+				Settings will apply when you start the site.
+			{:else if recreates}
 				Saving recreates the container. The site is unavailable for a few seconds while it comes
 				back.
 			{:else}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Hinkolas/presso/internal/control"
 	"github.com/Hinkolas/presso/internal/jobs"
 	"github.com/Hinkolas/presso/internal/update"
 )
@@ -33,36 +34,32 @@ func peerAddr(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-// privatePeer reports whether addr (ip or ip:port) is loopback, link-local
-// or RFC 1918 / ULA: the edge on the Docker bridge, an SSH tunnel, a LAN.
-func privatePeer(addr string) bool {
-	host := addr
-	if h, _, err := net.SplitHostPort(addr); err == nil {
-		host = h
-	}
-	ip := net.ParseIP(strings.Trim(host, "[]"))
-	if ip == nil {
-		return false
-	}
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()
+// InternalOnly wraps the TLS listener. Only callbacks may omit an edge certificate.
+func InternalOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := strings.TrimPrefix(r.URL.Path, "/api")
+		if !control.IsEdge(r.TLS) && !(r.Method == http.MethodPost && strings.HasPrefix(p, "/v1/internal/sites/") && strings.HasSuffix(p, "/purge")) {
+			writeError(w, http.StatusForbidden, codePanelViaEdge, "edge client certificate required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
-// panelGuard, active when PANEL_DOMAIN is set, refuses the panel and API to
-// public peers: the panel is served by the edge over TLS on that domain, and
-// the engine port stays reachable only from the host, the Docker network and
-// private networks. Health and the system-plugin callbacks stay open.
-func panelGuard(domain string) func(http.Handler) http.Handler {
+// panelGuard always requires loopback or an authenticated edge for panel access.
+func panelGuard(_ string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		if domain == "" {
-			return next
-		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			p := r.URL.Path
-			if p == "/healthz" || strings.HasPrefix(p, "/v1/internal/") || privatePeer(peerAddr(r)) {
+			host := peerAddr(r)
+			if h, _, err := net.SplitHostPort(host); err == nil {
+				host = h
+			}
+			ip := net.ParseIP(strings.Trim(host, "[]"))
+			if (ip != nil && ip.IsLoopback()) || control.IsEdge(r.TLS) || r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/v1/internal/") {
 				next.ServeHTTP(w, r)
 				return
 			}
-			writeError(w, http.StatusForbidden, codePanelViaEdge, "the presso panel is served at https://"+domain)
+			writeError(w, http.StatusForbidden, codePanelViaEdge, "use the local tunnel or configured HTTPS panel")
 		})
 	}
 }

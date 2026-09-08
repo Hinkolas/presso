@@ -203,7 +203,9 @@ if [ "$FRESH" = 1 ]; then
 # documented in .env.example of the repository. AUTH_SECRET encrypts the
 # database/Redis and per-site secrets at rest: never rotate it casually.
 DATA_DIR="$DATA_DIR"
-HTTP_ADDR=":$PORT"
+HTTP_ADDR="127.0.0.1:$PORT"
+INTERNAL_HTTPS_ADDR=":7081"
+ENGINE_INTERNAL_URL="https://host.docker.internal:7081"
 AUTH_SECRET="$secret"
 LOG_FORMAT="json"
 PANEL_DOMAIN="$PANEL_DOMAIN"

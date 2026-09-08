@@ -55,7 +55,7 @@ func newTestAPI(t *testing.T) *testAPI {
 	cfg := &config.API{
 		Platform: config.Platform{Network: "presso", EngineInternalURL: "http://host.docker.internal:7080"},
 		Runtime:  config.Runtime{ImageTemplate: "presso-runtime:php{php}-wp{wp}", LegacyEnabled: true},
-		Edge:     config.Edge{HTTPListen: "127.0.0.1:1", CacheAdminListen: "127.0.0.1:2020", DefaultCacheTTL: 12 * time.Hour},
+		Edge:     config.Edge{HTTPListen: "127.0.0.1:1", DefaultCacheTTL: 12 * time.Hour},
 	}
 	// Full compatibility matrix (no build policy) so the lifecycle test can
 	// move a site to another PHP version; the policy is covered in compat.

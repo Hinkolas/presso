@@ -84,15 +84,16 @@ func planFor(kind string) []Step {
 }
 
 type Runner struct {
-	st       *store.Store
-	hub      *events.Hub
-	handlers map[string]Handler
-	workers  int
-	queue    chan uuid.UUID
-	locks    keyedMutex
-	now      func() time.Time
-	wg       sync.WaitGroup
-	paused   atomic.Bool
+	st          *store.Store
+	hub         *events.Hub
+	handlers    map[string]Handler
+	workers     int
+	queue       chan uuid.UUID
+	globalQueue chan uuid.UUID
+	locks       keyedMutex
+	now         func() time.Time
+	wg          sync.WaitGroup
+	paused      atomic.Bool
 }
 
 func New(st *store.Store, hub *events.Hub, workers int) *Runner {
@@ -101,7 +102,7 @@ func New(st *store.Store, hub *events.Hub, workers int) *Runner {
 	}
 	return &Runner{
 		st: st, hub: hub, handlers: map[string]Handler{}, workers: workers,
-		queue: make(chan uuid.UUID, 1024), now: func() time.Time { return time.Now().UTC() },
+		queue: make(chan uuid.UUID, 1024), globalQueue: make(chan uuid.UUID, 32), now: func() time.Time { return time.Now().UTC() },
 	}
 }
 
@@ -119,8 +120,14 @@ func (r *Runner) Register(kind string, h Handler, plan ...Step) {
 // Wait blocks until they have.
 func (r *Runner) Start(ctx context.Context) error {
 	now := r.now()
-	n, err := r.st.FailUnfinishedJobs(ctx, store.FailUnfinishedJobsParams{
-		Error: "engine restarted while the job was in progress", FinishedAt: sqlTime(now), UpdatedAt: now,
+	var n int64
+	err := r.st.WithTx(ctx, func(q *store.Queries) error {
+		if err := q.InterruptSiteApplications(ctx); err != nil {
+			return err
+		}
+		var err error
+		n, err = q.FailUnfinishedJobs(ctx, store.FailUnfinishedJobsParams{Error: "engine restarted while the job was in progress", FinishedAt: sqlTime(now), UpdatedAt: now})
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("jobs: fail unfinished: %w", err)
@@ -130,8 +137,10 @@ func (r *Runner) Start(ctx context.Context) error {
 	}
 	for i := 0; i < r.workers; i++ {
 		r.wg.Add(1)
-		go r.worker(ctx)
+		go r.worker(ctx, r.queue)
 	}
+	r.wg.Add(1)
+	go r.worker(ctx, r.globalQueue)
 	return nil
 }
 
@@ -173,8 +182,12 @@ func (r *Runner) Enqueue(ctx context.Context, kind string, siteID uuid.NullUUID,
 	if err != nil {
 		return store.Job{}, fmt.Errorf("jobs: create: %w", err)
 	}
+	queue := r.queue
+	if !siteID.Valid {
+		queue = r.globalQueue
+	}
 	select {
-	case r.queue <- job.ID:
+	case queue <- job.ID:
 	default:
 		_ = r.st.FinishJob(ctx, store.FinishJobParams{Status: StatusFailed, Error: ErrQueueFull.Error(), FinishedAt: sqlTime(now), UpdatedAt: now, ID: job.ID})
 		return store.Job{}, ErrQueueFull
@@ -183,13 +196,13 @@ func (r *Runner) Enqueue(ctx context.Context, kind string, siteID uuid.NullUUID,
 	return job, nil
 }
 
-func (r *Runner) worker(ctx context.Context) {
+func (r *Runner) worker(ctx context.Context, queue <-chan uuid.UUID) {
 	defer r.wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case id := <-r.queue:
+		case id := <-queue:
 			r.run(ctx, id)
 		}
 	}

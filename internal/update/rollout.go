@@ -4,87 +4,89 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/Hinkolas/presso/internal/jobs"
 	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
 )
 
-// runRollout is the engine.rollout handler: every site whose runtime image
-// under the running release differs from the one on its row is moved over.
-// Running sites are recreated (one job each, serialized per site by the
-// runner); stopped sites only get their row updated and are rebuilt on their
-// next start. Sites the catalog can no longer place are reported, never
-// touched.
+// Global jobs have their own worker, so waiting here also works with a single
+// site worker. Child identifiers and outcomes are persisted in the job log.
 func (s *Service) runRollout(ctx context.Context, job store.Job, r *jobs.Reporter) error {
 	if s.sites == nil {
 		return errors.New("rollout: no site service")
 	}
-	cat := s.sites.Catalog()
-	r.Step(ctx, "resolve", "Resolving runtime images for every site")
+	r.Step(ctx, "resolve", "Resolving and scheduling site configurations")
 	sites, err := s.sites.List(ctx)
 	if err != nil {
 		return err
 	}
-	type move struct {
-		site  site.Site
-		image string
-		rt    string
-		php   string
-	}
-	var moves []move
-	var skipped []string
-	current := 0
+	var children []store.Job
+	failed, deferred, current := 0, 0, 0
 	for _, st := range sites {
-		if st.Status == site.StatusDeleting || st.Status == site.StatusProvisioning {
+		if st.Status == site.StatusDeleting {
 			continue
 		}
+		if job.CreatedBy == createdBySystem && st.Status == site.StatusError && st.DesiredState != site.StatusStopped {
+			failed++
+			r.Warn(ctx, st.Slug+": previous application failed or was interrupted; explicit retry required")
+			continue
+		}
+		res, err := s.sites.Catalog().Resolve(st.WPVersion, st.PHPVersion)
 		if st.WPVersion == "" {
-			skipped = append(skipped, st.Slug+" (WordPress version not detected yet; start it once)")
-			continue
+			err = errors.New("WordPress version has not been detected")
 		}
-		res, err := cat.Resolve(st.WPVersion, st.PHPVersion)
 		if err != nil {
-			skipped = append(skipped, fmt.Sprintf("%s (%v)", st.Slug, err))
-			continue
-		}
-		if res.Image == st.Image {
-			current++
-			continue
-		}
-		moves = append(moves, move{site: st, image: res.Image, rt: res.Runtime, php: res.PHP})
-		r.Infof(ctx, "%s: %s → %s", st.Slug, st.Image, res.Image)
-	}
-	r.Infof(ctx, "%d site(s) already on the current images, %d to move, %d skipped", current, len(moves), len(skipped))
-
-	r.Step(ctx, "recreate", "Moving sites to the new images")
-	recreated, deferred, failed := 0, 0, 0
-	for _, m := range moves {
-		if err := s.st.SetSiteImage(ctx, store.SetSiteImageParams{Image: m.image, Runtime: m.rt, PhpVersion: m.php, UpdatedAt: s.now(), ID: m.site.ID}); err != nil {
 			failed++
-			r.Warn(ctx, m.site.Slug+": could not update the record: "+err.Error())
+			r.Warn(ctx, fmt.Sprintf("%s: %v", st.Slug, err))
 			continue
 		}
-		if m.site.Status != site.StatusRunning {
-			deferred++
-			r.Infof(ctx, "%s is %s; it moves to the new image on its next start", m.site.Slug, m.site.Status)
-			continue
-		}
-		if _, err := s.sites.Recreate(ctx, m.site.ID, job.CreatedBy); err != nil {
+		child, err := s.sites.ApplyRuntime(ctx, st.ID, res, job.CreatedBy)
+		if err != nil {
 			failed++
-			r.Warn(ctx, m.site.Slug+": could not enqueue the recreate: "+err.Error()+" (recreate it from the site page)")
+			r.Warn(ctx, fmt.Sprintf("%s: could not queue application: %v", st.Slug, err))
 			continue
 		}
-		recreated++
+		if child == nil {
+			if st.DesiredState == site.StatusStopped {
+				deferred++
+			} else {
+				current++
+			}
+			continue
+		}
+		children = append(children, *child)
+		r.Infof(ctx, "%s: child job %s", st.Slug, child.ID)
 	}
-	for _, sk := range skipped {
-		r.Warn(ctx, "stays on its current image: "+sk)
+	r.Step(ctx, "recreate", "Waiting for site application jobs")
+	succeeded := 0
+	for _, child := range children {
+		for {
+			state, err := s.st.GetJob(ctx, child.ID)
+			if err != nil {
+				return err
+			}
+			if state.Status == jobs.StatusSucceeded {
+				succeeded++
+				break
+			}
+			if state.Status == jobs.StatusFailed {
+				failed++
+				r.Warn(ctx, fmt.Sprintf("child %s failed: %s", child.ID, state.Error))
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
 	}
-	summary := fmt.Sprintf("%d recreate(s) enqueued, %d deferred to next start, %d skipped", recreated, deferred, len(skipped))
+	summary := fmt.Sprintf("%d applied, %d verified current, %d deferred until Start, %d failed", succeeded, current, deferred, failed)
+	r.Info(ctx, summary)
 	if failed > 0 {
-		return fmt.Errorf("rollout: %d site(s) could not be moved (%s)", failed, summary)
+		return fmt.Errorf("rollout: %s; retry to reattempt incomplete sites", summary)
 	}
-	r.Info(ctx, strings.ToUpper(summary[:1])+summary[1:])
 	return nil
 }

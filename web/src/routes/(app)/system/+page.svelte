@@ -262,6 +262,7 @@
 										<span class="ml-2 text-xs text-ink-3">you are up to date</span>
 									{/if}
 									{#if update.url}
+										<!-- eslint-disable svelte/no-navigation-without-resolve -- external release URL -->
 										<a
 											href={update.url}
 											target="_blank"
@@ -269,6 +270,7 @@
 											class="ml-2 text-xs text-ink-2 underline decoration-rule-strong hover:text-ink"
 											>release notes on {shortHost(update.url)}</a
 										>
+										<!-- eslint-enable svelte/no-navigation-without-resolve -->
 									{/if}
 								{:else if update.error}
 									<span class="text-ink-3">unknown</span>

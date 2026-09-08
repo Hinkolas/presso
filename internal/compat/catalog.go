@@ -58,7 +58,7 @@ func New(m *Matrix, opt Options) (*Catalog, error) {
 	}
 	c := &Catalog{m: m, opt: opt}
 	if _, err := c.Resolve("", ""); err != nil {
-		return nil, fmt.Errorf("compat: default WordPress %q cannot run on this server: %w", c.defaultBranch().Branch, err)
+		return nil, fmt.Errorf("compat: default WordPress %q cannot run on this server: %w; adjust RUNTIME_PHP_VERSIONS, RUNTIME_DEFAULT_WP, or the legacy switch to select a published pair", c.defaultBranch().Branch, err)
 	}
 	return c, nil
 }
@@ -119,14 +119,15 @@ func (c *Catalog) published(wp string) []string {
 		return nil
 	}
 	var out []string
-	for _, v := range c.m.Compatible(w.Branch) {
+	versions := c.m.Compatible(w.Branch)
+	if c.m.Build.NewestPHPOnly && len(versions) > 0 {
+		versions = versions[:1]
+	}
+	for _, v := range versions {
 		if !c.allowed(v) {
 			continue
 		}
 		out = append(out, v)
-		if c.m.Build.NewestPHPOnly {
-			break
-		}
 	}
 	return out
 }

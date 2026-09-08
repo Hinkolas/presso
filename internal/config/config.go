@@ -7,6 +7,9 @@ package config
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -66,7 +69,8 @@ type API struct {
 	// HTTPAddr is where the engine API listens. 7080 by default: 7000
 	// collides with macOS AirPlay on dev machines and 7070 is taken by the
 	// sibling skali daemon on the same machines.
-	HTTPAddr string `env:"HTTP_ADDR,default=:7080"`
+	HTTPAddr          string `env:"HTTP_ADDR,default=127.0.0.1:7080"`
+	InternalHTTPSAddr string `env:"INTERNAL_HTTPS_ADDR,default=:7081"`
 
 	// AuthSecret keys everything the auth system signs or encrypts at rest
 	// (later: one-click WordPress login tokens, stored site credentials).
@@ -92,9 +96,8 @@ type API struct {
 }
 
 // Platform configures the shared containers pressod reconciles on the host
-// (network, MariaDB, Redis). Listen addresses are host-side published ports:
-// the engine is a host process and cannot rely on reaching container IPs
-// (impossible on macOS), so everything it talks to publishes on loopback.
+// (network, MariaDB, Redis). Database and Redis ports publish on host loopback;
+// edge and browser management use Docker exec, including on Docker Desktop.
 type Platform struct {
 	// Managed=false skips the reconciler entirely (tests, or an operator
 	// running the shared services themselves).
@@ -112,7 +115,7 @@ type Platform struct {
 	// EngineInternalURL is how site containers reach this engine (system
 	// plugin purge callbacks). host.docker.internal resolves on Docker Desktop
 	// and, with the host-gateway extra host the engine adds, on Linux too.
-	EngineInternalURL string `env:"ENGINE_INTERNAL_URL,default=http://host.docker.internal:7080"`
+	EngineInternalURL string `env:"ENGINE_INTERNAL_URL,default=https://host.docker.internal:7081"`
 }
 
 // Runtime configures which presso-runtime images sites can run. The
@@ -150,10 +153,6 @@ type Edge struct {
 	// HTTPListen/HTTPSListen are the public host ports.
 	HTTPListen  string `env:"EDGE_HTTP_LISTEN,default=0.0.0.0:80"`
 	HTTPSListen string `env:"EDGE_HTTPS_LISTEN,default=0.0.0.0:443"`
-	// AdminListen is the Caddy admin API (config pushes); loopback only.
-	AdminListen string `env:"EDGE_ADMIN_LISTEN,default=127.0.0.1:2019"`
-	// CacheAdminListen is where the page-cache purge API answers; loopback only.
-	CacheAdminListen string `env:"EDGE_CACHE_ADMIN_LISTEN,default=127.0.0.1:2020"`
 	// ACMEEmail is passed to Caddy for certificate issuance on real domains.
 	ACMEEmail string `env:"ACME_EMAIL,default="`
 	// DefaultCacheTTL is the page-cache TTL for sites without an override.
@@ -164,11 +163,8 @@ type Edge struct {
 	StaleFor time.Duration `env:"EDGE_STALE_FOR,default=24h"`
 }
 
-// Panel configures how the admin UI is exposed. With Domain set, the edge
-// terminates TLS for it and proxies to the engine; direct requests to the
-// engine port are then only accepted from loopback and private networks
-// (the edge, an SSH tunnel, a LAN), so the panel is never served in plain
-// HTTP to the internet.
+// Panel configures the public HTTPS vhost. The edge authenticates to the
+// internal engine listener using its installation-local client certificate.
 type Panel struct {
 	Domain string `env:"PANEL_DOMAIN,default="`
 }
@@ -193,12 +189,11 @@ type Observe struct {
 // Shots configures the headless browser that captures front-page previews
 // of every site for the UI. The browser runs as one shared container on the
 // presso network and reaches sites through the edge, so previews show what a
-// visitor sees (page cache, TLS and all). Listen is the host-side DevTools
-// port; loopback only, since DevTools grants full browser control.
+// visitor sees (page cache, TLS and all). The engine reaches container-loopback
+// DevTools through Docker exec, without publishing a debugging port.
 type Shots struct {
 	Enabled bool   `env:"SHOTS_ENABLED,default=true"`
 	Image   string `env:"SHOTS_IMAGE,default=chromedp/headless-shell:stable"`
-	Listen  string `env:"SHOTS_LISTEN,default=127.0.0.1:9222"`
 	// Interval is how often running sites are re-captured in the background.
 	Interval time.Duration `env:"SHOTS_INTERVAL,default=6h"`
 	// Timeout bounds one capture (navigation + render).
@@ -225,6 +220,27 @@ func (a *API) Validate() error {
 	}
 	if len(a.AuthSecret) < 32 {
 		return fmt.Errorf("AUTH_SECRET: must be at least 32 characters (generate with `openssl rand -base64 32`)")
+	}
+	for _, key := range []string{"EDGE_ADMIN_LISTEN", "EDGE_CACHE_ADMIN_LISTEN", "SHOTS_LISTEN"} {
+		if v := os.Getenv(key); v != "" {
+			return fmt.Errorf("%s is obsolete; management uses the Docker API", key)
+		}
+	}
+	host, _, err := net.SplitHostPort(a.HTTPAddr)
+	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
+		return fmt.Errorf("HTTP_ADDR must bind a loopback IP")
+	}
+	_, internalPort, err := net.SplitHostPort(a.InternalHTTPSAddr)
+	if err != nil {
+		return fmt.Errorf("INTERNAL_HTTPS_ADDR: %w", err)
+	}
+	u, err := url.Parse(a.EngineInternalURL)
+	if err != nil || u.Scheme != "https" || u.Hostname() != "host.docker.internal" || u.Port() != internalPort || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("ENGINE_INTERNAL_URL must use https://host.docker.internal:<INTERNAL_HTTPS_ADDR port> without a path")
+	}
+	a.DataDir, err = filepath.Abs(a.DataDir)
+	if err != nil {
+		return err
 	}
 	if a.SessionTTL <= 0 {
 		return fmt.Errorf("SESSION_TTL: must be positive")

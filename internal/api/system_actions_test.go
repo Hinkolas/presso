@@ -2,25 +2,16 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"github.com/Hinkolas/presso/internal/control"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/Hinkolas/presso/internal/auth"
 )
-
-func TestPrivatePeer(t *testing.T) {
-	for _, ok := range []string{"127.0.0.1:5000", "[::1]:80", "10.1.2.3:1", "172.18.0.2:41234", "192.168.1.9:2", "169.254.1.1:1", "[fd00::1]:1", "[::]:1"} {
-		if !privatePeer(ok) {
-			t.Errorf("%q should be private", ok)
-		}
-	}
-	for _, bad := range []string{"203.0.113.7:443", "8.8.8.8:1", "[2001:db8::1]:1", "not-an-ip", ""} {
-		if privatePeer(bad) {
-			t.Errorf("%q should be public", bad)
-		}
-	}
-}
 
 func TestPanelGuard(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
@@ -37,16 +28,16 @@ func TestPanelGuard(t *testing.T) {
 		panelGuard(domain)(next).ServeHTTP(rec, req)
 		return rec.Code
 	}
-	// Disabled: nothing is filtered.
-	if c := serve("", "/v1/sites", "203.0.113.7:1", nil); c != http.StatusNoContent {
+	// No configured domain still requires a local peer.
+	if c := serve("", "/v1/sites", "203.0.113.7:1", nil); c != http.StatusForbidden {
 		t.Fatalf("no domain: %d", c)
 	}
 	// Public peer is refused; proxy headers cannot promote it.
 	if c := serve("panel.example.com", "/v1/sites", "203.0.113.7:1", map[string]string{"X-Real-IP": "127.0.0.1", "X-Forwarded-For": "10.0.0.1"}); c != http.StatusForbidden {
 		t.Fatalf("public peer: %d", c)
 	}
-	// The edge (docker bridge), a tunnel and the LAN pass.
-	for _, peer := range []string{"172.18.0.5:5123", "127.0.0.1:9", "192.168.0.7:1"} {
+	// Only loopback peers pass without an edge certificate.
+	for _, peer := range []string{"127.0.0.1:9", "[::1]:9"} {
 		if c := serve("panel.example.com", "/v1/sites", peer, nil); c != http.StatusNoContent {
 			t.Fatalf("peer %s: %d", peer, c)
 		}
@@ -85,5 +76,46 @@ func TestSystemActionsWithoutUpdater(t *testing.T) {
 	}
 	if _, ok := body["update"]; ok {
 		t.Fatal("update block present without an updater")
+	}
+}
+
+func TestInternalListenerRequiresEdgeIdentity(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })
+	for _, path := range []string{"/v1/sites", "/api/v1/sites", "/v1/auth/login", "/healthz", "/"} {
+		req := httptest.NewRequest("GET", path, nil)
+		req.RemoteAddr = "127.0.0.1:1"
+		req.Header.Set("X-Real-IP", "127.0.0.1")
+		rec := httptest.NewRecorder()
+		InternalOnly(next).ServeHTTP(rec, req)
+		if rec.Code != 403 {
+			t.Fatalf("internal %s accepted without certificate", path)
+		}
+	}
+	req := httptest.NewRequest("POST", "/v1/internal/sites/test/purge", nil)
+	rec := httptest.NewRecorder()
+	InternalOnly(next).ServeHTTP(rec, req)
+	if rec.Code != 204 {
+		t.Fatal("callback must reach bearer-token validation")
+	}
+}
+
+func TestForwardedHeadersRequireVerifiedEdge(t *testing.T) {
+	for _, trusted := range []bool{false, true} {
+		req := httptest.NewRequest("GET", "http://panel.localhost/", nil)
+		req.RemoteAddr = "172.18.0.4:1000"
+		req.Header.Set("X-Real-IP", "198.51.100.9")
+		req.Header.Set("X-Forwarded-Proto", "https")
+		if trusted {
+			cert := &x509.Certificate{Subject: pkix.Name{CommonName: control.EdgeIdentity}}
+			req.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}, VerifiedChains: [][]*x509.Certificate{{cert}}}
+		}
+		var remote string
+		realIP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { remote = r.RemoteAddr })).ServeHTTP(httptest.NewRecorder(), req)
+		if trusted && remote != "198.51.100.9" {
+			t.Fatalf("edge forwarding lost: %s", remote)
+		}
+		if !trusted && (remote != "172.18.0.4:1000" || isHTTPS(req)) {
+			t.Fatalf("spoofed forwarding trusted: %s", remote)
+		}
 	}
 }

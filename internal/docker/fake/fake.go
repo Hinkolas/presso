@@ -7,6 +7,7 @@ package fake
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ type Container struct {
 }
 
 type Client struct {
+	DialFn     func(context.Context, string, int) (net.Conn, error)
 	mu         sync.Mutex
 	seq        int
 	Containers map[string]*Container // by id
@@ -40,6 +42,13 @@ type Client struct {
 	StatsFn func(id string) (docker.Stats, error)
 
 	events chan docker.Event
+}
+
+func (c *Client) DialLoopback(ctx context.Context, name string, port int) (net.Conn, error) {
+	if c.DialFn != nil {
+		return c.DialFn(ctx, name, port)
+	}
+	return nil, fmt.Errorf("fake: no management endpoint")
 }
 
 func New() *Client {

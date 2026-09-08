@@ -159,8 +159,8 @@ Edge cache notes learned while building (Souin `cache-handler`):
   used for whole-host purges).
 - `PURGE /-/cache/souin/flush` breaks the Badger store until the edge
   restarts (insertion errors); the engine never calls it.
-- The edge runs `caddy run --resume`, so a restarted container comes back
-  with the last pushed config before the engine re-pushes.
+- Every edge restart serves the safe bootstrap until reconciliation. Configuration
+  generations are compared against the full desired render, with dirty pushes retried.
 
 ## Release and update
 
@@ -178,9 +178,12 @@ Install (`install.sh`): host binary under systemd, `/etc/presso/presso.env`
 with a generated `AUTH_SECRET`, `/var/lib/presso` for state, Docker via
 get.docker.com when missing, first admin via `pressod user create
 --password-stdin`. With `PANEL_DOMAIN` the edge gets an HTTPS vhost proxying
-to `host.docker.internal:7080` (the edge container carries the host-gateway
-extra host) and the engine only accepts non-internal routes from loopback and
-private peers (raw TCP peer, captured before proxy headers are trusted).
+to `https://host.docker.internal:7081` with verified TLS and the edge's client
+certificate. Local panel access uses `127.0.0.1:7080`; site callbacks use HTTPS
+and per-site bearer tokens. The engine accepts forwarded IP headers only from
+certificate-authenticated edge requests. Administration and DevTools have no
+Docker port publications and are reached through Docker exec/attach.
+
 
 Update (`internal/update`): the checker polls `/repos/<repo>/releases/latest`
 every `UPDATE_CHECK_INTERVAL`, persists the result in `platform_kv` and
@@ -193,13 +196,24 @@ the new edge and runtime images → atomic swap next to the current binary
 shuts down gracefully and `syscall.Exec`s the new binary (same PID; systemd
 `Restart=always` is the safety net). On boot the new binary compares
 `platform_kv engine.version`, records itself and enqueues `engine.rollout`:
-every site whose resolved image differs gets its row updated; running sites
-are recreated (recreate now runs `wp core update-db`), stopped ones are
-rebuilt on their next start. The platform reconciler recreates the edge
-(image in the spec hash; pull before remove) and force-pushes the config once
-per engine version (`edge.rendered_by`), since `caddy run --resume` would
-otherwise keep the previous render. Sites whose PHP is no longer built for
-their branch are reported and left alone.
+site submissions use the same serialization as settings and lifecycle commands.
+A rollout waits for each child job and fails when any application fails or cannot
+be queued. Its separate global worker allows this with one site worker. Explicit
+retries skip only inspected, successfully applied running sites; stopped sites
+remain deferred until Start. Interrupted applications are failed and gated before
+reconciliation. No interrupted runtime is automatically downgraded or republished.
+
+Sites persist `desired_state`, `traffic_ready`, `config_revision`,
+`applied_revision`, and `applied_image`. `image` remains the desired image.
+Provisioning, deliberate stops, deletion, and incomplete changes bypass both the
+page cache and upstream and return 503 with `Cache-Control: no-store`. Removal
+of the record eventually restores the unknown-host response. Unexpected outages
+of a previously validated running site retain stale-cache behavior. Stop and
+replacement require a successful unavailable-route push and purge first; after
+installation or upgrade, WordPress bootstrap validation and cache invalidation
+must succeed before traffic is enabled. Screenshots and warming are best effort.
+Settings saved while stopped remain pending until Start applies the full spec.
+
 
 Not automated: rollback. Migrations are forward-only, so downgrading is safe
 only across releases that added none; `install.sh --version vX.Y.Z` or the

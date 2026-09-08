@@ -66,7 +66,7 @@ var (
 // Sites is what the rollout needs from internal/site.
 type Sites interface {
 	List(ctx context.Context) ([]site.Site, error)
-	Recreate(ctx context.Context, id uuid.UUID, by string) (store.Job, error)
+	ApplyRuntime(ctx context.Context, id uuid.UUID, res compat.Resolution, by string) (*store.Job, error)
 	Catalog() *compat.Catalog
 }
 

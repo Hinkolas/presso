@@ -25,7 +25,11 @@ env:
   EDGE_IMAGE: ghcr.io/hinkolas/presso-edge
 
 jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
   binary:
+    needs: [verify]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +52,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   edge:
+    needs: [verify]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,13 +81,14 @@ jobs:
           docker run --rm "$EDGE_IMAGE:${{ github.ref_name }}" caddy list-modules | grep -q '^http.handlers.cache$'
 
   runtime:
+    needs: [verify]
     uses: ./.github/workflows/runtime.yml
     with:
       release: ${{ github.ref_name }}
     secrets: inherit
 
   publish:
-    needs: [binary, edge, runtime]
+    needs: [verify, binary, edge, runtime]
     runs-on: ubuntu-latest
     steps:
       - name: Publish the draft release
