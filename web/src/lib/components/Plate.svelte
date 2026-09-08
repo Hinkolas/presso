@@ -5,8 +5,10 @@
 	import { isAdmin } from '$lib/state/session.svelte';
 	import { runSiteAction, shownStatus } from '$lib/site-actions';
 	import { cacheRatio, formatNumber, formatRelative } from '$lib/format';
+	import { branchOf } from '$lib/state/capabilities.svelte';
 	import type { Site } from '$lib/types/site';
 	import Icon from './Icon.svelte';
+	import RuntimeBadge from './RuntimeBadge.svelte';
 	import StatusPill from './StatusPill.svelte';
 	import Thumb from './Thumb.svelte';
 
@@ -15,6 +17,7 @@
 	const href = $derived(resolve(`/sites/${site.id}`));
 	const m = $derived(site.metrics_1h);
 	const shown = $derived(shownStatus(site));
+	const wp = $derived(branchOf(site.wp_version ?? ''));
 	const activeJob = $derived.by(() => {
 		for (const j of jobs.values()) {
 			if (j.site_id === site.id && (j.status === 'queued' || j.status === 'running')) return j;
@@ -99,7 +102,10 @@
 					<span class="font-medium text-danger-ink num">{formatNumber(m.status_5xx)} errors</span>
 				{/if}
 			{/if}
-			<span class="ml-auto shrink-0 text-ink-3 num">PHP {site.php_version}</span>
+			<span class="ml-auto flex shrink-0 items-center gap-2 text-ink-3">
+				<RuntimeBadge runtime={site.runtime} />
+				<span class="num">{wp ? `WP ${wp} · ` : ''}PHP {site.php_version}</span>
+			</span>
 		</div>
 	</div>
 </article>

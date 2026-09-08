@@ -7,9 +7,11 @@
 	import { isAdmin } from '$lib/state/session.svelte';
 	import { runSiteAction, shownStatus } from '$lib/site-actions';
 	import { cacheRatio, formatDuration, formatNumber } from '$lib/format';
+	import { branchOf } from '$lib/state/capabilities.svelte';
 	import type { MetricsResponse, Site, SiteAction } from '$lib/types/site';
 	import Icon from './Icon.svelte';
 	import Menu, { type MenuItem } from './Menu.svelte';
+	import RuntimeBadge from './RuntimeBadge.svelte';
 	import StatusPill from './StatusPill.svelte';
 	import Thumb from './Thumb.svelte';
 	import { td } from './Table.svelte';
@@ -20,6 +22,7 @@
 	const m = $derived(site.metrics_1h);
 	const shown = $derived(shownStatus(site));
 	const running = $derived(site.status === 'running');
+	const wp = $derived(branchOf(site.wp_version ?? ''));
 	const activeJob = $derived.by(() => {
 		for (const j of jobs.values()) {
 			if (j.site_id === site.id && (j.status === 'queued' || j.status === 'running')) return j;
@@ -125,7 +128,12 @@
 	<td class="{td} text-right text-ink-2 num">
 		{#if running && p95 !== null}{formatDuration(p95)}{:else}<span class="text-ink-3">–</span>{/if}
 	</td>
-	<td class="{td} text-right text-ink-2 num">{site.php_version}</td>
+	<td class="{td} text-right">
+		<div class="flex flex-col items-end gap-1">
+			<RuntimeBadge runtime={site.runtime} />
+			<span class="text-ink-2 num">{wp ? `WP ${wp} · ` : ''}PHP {site.php_version}</span>
+		</div>
+	</td>
 	<td class="{td} w-16 pr-4 text-right">
 		<Menu {items} size="sm" label="Actions for {site.name}" />
 	</td>

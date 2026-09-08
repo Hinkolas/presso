@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/config"
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/edge"
@@ -62,6 +63,7 @@ const (
 
 type Service struct {
 	cfg      *config.API
+	catalog  *compat.Catalog
 	st       *store.Store
 	dk       docker.Client
 	box      *secrets.Box
@@ -96,7 +98,9 @@ type Platform interface {
 
 // Deps bundles the collaborators.
 type Deps struct {
-	Config   *config.API
+	Config *config.API
+	// Catalog resolves WordPress/PHP choices to runtime images (required).
+	Catalog  *compat.Catalog
 	Store    *store.Store
 	Docker   docker.Client
 	Secrets  *secrets.Box
@@ -109,8 +113,11 @@ type Deps struct {
 }
 
 func New(d Deps) *Service {
+	if d.Catalog == nil {
+		panic("site.New: Deps.Catalog is required")
+	}
 	s := &Service{
-		cfg: d.Config, st: d.Store, dk: d.Docker, box: d.Secrets, hub: d.Hub, jobs: d.Jobs,
+		cfg: d.Config, catalog: d.Catalog, st: d.Store, dk: d.Docker, box: d.Secrets, hub: d.Hub, jobs: d.Jobs,
 		platform: d.Platform, edge: d.Edge, shots: d.Shots, now: func() time.Time { return time.Now().UTC() },
 	}
 	if s.jobs != nil {
@@ -127,6 +134,9 @@ func New(d Deps) *Service {
 	return s
 }
 
+// Catalog is the runtime catalog the service validates against.
+func (s *Service) Catalog() *compat.Catalog { return s.catalog }
+
 // --- payloads ---
 
 // Site is the API representation.
@@ -141,16 +151,21 @@ type Site struct {
 	URL           string    `json:"url"`
 	TLSMode       string    `json:"tls_mode"`
 	PHPVersion    string    `json:"php_version"`
-	Image         string    `json:"image"`
-	Profile       string    `json:"profile"`
-	FileMods      string    `json:"file_mods"`
-	PageCache     bool      `json:"page_cache"`
-	AdminUser     string    `json:"admin_user"`
-	AdminEmail    string    `json:"admin_email"`
-	Settings      Settings  `json:"settings"`
-	Domains       []Domain  `json:"domains"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	// WPVersion is the WordPress release the site runs ("" until detected
+	// for sites created before versions were tracked); Runtime is
+	// frankenphp or legacy (nginx + PHP-FPM).
+	WPVersion  string    `json:"wp_version"`
+	Runtime    string    `json:"runtime"`
+	Image      string    `json:"image"`
+	Profile    string    `json:"profile"`
+	FileMods   string    `json:"file_mods"`
+	PageCache  bool      `json:"page_cache"`
+	AdminUser  string    `json:"admin_user"`
+	AdminEmail string    `json:"admin_email"`
+	Settings   Settings  `json:"settings"`
+	Domains    []Domain  `json:"domains"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 	// ScreenshotAt is when the front-page preview was last captured; null
 	// when none exists yet (GET /v1/sites/{id}/screenshot serves it).
 	ScreenshotAt *time.Time `json:"screenshot_at"`
@@ -176,7 +191,7 @@ func (s *Service) payloadWith(row store.Site, domains []store.SiteDomain) Site {
 	out := Site{
 		ID: row.ID, Slug: row.Slug, Name: row.Name, Status: row.Status, StatusMessage: row.StatusMessage,
 		PrimaryDomain: row.PrimaryDomain, URL: siteURL(row.PrimaryDomain, row.TlsMode), TLSMode: row.TlsMode,
-		PHPVersion: row.PhpVersion, Image: row.Image, Profile: row.Profile, FileMods: row.FileMods,
+		PHPVersion: row.PhpVersion, WPVersion: row.WpVersion, Runtime: row.Runtime, Image: row.Image, Profile: row.Profile, FileMods: row.FileMods,
 		PageCache: row.PageCache, AdminUser: row.AdminUser, AdminEmail: row.AdminEmail,
 		Settings: parseSettings(row.Settings), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		Health: "unknown", Domains: []Domain{},
@@ -250,12 +265,15 @@ func isLocalhost(host string) bool {
 // --- creation ---
 
 // CreateInput is the operator's request. AdminPassword is used once for the
-// WordPress install and never stored in plaintext.
+// WordPress install and never stored in plaintext. WPVersion is a branch
+// ("6.8") or release ("6.8.8"), empty for the server default; PHPVersion is
+// empty for the newest PHP that release supports.
 type CreateInput struct {
 	Name          string
 	Slug          string
 	PrimaryDomain string
 	TLSMode       string
+	WPVersion     string
 	PHPVersion    string
 	PageCache     *bool
 	Profile       string
@@ -289,69 +307,72 @@ func Slugify(name string) string {
 	return strings.Trim(b.String(), "-")
 }
 
-func (in *CreateInput) validate(cfg *config.API) error {
+// validate normalizes the input and resolves the WordPress/PHP choice against
+// the catalog. compat's sentinel errors pass through unwrapped so the API can
+// report them by code.
+func (in *CreateInput) validate(cat *compat.Catalog) (compat.Resolution, error) {
+	var res compat.Resolution
 	in.Name = strings.TrimSpace(in.Name)
 	in.Slug = strings.TrimSpace(strings.ToLower(in.Slug))
 	if in.Slug == "" {
 		in.Slug = Slugify(in.Name)
 	}
 	if in.Name == "" {
-		return fmt.Errorf("%w: name is required", ErrInvalidInput)
+		return res, fmt.Errorf("%w: name is required", ErrInvalidInput)
 	}
 	if !slugRe.MatchString(in.Slug) {
-		return fmt.Errorf("%w: slug must be 2-41 chars of a-z, 0-9 and '-', starting with a letter or digit", ErrInvalidInput)
+		return res, fmt.Errorf("%w: slug must be 2-41 chars of a-z, 0-9 and '-', starting with a letter or digit", ErrInvalidInput)
 	}
 	in.PrimaryDomain = strings.ToLower(strings.TrimSpace(in.PrimaryDomain))
 	if in.PrimaryDomain == "" {
 		in.PrimaryDomain = in.Slug + ".localhost"
 	}
 	if !edge.ValidHost(in.PrimaryDomain) {
-		return fmt.Errorf("%w: primary_domain is not a valid hostname", ErrInvalidInput)
+		return res, fmt.Errorf("%w: primary_domain is not a valid hostname", ErrInvalidInput)
 	}
 	switch in.TLSMode {
 	case "":
 		in.TLSMode = "auto"
 	case "auto", "off":
 	default:
-		return fmt.Errorf("%w: tls_mode must be auto or off", ErrInvalidInput)
+		return res, fmt.Errorf("%w: tls_mode must be auto or off", ErrInvalidInput)
 	}
 	if isLocalhost(in.PrimaryDomain) {
 		in.TLSMode = "off"
 	}
-	if in.PHPVersion == "" {
-		in.PHPVersion = cfg.DefaultPHP
+	var err error
+	if res, err = cat.Resolve(in.WPVersion, in.PHPVersion); err != nil {
+		return res, err
 	}
-	if !containsString(cfg.PHPVersions, in.PHPVersion) {
-		return fmt.Errorf("%w: php_version must be one of %v", ErrInvalidInput, cfg.PHPVersions)
-	}
+	in.WPVersion, in.PHPVersion = res.WPVersion, res.PHP
 	switch in.Profile {
 	case "":
 		in.Profile = "prod"
 	case "prod", "dev":
 	default:
-		return fmt.Errorf("%w: profile must be prod or dev", ErrInvalidInput)
+		return res, fmt.Errorf("%w: profile must be prod or dev", ErrInvalidInput)
 	}
 	in.AdminUser = strings.TrimSpace(in.AdminUser)
 	if in.AdminUser == "" {
 		in.AdminUser = "admin"
 	}
 	if !loginRe.MatchString(in.AdminUser) {
-		return fmt.Errorf("%w: admin_user contains unsupported characters", ErrInvalidInput)
+		return res, fmt.Errorf("%w: admin_user contains unsupported characters", ErrInvalidInput)
 	}
 	in.AdminEmail = strings.TrimSpace(in.AdminEmail)
 	if addr, err := mail.ParseAddress(in.AdminEmail); err != nil || addr.Address != in.AdminEmail {
-		return fmt.Errorf("%w: admin_email is not a valid address", ErrInvalidInput)
+		return res, fmt.Errorf("%w: admin_email is not a valid address", ErrInvalidInput)
 	}
 	if len(in.AdminPassword) < 8 {
-		return fmt.Errorf("%w: admin_password must be at least 8 characters", ErrInvalidInput)
+		return res, fmt.Errorf("%w: admin_password must be at least 8 characters", ErrInvalidInput)
 	}
 	if strings.ContainsAny(in.AdminPassword, "\x00\n\r") {
-		return fmt.Errorf("%w: admin_password contains unsupported characters", ErrInvalidInput)
+		return res, fmt.Errorf("%w: admin_password contains unsupported characters", ErrInvalidInput)
 	}
 	if in.Title == "" {
 		in.Title = in.Name
 	}
-	return nil
+	return res, nil
 }
 
 func containsString(list []string, v string) bool {
@@ -372,7 +393,8 @@ type provisionArgs struct {
 
 // Create validates, records the site and enqueues provisioning.
 func (s *Service) Create(ctx context.Context, in CreateInput) (Site, store.Job, error) {
-	if err := in.validate(s.cfg); err != nil {
+	res, err := in.validate(s.catalog)
+	if err != nil {
 		return Site{}, store.Job{}, err
 	}
 	if _, err := s.st.GetSiteBySlug(ctx, in.Slug); err == nil {
@@ -407,8 +429,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Site, store.Job, 
 		var err error
 		row, err = q.CreateSite(ctx, store.CreateSiteParams{
 			ID: id, Slug: in.Slug, Name: in.Name, Status: StatusProvisioning, StatusMessage: "queued",
-			PrimaryDomain: in.PrimaryDomain, TlsMode: in.TLSMode, PhpVersion: in.PHPVersion,
-			Image: s.cfg.RuntimeImage(in.PHPVersion), Profile: in.Profile, FileMods: "locked", PageCache: pageCache,
+			PrimaryDomain: in.PrimaryDomain, TlsMode: in.TLSMode, PhpVersion: res.PHP, WpVersion: res.WPVersion,
+			Runtime: res.Runtime, Image: res.Image, Profile: in.Profile, FileMods: "locked", PageCache: pageCache,
 			DbName: dbIdent, DbUser: dbIdent, DbPasswordEnc: sec.dbPasswordEnc,
 			RedisUser: "site-" + id.String(), RedisPasswordEnc: sec.redisPasswordEnc,
 			SaltsEnc: sec.saltsEnc, PurgeTokenHash: sec.purgeTokenHash, LoginSecretEnc: sec.loginSecretEnc,
@@ -440,7 +462,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Site, store.Job, 
 	if err != nil {
 		return Site{}, store.Job{}, err
 	}
-	s.logActivity(ctx, in.CreatedBy, id, "site.created", fmt.Sprintf("Site %s (%s) created", in.Name, in.Slug), nil)
+	s.logActivity(ctx, in.CreatedBy, id, "site.created", fmt.Sprintf("Site %s (%s) created: WordPress %s on PHP %s (%s)", in.Name, in.Slug, res.WPVersion, res.PHP, res.Runtime), nil)
 	payload, err := s.Payload(ctx, row)
 	if err != nil {
 		return Site{}, store.Job{}, err

@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import type { Pathname } from '$app/types';
 	import { api } from '$lib/api/client';
+	import { openCreateSite } from '$lib/state/create-site.svelte';
 	import { sites as liveSites } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
 	import type { Site } from '$lib/types/site';
@@ -19,8 +20,10 @@
 		detail?: string;
 		icon?: IconName;
 		status?: string;
-		href: string;
+		href?: string;
 		external?: boolean;
+		/** Runs instead of navigating to `href`. */
+		onselect?: () => void;
 	};
 
 	let el: HTMLDialogElement | undefined = $state();
@@ -65,7 +68,7 @@
 			}));
 		const nav = [...sections];
 		if (isAdmin())
-			nav.push({ id: 'nav-new', title: 'New site', icon: 'plus', href: resolve('/sites/new') });
+			nav.push({ id: 'nav-new', title: 'New site', icon: 'plus', onselect: openCreateSite });
 		return [...sites, ...nav];
 	});
 
@@ -82,7 +85,9 @@
 
 	function pick(e: Entry) {
 		open = false;
-		if (e.external) window.open(e.href, '_blank', 'noopener');
+		if (e.onselect) e.onselect();
+		else if (!e.href) return;
+		else if (e.external) window.open(e.href, '_blank', 'noopener');
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- hrefs are resolved above
 		else goto(e.href as Pathname);
 	}

@@ -21,9 +21,11 @@ repo's Go code, binary `pressod`), **presso-web** (the UI), **presso-harness**
 - **web** (`web/`, SvelteKit): the UI, built as a static SPA and embedded in
   the `pressod` binary (`internal/webui`). It talks to `/api/v1` on the same
   origin; the session lives in an httpOnly cookie set by the API.
-- **runtime** (`runtime/`): the `presso-runtime:php<x.y>` image, one container
-  per site (FrankenPHP + WordPress core + WP-CLI + the `presso` system
-  plugin). See RUNTIME.md.
+- **runtime** (`runtime/`): the `presso-runtime:php<x.y>-wp<release>` images,
+  one container per site (WordPress core + WP-CLI + the `presso` system
+  plugin on FrankenPHP for PHP 8.2+, or nginx + PHP-FPM for the legacy
+  7.4-8.1 flavor). Which pairs exist is decided by the compatibility matrix in
+  `internal/compat`; CI pre-builds them. See RUNTIME.md.
 - **edge** (`build/edge.Dockerfile`): `presso-edge`, Caddy with the Souin page
   cache. pressod renders and pushes its whole Caddyfile.
 - **browser**: `presso-browser`, a stock headless Chrome
@@ -81,7 +83,8 @@ Requirements: Go 1.26, Node 22, Docker, [task](https://taskfile.dev), [sqlc](htt
 
 ```sh
 cp .env.example .env            # set AUTH_SECRET (openssl rand -base64 32)
-task build:edge build:runtime   # images the engine starts / sites run (minutes)
+task build:edge                 # the edge image the engine starts (minutes)
+task build:runtime PHP=8.5 WP=7.1   # one local runtime image; see RUNTIME_IMAGE_TEMPLATE in .env.example
 task user -- create --email you@example.com --role admin
 task dev                        # engine on :7080; creates network, MariaDB, Redis, edge
 task dev:web                    # UI dev server on :5173 (proxies /api to :7080)

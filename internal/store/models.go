@@ -89,6 +89,8 @@ type Site struct {
 	VolumeName       string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Runtime          string
+	WpVersion        string
 }
 
 type SiteContainerMetric struct {

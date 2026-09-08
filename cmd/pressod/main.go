@@ -10,6 +10,8 @@
 //	pressod user create|list|set-role|reset-password|delete
 //	                                             manage operator accounts (no signup endpoint)
 //	pressod migrate up|status                    apply / inspect database migrations
+//	pressod runtime-matrix [--bases] [--legacy=false]
+//	                                             print the runtime image build matrix (CI)
 package main
 
 import (
@@ -26,6 +28,7 @@ import (
 
 	"github.com/Hinkolas/presso/internal/api"
 	"github.com/Hinkolas/presso/internal/auth"
+	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/config"
 	"github.com/Hinkolas/presso/internal/cron"
 	"github.com/Hinkolas/presso/internal/docker"
@@ -63,11 +66,13 @@ func run() error {
 		return runUser(args[1:])
 	case "migrate":
 		return runMigrate(args[1:])
+	case "runtime-matrix":
+		return runRuntimeMatrix(args[1:])
 	case "version", "--version":
 		fmt.Println(versionpkg.Version)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q (available: serve, user, migrate, version)", args[0])
+		return fmt.Errorf("unknown command %q (available: serve, user, migrate, runtime-matrix, version)", args[0])
 	}
 }
 
@@ -77,6 +82,14 @@ func runServe() error {
 	cfg, err := config.Load[config.API](ctx)
 	if err != nil {
 		return err
+	}
+	// Fails fast on a default WordPress branch or PHP allowlist the matrix
+	// cannot satisfy, the semantic half of the RUNTIME_* validation.
+	catalog, err := compat.New(compat.Default, compat.Options{
+		ImageTemplate: cfg.ImageTemplate, LegacyEnabled: cfg.LegacyEnabled, DefaultWP: cfg.DefaultWP, PHPVersions: cfg.PHPVersions,
+	})
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
 	}
 	obs.Init(obs.Options{
 		ServiceName: serviceName,
@@ -125,7 +138,7 @@ func runServe() error {
 		shotSvc = shots.New(filepath.Join(cfg.DataDir, "screenshots"), cfg.Shots.Listen, cfg.Shots.Timeout)
 	}
 	sites := site.New(site.Deps{
-		Config: cfg, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: plat, Edge: edgeClient,
+		Config: cfg, Catalog: catalog, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: plat, Edge: edgeClient,
 		Shots: shotSvc,
 	})
 
@@ -142,6 +155,7 @@ func runServe() error {
 			DB:       db,
 			Version:  versionpkg.Version,
 			Config:   cfg,
+			Catalog:  catalog,
 			Sites:    sites,
 			Hub:      hub,
 			Docker:   dk,

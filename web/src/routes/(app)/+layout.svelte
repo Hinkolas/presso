@@ -20,6 +20,7 @@
 	import { session, setUser } from '$lib/state/session.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
+	import CreateSiteModal from '$lib/components/create-site/CreateSiteModal.svelte';
 	import Icon, { type IconName } from '$lib/components/Icon.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
 	import type { LayoutData } from './$types';
@@ -79,7 +80,6 @@
 	// Topbar context: the section, then the page within it.
 	const crumbs = $derived.by(() => {
 		const p = page.url.pathname;
-		if (p.startsWith('/sites/new')) return ['Sites', 'New site'];
 		if (p.startsWith('/sites/')) return ['Sites', sites.get(page.params.id ?? '')?.name ?? 'Site'];
 		if (p.startsWith('/jobs/')) return ['Jobs', 'Job'];
 		if (p.startsWith('/jobs')) return ['Jobs'];
@@ -339,3 +339,4 @@
 </div>
 
 <CommandPalette bind:open={paletteOpen} />
+<CreateSiteModal />

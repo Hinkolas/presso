@@ -33,6 +33,14 @@ function env_int( string $name, int $default, int $min = 0 ): int {
 }
 
 /**
+ * Prefix test. str_starts_with() needs PHP 8 (WordPress polyfills it only
+ * from 5.9) and the plugin also runs on PHP 7.4.
+ */
+function starts_with( string $haystack, string $needle ): bool {
+	return strncmp( $haystack, $needle, strlen( $needle ) ) === 0;
+}
+
+/**
  * Whether this process is WP-CLI rather than a web request.
  */
 function is_cli(): bool {

@@ -3,8 +3,9 @@ INSERT INTO sites (
     id, slug, name, status, status_message, primary_domain, tls_mode, php_version, image,
     profile, file_mods, page_cache, db_name, db_user, db_password_enc, redis_user,
     redis_password_enc, salts_enc, purge_token_hash, login_secret_enc, admin_user,
-    admin_email, settings, container_id, volume_name, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    admin_email, settings, container_id, volume_name, created_at, updated_at,
+    runtime, wp_version
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSiteByID :one
@@ -29,10 +30,13 @@ UPDATE sites SET status = ?, status_message = ?, updated_at = ? WHERE id = ?;
 UPDATE sites SET container_id = ?, updated_at = ? WHERE id = ?;
 
 -- name: UpdateSiteConfig :one
-UPDATE sites SET name = ?, php_version = ?, image = ?, page_cache = ?, file_mods = ?,
+UPDATE sites SET name = ?, php_version = ?, image = ?, runtime = ?, page_cache = ?, file_mods = ?,
     tls_mode = ?, profile = ?, settings = ?, updated_at = ?
 WHERE id = ?
 RETURNING *;
+
+-- name: SetSiteWPVersion :exec
+UPDATE sites SET wp_version = ?, updated_at = ? WHERE id = ?;
 
 -- name: DeleteSite :execrows
 DELETE FROM sites WHERE id = ?;

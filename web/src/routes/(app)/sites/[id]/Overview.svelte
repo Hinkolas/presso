@@ -6,6 +6,7 @@
 	import { api, errorText } from '$lib/api/client';
 	import { sites as liveSites } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
+	import { runtimeLabel } from '$lib/state/capabilities.svelte';
 	import {
 		cacheRatio,
 		formatBytes,
@@ -168,7 +169,9 @@
 	}
 
 	const config: [string, string][] = $derived([
-		['Runtime', `PHP ${site.php_version}`],
+		['WordPress', site.wp_version || '–'],
+		['PHP', site.php_version],
+		['Runtime', runtimeLabel(site.runtime)],
 		['Image', site.image || '–'],
 		['Profile', site.profile === 'dev' ? 'Development' : 'Production'],
 		['Plugin and theme installs', site.file_mods === 'locked' ? 'Locked' : 'Allowed'],

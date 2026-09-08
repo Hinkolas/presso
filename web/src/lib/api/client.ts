@@ -68,6 +68,14 @@ export function errorText(err: unknown, fallback = 'Something went wrong.'): str
 			return 'That slug is already in use.';
 		case 'domain_taken':
 			return 'That domain is already attached to another site.';
+		case 'wp_unsupported':
+			return 'This WordPress version is not available on this server.';
+		case 'php_unsupported':
+			return 'This PHP version is not available on this server.';
+		case 'php_incompatible':
+			return 'This WordPress version does not run on the chosen PHP version.';
+		case 'legacy_disabled':
+			return 'The legacy runtime (nginx + PHP-FPM) is disabled on this server.';
 		case 'job_running':
 			return 'Another operation is in progress on this site.';
 		case 'site_not_ready':

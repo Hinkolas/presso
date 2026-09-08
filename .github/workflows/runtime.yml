@@ -1,0 +1,227 @@
+# Builds and publishes the runtime images (RUNTIME.md "Container structure").
+# Two stages: one base per PHP version (FrankenPHP >= 8.2, nginx + PHP-FPM
+# below), built natively per architecture and merged into a multi-arch tag,
+# then one thin WordPress layer per php/wp pair. The pair list is the compat
+# matrix in internal/compat filtered by its "build" policy (currently one
+# branch per WordPress major on its newest PHP), printed by
+# `pressod runtime-matrix`. Widen the policy in matrix.json to build more.
+#
+# Pull requests (and dispatches with push=false) build two sample pairs, one
+# per flavor, on amd64 only and smoke-test them without pushing.
+name: runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - runtime/**
+      - internal/compat/matrix.json
+      - .github/workflows/runtime.yml
+  pull_request:
+    paths:
+      - runtime/**
+      - internal/compat/matrix.json
+      - .github/workflows/runtime.yml
+  schedule:
+    # Weekly base rebuild picks up OS and PHP security updates.
+    - cron: "20 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      legacy:
+        description: Include the nginx + PHP-FPM versions (7.4, 8.0, 8.1)
+        type: boolean
+        default: true
+      push:
+        description: Push to ghcr.io (false = build the two samples only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/hinkolas/presso-runtime
+  BASE_IMAGE: ghcr.io/hinkolas/presso-runtime-base
+  SAMPLE_TAGS: php8.5-wp7.1 php8.1-wp5.9.16
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      bases: ${{ steps.gen.outputs.bases }}
+      base_runs: ${{ steps.gen.outputs.base_runs }}
+      pairs: ${{ steps.gen.outputs.pairs }}
+      samples: ${{ steps.gen.outputs.samples }}
+      push: ${{ steps.gen.outputs.push }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - id: gen
+        env:
+          EVENT: ${{ github.event_name }}
+          IN_LEGACY: ${{ inputs.legacy }}
+          IN_PUSH: ${{ inputs.push }}
+        run: |
+          set -euo pipefail
+          flags=""
+          if [ "$EVENT" = workflow_dispatch ] && [ "$IN_LEGACY" = false ]; then flags="--legacy=false"; fi
+          bases=$(go run ./cmd/pressod runtime-matrix --bases $flags)
+          pairs=$(go run ./cmd/pressod runtime-matrix $flags)
+          echo "bases=$(jq -c . <<<"$bases")" >> "$GITHUB_OUTPUT"
+          # Bases are built once per architecture on native runners.
+          echo "base_runs=$(jq -c '.include |= (map(. as $b | ["ubuntu-latest","ubuntu-24.04-arm"] | map($b + {runner: .})) | add)' <<<"$bases")" >> "$GITHUB_OUTPUT"
+          echo "pairs=$(jq -c . <<<"$pairs")" >> "$GITHUB_OUTPUT"
+          # Samples: one pair per flavor, joined with its base for a one-runner build.
+          echo "samples=$(jq -c --argjson bases "$bases" --arg tags "$SAMPLE_TAGS" '
+            .include |= map(select(.tag as $t | ($tags | split(" ")) | index($t)))
+            | .include |= map(. as $p | $p + ($bases.include[] | select(.php == $p.php) | {debian, dockerfile}))
+          ' <<<"$pairs")" >> "$GITHUB_OUTPUT"
+          push=false
+          case "$EVENT" in
+            push|schedule) push=true ;;
+            workflow_dispatch) [ "$IN_PUSH" = true ] && push=true ;;
+          esac
+          echo "push=$push" >> "$GITHUB_OUTPUT"
+
+  # --- Publishing path -------------------------------------------------------
+
+  base:
+    needs: matrix
+    if: needs.matrix.outputs.push == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.base_runs) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: runtime
+          file: ${{ matrix.dockerfile }}
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+            ${{ matrix.debian && format('DEBIAN={0}', matrix.debian) || '' }}
+          # Pushed by digest only; the merge job assembles the tag.
+          outputs: type=image,name=${{ env.BASE_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=base-php${{ matrix.php }}-${{ matrix.runner }}
+          cache-to: type=gha,scope=base-php${{ matrix.php }}-${{ matrix.runner }},mode=max
+      - run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.runner }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: base-digest-php${{ matrix.php }}-${{ matrix.runner }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  base-merge:
+    needs: [matrix, base]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.bases) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: base-digest-php${{ matrix.php }}-*
+          path: /tmp/digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          set -euo pipefail
+          refs=""
+          for f in /tmp/digests/*; do refs="$refs $BASE_IMAGE@$(cat "$f")"; done
+          docker buildx imagetools create -t "$BASE_IMAGE:php${{ matrix.php }}" $refs
+          docker buildx imagetools inspect "$BASE_IMAGE:php${{ matrix.php }}"
+
+  image:
+    needs: [matrix, base-merge]
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix: ${{ fromJSON(needs.matrix.outputs.pairs) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Only `wp core download` runs emulated; the heavy layers come from the
+      # multi-arch base.
+      - uses: docker/build-push-action@v6
+        with:
+          context: runtime
+          file: runtime/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BASE_IMAGE=${{ env.BASE_IMAGE }}:php${{ matrix.php }}
+            WP_VERSION=${{ matrix.wp }}
+          tags: ${{ env.IMAGE }}:${{ matrix.tag }}
+          push: true
+
+  verify:
+    needs: [matrix, image]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.samples) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: runtime/scripts/smoke.sh "$IMAGE:${{ matrix.tag }}"
+
+  # --- Pull requests: build and smoke-test one sample per flavor -------------
+
+  sample:
+    needs: matrix
+    if: needs.matrix.outputs.push != 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.samples) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: runtime
+          file: ${{ matrix.dockerfile }}
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+            ${{ matrix.debian && format('DEBIAN={0}', matrix.debian) || '' }}
+          tags: presso-runtime-base:php${{ matrix.php }}
+          load: true
+          cache-from: type=gha,scope=base-php${{ matrix.php }}-ubuntu-latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: runtime
+          file: runtime/Dockerfile
+          build-args: |
+            BASE_IMAGE=presso-runtime-base:php${{ matrix.php }}
+            WP_VERSION=${{ matrix.wp }}
+          tags: presso-runtime:${{ matrix.tag }}
+          load: true
+      - run: runtime/scripts/smoke.sh "presso-runtime:${{ matrix.tag }}"

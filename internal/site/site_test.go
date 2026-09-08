@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/config"
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/docker/fake"
@@ -55,6 +56,22 @@ type harness struct {
 	hub  *events.Hub
 }
 
+const testTemplate = "presso-runtime:php{php}-wp{wp}"
+
+// testCatalog uses the full compatibility matrix (no build policy) so the
+// lifecycle tests can move a site across PHP versions and runtimes; the
+// policy itself is covered in internal/compat.
+func testCatalog(t *testing.T, legacy bool) *compat.Catalog {
+	t.Helper()
+	m := *compat.Default
+	m.Build = compat.Build{}
+	cat, err := compat.New(&m, compat.Options{ImageTemplate: testTemplate, LegacyEnabled: legacy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cat
+}
+
 func newHarness(t *testing.T) (*harness, context.Context) {
 	t.Helper()
 	st := testdb.New(t)
@@ -63,14 +80,14 @@ func newHarness(t *testing.T) (*harness, context.Context) {
 	box, _ := secrets.New(strings.Repeat("k", 32))
 	cfg := &config.API{
 		Platform: config.Platform{Network: "presso", EngineInternalURL: "http://host.docker.internal:7080"},
-		Runtime:  config.Runtime{ImageTemplate: "presso-runtime:php{php}", PHPVersions: []string{"8.3", "8.4"}, DefaultPHP: "8.3"},
+		Runtime:  config.Runtime{ImageTemplate: testTemplate, LegacyEnabled: true},
 		Edge:     config.Edge{HTTPListen: "127.0.0.1:1", CacheAdminListen: "127.0.0.1:2020", DefaultCacheTTL: 12 * time.Hour},
 	}
 	runner := jobs.New(st, hub, 2)
 	pf := &fakePlatform{}
-	svc := New(Deps{Config: cfg, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: pf})
+	svc := New(Deps{Config: cfg, Catalog: testCatalog(t, true), Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: pf})
 	// wp core is-installed → not installed (exit 1) on the first call, then
-	// every command succeeds.
+	// every command succeeds; `wp core version` answers the pinned release.
 	installed := false
 	dk.ExecFn = func(id string, opts docker.ExecOptions) (docker.ExecResult, error) {
 		if len(opts.Cmd) > 3 && opts.Cmd[3] == "core" && opts.Cmd[4] == "is-installed" {
@@ -82,6 +99,9 @@ func newHarness(t *testing.T) (*harness, context.Context) {
 		if len(opts.Cmd) > 3 && opts.Cmd[3] == "core" && opts.Cmd[4] == "install" {
 			installed = true
 			return docker.ExecResult{Stdout: []byte("Success: WordPress installed successfully.")}, nil
+		}
+		if len(opts.Cmd) > 4 && opts.Cmd[3] == "core" && opts.Cmd[4] == "version" {
+			return docker.ExecResult{Stdout: []byte("7.1\n")}, nil
 		}
 		return docker.ExecResult{Stdout: []byte("ok")}, nil
 	}
@@ -121,7 +141,8 @@ func TestCreateProvisionAndDelete(t *testing.T) {
 	if site.Slug != "demo-shop" || site.PrimaryDomain != "demo-shop.localhost" || site.TLSMode != "off" || site.URL != "http://demo-shop.localhost" {
 		t.Fatalf("defaults: %+v", site)
 	}
-	if site.Status != StatusProvisioning || site.PHPVersion != "8.3" || site.Image != "presso-runtime:php8.3" || site.AdminUser != "admin" {
+	if site.Status != StatusProvisioning || site.PHPVersion != "8.5" || site.WPVersion != "7.1" || site.Runtime != compat.RuntimeFrankenPHP ||
+		site.Image != "presso-runtime:php8.5-wp7.1" || site.AdminUser != "admin" {
 		t.Fatalf("site: %+v", site)
 	}
 	if len(site.Domains) != 1 || site.Domains[0].Kind != "primary" {
@@ -196,15 +217,30 @@ func TestCreateProvisionAndDelete(t *testing.T) {
 		t.Fatalf("after start: %s %s", row.Status, row.StatusMessage)
 	}
 
-	// Update: PHP version change recreates the container.
+	// Update: PHP version change recreates the container; moving to 8.1
+	// switches the runtime to legacy on the same WordPress release.
 	php := "8.4"
 	updated, rj, err := h.svc.Update(ctx, site.ID, UpdateInput{PHPVersion: &php, UpdatedBy: "test"})
-	if err != nil || rj == nil || updated.Image != "presso-runtime:php8.4" {
+	if err != nil || rj == nil || updated.Image != "presso-runtime:php8.4-wp7.1" || updated.Runtime != compat.RuntimeFrankenPHP {
 		t.Fatalf("update: %v %v %+v", err, rj, updated)
 	}
 	h.waitJob(t, ctx, rj.ID)
-	if len(h.dk.Created) != 2 || h.dk.Created[1].Image != "presso-runtime:php8.4" {
+	if len(h.dk.Created) != 2 || h.dk.Created[1].Image != "presso-runtime:php8.4-wp7.1" {
 		t.Fatalf("recreate: %d", len(h.dk.Created))
+	}
+	legacyPHP := "8.1"
+	updated, rj, err = h.svc.Update(ctx, site.ID, UpdateInput{PHPVersion: &legacyPHP, UpdatedBy: "test"})
+	if err != nil || rj == nil || updated.Image != "presso-runtime:php8.1-wp7.1" || updated.Runtime != compat.RuntimeLegacy {
+		t.Fatalf("update to legacy: %v %v %+v", err, rj, updated)
+	}
+	h.waitJob(t, ctx, rj.ID)
+	if spec := h.dk.Created[2]; spec.Labels[docker.LabelRuntime] != compat.RuntimeLegacy || spec.Labels[docker.LabelWPVersion] != "7.1" {
+		t.Fatalf("labels: %v", spec.Labels)
+	}
+	// Incompatible PHP for the site's WordPress release is refused.
+	badPHP := "7.3"
+	if _, _, err := h.svc.Update(ctx, site.ID, UpdateInput{PHPVersion: &badPHP}); !errors.Is(err, compat.ErrPHPUnsupported) {
+		t.Fatalf("unsupported php: %v", err)
 	}
 	// Name-only update: no job.
 	name := "Renamed"
@@ -297,23 +333,50 @@ func TestObserveContainer(t *testing.T) {
 }
 
 func TestValidation(t *testing.T) {
-	cfg := &config.API{Runtime: config.Runtime{PHPVersions: []string{"8.3"}, DefaultPHP: "8.3"}}
+	cat := testCatalog(t, true)
 	cases := []CreateInput{
 		{Name: "", AdminEmail: "a@b.c", AdminPassword: "12345678"},
 		{Name: "x", Slug: "-bad", AdminEmail: "a@b.c", AdminPassword: "12345678"},
 		{Name: "x", Slug: "ok", PrimaryDomain: "bad host", AdminEmail: "a@b.c", AdminPassword: "12345678"},
-		{Name: "x", Slug: "ok", PHPVersion: "7.4", AdminEmail: "a@b.c", AdminPassword: "12345678"},
 		{Name: "x", Slug: "ok", AdminEmail: "nope", AdminPassword: "12345678"},
 		{Name: "x", Slug: "ok", AdminEmail: "a@b.c", AdminPassword: "short"},
 		{Name: "x", Slug: "ok", AdminEmail: "a@b.c", AdminPassword: "12345678", TLSMode: "maybe"},
 	}
 	for i, c := range cases {
-		if err := c.validate(cfg); !errors.Is(err, ErrInvalidInput) {
+		if _, err := c.validate(cat); !errors.Is(err, ErrInvalidInput) {
 			t.Errorf("case %d: %v", i, err)
 		}
 	}
+	// Version choices are the catalog's call and surface its own errors.
+	compatCases := []struct {
+		in   CreateInput
+		want error
+	}{
+		{CreateInput{Name: "x", Slug: "ok", PHPVersion: "7.3", AdminEmail: "a@b.c", AdminPassword: "12345678"}, compat.ErrPHPUnsupported},
+		{CreateInput{Name: "x", Slug: "ok", WPVersion: "4.9", AdminEmail: "a@b.c", AdminPassword: "12345678"}, compat.ErrWPUnsupported},
+		{CreateInput{Name: "x", Slug: "ok", WPVersion: "5.9", PHPVersion: "8.4", AdminEmail: "a@b.c", AdminPassword: "12345678"}, compat.ErrPHPIncompatible},
+	}
+	for i, c := range compatCases {
+		if _, err := c.in.validate(cat); !errors.Is(err, c.want) {
+			t.Errorf("compat case %d: %v", i, err)
+		}
+	}
+	noLegacy := testCatalog(t, false)
+	for _, in := range []CreateInput{
+		{Name: "x", Slug: "ok", WPVersion: "5.9", AdminEmail: "a@b.c", AdminPassword: "12345678"},
+		{Name: "x", Slug: "ok", WPVersion: "5.9", PHPVersion: "8.1", AdminEmail: "a@b.c", AdminPassword: "12345678"},
+	} {
+		if _, err := in.validate(noLegacy); !errors.Is(err, compat.ErrLegacyDisabled) {
+			t.Errorf("legacy disabled: %v", err)
+		}
+	}
+	legacy := CreateInput{Name: "old", WPVersion: "5.9", AdminEmail: "a@b.c", AdminPassword: "12345678"}
+	if res, err := legacy.validate(cat); err != nil || res.PHP != "8.1" || res.Runtime != compat.RuntimeLegacy || res.Image != "presso-runtime:php8.1-wp5.9.16" || legacy.WPVersion != "5.9.16" {
+		t.Fatalf("legacy: %v %+v", err, res)
+	}
 	good := CreateInput{Name: "My Site!", PrimaryDomain: "Example.COM", AdminEmail: "a@b.c", AdminPassword: "12345678"}
-	if err := good.validate(cfg); err != nil || good.Slug != "my-site" || good.PrimaryDomain != "example.com" || good.TLSMode != "auto" || good.Title != "My Site!" {
+	if res, err := good.validate(cat); err != nil || good.Slug != "my-site" || good.PrimaryDomain != "example.com" || good.TLSMode != "auto" || good.Title != "My Site!" ||
+		good.PHPVersion != "8.5" || good.WPVersion != "7.1" || res.Runtime != compat.RuntimeFrankenPHP {
 		t.Fatalf("good: %v %+v", err, good)
 	}
 	if Slugify("  Héllo  World -- 2 ") != "h-llo-world-2" {

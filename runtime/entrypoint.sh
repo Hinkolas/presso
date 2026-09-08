@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Container entrypoint, runs as root. Prepares the wp-content volume (seed on
 # first boot, drop-in refresh, ownership per the two-user model in RUNTIME.md
-# section 8), then drops privileges and exec's FrankenPHP as `web`.
+# section 8), runs the flavor's hooks, then drops privileges and exec's
+# presso-serve (FrankenPHP, or the nginx + PHP-FPM supervisor) as `web`.
 #
 # Ownership work is guarded so that restarts stay fast on large volumes: a
 # recursive chown of uploads/ only happens when the top-level directory is
@@ -80,12 +81,25 @@ done
 # The only scratch space for web besides uploads/cache (php/presso.ini).
 mkdir -p /tmp && chmod 1777 /tmp
 
+# --- Flavor hooks -----------------------------------------------------------
+# Still root. The FPM flavor renders nginx/php-fpm config here; FrankenPHP
+# ships none. Sourced, so a failing hook aborts the boot (set -e).
+for hook in /etc/presso/entrypoint.d/*.sh; do
+	[ -e "$hook" ] || continue
+	. "$hook"
+done
+
 # --- Start ------------------------------------------------------------------
-log boot "$(printf ',"php":"%s","wp":"%s","site":"%s"' \
+log boot "$(printf ',"php":"%s","wp":"%s","flavor":"%s","site":"%s"' \
 	"$(php -r 'echo PHP_VERSION;')" \
 	"$(cat /opt/presso/wp-version 2>/dev/null || echo unknown)" \
+	"${PRESSO_FLAVOR:-unknown}" \
 	"${PRESSO_SITE_ID:-}")"
 
+# The container's stdout/stderr were created for root (runc chowns them to
+# the initial user only). Writing through the inherited fds works for anyone,
+# but nginx and php-fpm reopen them by path (/dev/stderr), so hand them over.
+chown web /proc/self/fd/1 /proc/self/fd/2
+
 # PRESSO_CLI=1 is set by the engine when it exec's WP-CLI; nothing to do here.
-exec setpriv --reuid=web --regid=web --init-groups \
-	frankenphp run --config /etc/caddy/Caddyfile --adapter caddyfile
+exec setpriv --reuid=web --regid=web --init-groups presso-serve

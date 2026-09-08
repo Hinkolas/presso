@@ -109,14 +109,25 @@ type Platform struct {
 	EngineInternalURL string `env:"ENGINE_INTERNAL_URL,default=http://host.docker.internal:7080"`
 }
 
-// Runtime configures which presso-runtime images sites can run.
+// Runtime configures which presso-runtime images sites can run. The
+// WordPress/PHP compatibility matrix itself is embedded (internal/compat);
+// these knobs are the server's policy on top of it.
 type Runtime struct {
-	// ImageTemplate renders the runtime image for a PHP version; {php} is
-	// replaced by e.g. "8.3".
-	ImageTemplate string `env:"RUNTIME_IMAGE_TEMPLATE,default=presso-runtime:php{php}"`
-	// PHPVersions lists the versions offered in the UI, in display order.
-	PHPVersions []string `env:"RUNTIME_PHP_VERSIONS,default=8.3,8.4"`
-	DefaultPHP  string   `env:"RUNTIME_DEFAULT_PHP,default=8.3"`
+	// ImageTemplate renders the runtime image for a (PHP, WordPress) pair:
+	// {php} is e.g. "8.4", {wp} the pinned WordPress release e.g. "6.8.8",
+	// and the optional {runtime} is frankenphp|legacy for operators who keep
+	// one repository per flavor.
+	ImageTemplate string `env:"RUNTIME_IMAGE_TEMPLATE,default=ghcr.io/hinkolas/presso-runtime:php{php}-wp{wp}"`
+	// LegacyEnabled offers the nginx + PHP-FPM runtime (PHP 7.4-8.1), which
+	// WordPress releases before 6.1 need. Off, those releases and PHP
+	// versions disappear from the UI and are rejected by the API.
+	LegacyEnabled bool `env:"RUNTIME_LEGACY_ENABLED,default=true"`
+	// DefaultWP is the WordPress branch preselected for new sites; empty
+	// means the newest one in the matrix.
+	DefaultWP string `env:"RUNTIME_DEFAULT_WP,default="`
+	// PHPVersions optionally restricts the shipped PHP versions offered
+	// (e.g. "8.4,8.3"); empty offers every version the matrix ships.
+	PHPVersions []string `env:"RUNTIME_PHP_VERSIONS,default="`
 }
 
 // Edge configures the shared Caddy edge container.
@@ -157,11 +168,6 @@ type Shots struct {
 	Timeout time.Duration `env:"SHOTS_TIMEOUT,default=45s"`
 }
 
-// RuntimeImage returns the runtime image reference for a PHP version.
-func (r *Runtime) RuntimeImage(php string) string {
-	return strings.ReplaceAll(r.ImageTemplate, "{php}", php)
-}
-
 // Validate shadows Base.Validate, so it must chain to it explicitly.
 func (a *API) Validate() error {
 	if err := a.Base.Validate(); err != nil {
@@ -173,11 +179,11 @@ func (a *API) Validate() error {
 	if a.SessionTTL <= 0 {
 		return fmt.Errorf("SESSION_TTL: must be positive")
 	}
-	if len(a.PHPVersions) == 0 || !slices.Contains(a.PHPVersions, a.DefaultPHP) {
-		return fmt.Errorf("RUNTIME_DEFAULT_PHP: %q must be one of RUNTIME_PHP_VERSIONS %v", a.DefaultPHP, a.PHPVersions)
-	}
-	if !strings.Contains(a.ImageTemplate, "{php}") {
-		return fmt.Errorf("RUNTIME_IMAGE_TEMPLATE: must contain {php}")
+	// Only the syntax is checked here; whether the default WordPress branch
+	// and the PHP allowlist make sense against the matrix is compat.New's
+	// job (cmd/pressod wires it), so config need not import compat.
+	if !strings.Contains(a.ImageTemplate, "{php}") || !strings.Contains(a.ImageTemplate, "{wp}") {
+		return fmt.Errorf("RUNTIME_IMAGE_TEMPLATE: must contain {php} and {wp}")
 	}
 	if a.CronInterval <= 0 || a.StatsInterval <= 0 || a.MetricsRetention <= 0 {
 		return fmt.Errorf("CRON_INTERVAL, STATS_INTERVAL, METRICS_RETENTION: must be positive")

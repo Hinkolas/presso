@@ -111,7 +111,7 @@ func (s *Service) containerSpec(row store.Site, d decrypted) docker.Spec {
 		Name:           ContainerName(row.Slug),
 		Image:          row.Image,
 		Env:            env,
-		Labels:         docker.Labels("site", map[string]string{docker.LabelSiteID: id, docker.LabelSlug: row.Slug}),
+		Labels:         siteLabels(row),
 		Network:        s.cfg.Network,
 		NetworkAliases: []string{NetworkAlias(id)},
 		Mounts: []docker.Mount{
@@ -126,6 +126,14 @@ func (s *Service) containerSpec(row store.Site, d decrypted) docker.Spec {
 		LogMaxSize:    "10m",
 		LogMaxFile:    3,
 	}
+}
+
+// siteLabels is the label set shared by a site's container and volume.
+func siteLabels(row store.Site) map[string]string {
+	return docker.Labels("site", map[string]string{
+		docker.LabelSiteID: row.ID.String(), docker.LabelSlug: row.Slug,
+		docker.LabelRuntime: row.Runtime, docker.LabelWPVersion: row.WpVersion,
+	})
 }
 
 func onOff(b bool) string {

@@ -1,0 +1,13 @@
+; Per-site PHP values for web requests only, the FPM counterpart of the
+; Caddyfile's php_ini block. Rendered from env by render.sh into
+; /run/presso/php/site.ini and picked up through PHP_INI_SCAN_DIR, which
+; presso-serve sets for php-fpm alone: WP-CLI keeps php.ini + presso.ini.
+memory_limit = ${PHP_MEMORY_LIMIT}
+upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}
+post_max_size = ${PHP_POST_MAX_SIZE}
+max_execution_time = ${PHP_MAX_EXECUTION_TIME}
+max_input_time = 120
+max_input_vars = ${PHP_MAX_INPUT_VARS}
+opcache.memory_consumption = ${PHP_OPCACHE_MEMORY}
+opcache.revalidate_freq = ${PHP_OPCACHE_REVALIDATE_FREQ}
+date.timezone = ${PHP_TIMEZONE}

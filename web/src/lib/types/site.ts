@@ -1,4 +1,5 @@
 // Shapes mirror the engine's site payloads (/v1/sites).
+import type { RuntimeId } from './system';
 
 export type SiteStatus = 'provisioning' | 'running' | 'stopped' | 'error' | 'deleting';
 export type SiteHealth = 'none' | 'starting' | 'healthy' | 'unhealthy' | 'unknown';
@@ -40,6 +41,9 @@ export type Site = {
 	url: string;
 	tls_mode: TlsMode;
 	php_version: string;
+	runtime: RuntimeId;
+	/** Pinned WordPress release, e.g. "6.0.14"; empty for sites created before it was tracked. */
+	wp_version: string;
 	image: string;
 	profile: SiteProfile;
 	file_mods: FileMods;
@@ -60,7 +64,10 @@ export type CreateSiteRequest = {
 	slug: string;
 	primary_domain?: string;
 	tls_mode?: TlsMode;
-	php_version: string;
+	/** Branch ("6.0") or pinned release ("6.0.14"). */
+	wp_version: string;
+	/** Defaults to the newest PHP the WordPress version supports. */
+	php_version?: string;
 	page_cache?: boolean;
 	profile?: SiteProfile;
 	admin_user: string;

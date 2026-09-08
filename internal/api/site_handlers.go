@@ -74,6 +74,7 @@ func (h *siteHandlers) create(w http.ResponseWriter, r *http.Request) {
 		Slug          string `json:"slug"`
 		PrimaryDomain string `json:"primary_domain"`
 		TLSMode       string `json:"tls_mode"`
+		WPVersion     string `json:"wp_version"`
 		PHPVersion    string `json:"php_version"`
 		PageCache     *bool  `json:"page_cache"`
 		Profile       string `json:"profile"`
@@ -87,7 +88,7 @@ func (h *siteHandlers) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s, job, err := h.sites.Create(r.Context(), site.CreateInput{
-		Name: req.Name, Slug: req.Slug, PrimaryDomain: req.PrimaryDomain, TLSMode: req.TLSMode, PHPVersion: req.PHPVersion,
+		Name: req.Name, Slug: req.Slug, PrimaryDomain: req.PrimaryDomain, TLSMode: req.TLSMode, WPVersion: req.WPVersion, PHPVersion: req.PHPVersion,
 		PageCache: req.PageCache, Profile: req.Profile, AdminUser: req.AdminUser, AdminEmail: req.AdminEmail,
 		AdminPassword: req.AdminPassword, Title: req.Title, CreatedBy: actorFrom(r.Context()),
 	})

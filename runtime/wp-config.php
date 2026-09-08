@@ -5,7 +5,7 @@
  *
  * It is baked into the image, root-owned and read-only. The PRESSO_* variable
  * names below are the env contract between the engine and every runtime
- * build (FrankenPHP and, later, nginx + FPM). RUNTIME.md sections 7 and 8
+ * flavor (FrankenPHP and nginx + PHP-FPM). RUNTIME.md sections 7 and 8
  * explain the individual constants.
  */
 
@@ -47,6 +47,14 @@ foreach ( array(
 	define( $presso_salt, presso_env( 'PRESSO_SALT_' . $presso_salt, '' ) );
 }
 unset( $presso_salt );
+
+// --- Scheme ------------------------------------------------------------------
+// TLS terminates at the shared edge and the container only ever sees plain
+// HTTP, so is_ssl() would be false on https sites and wp-login would redirect
+// in a loop. Only the edge reaches :8080, so the header can be trusted.
+if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' ) {
+	$_SERVER['HTTPS'] = 'on';
+}
 
 // --- URLs --------------------------------------------------------------------
 // The engine's primary domain is authoritative; the siteurl/home options in

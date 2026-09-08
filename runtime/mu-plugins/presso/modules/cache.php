@@ -21,6 +21,7 @@ use function Presso\env;
 use function Presso\env_int;
 use function Presso\is_cli;
 use function Presso\log;
+use function Presso\starts_with;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -121,13 +122,13 @@ function request_is_personal(): bool {
 	}
 	$path = (string) parse_url( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ), PHP_URL_PATH );
 	foreach ( PERSONAL_PATHS as $prefix ) {
-		if ( str_starts_with( $path, $prefix ) ) {
+		if ( starts_with( $path, $prefix ) ) {
 			return true;
 		}
 	}
 	foreach ( array_keys( $_COOKIE ) as $name ) {
 		foreach ( PERSONAL_COOKIES as $prefix ) {
-			if ( str_starts_with( (string) $name, $prefix ) ) {
+			if ( starts_with( (string) $name, $prefix ) ) {
 				return true;
 			}
 		}
@@ -320,7 +321,7 @@ function on_term_change( int $term_id ): void {
 }
 
 function on_updated_option( string $option ): void {
-	if ( str_starts_with( $option, 'theme_mods_' ) ) {
+	if ( starts_with( $option, 'theme_mods_' ) ) {
 		purge_all();
 	}
 }

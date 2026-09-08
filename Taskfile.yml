@@ -48,11 +48,37 @@ tasks:
     cmds:
       - docker build -t pressod:dev -f build/pressod.Dockerfile .
 
-  build:runtime:
-    desc: Build the presso-runtime images for every supported PHP version
+  # Runtime images are two-stage: one base per PHP version (FrankenPHP for
+  # >= 8.2, nginx + PHP-FPM below) and a thin WordPress layer per tag. CI
+  # publishes the full matrix to ghcr.io (.github/workflows/runtime.yml);
+  # these build single tags locally (RUNTIME_IMAGE_TEMPLATE=presso-runtime:...).
+  build:runtime:base:
+    desc: "Build presso-runtime-base:php{PHP} (default 8.5); PHP < 8.2 picks the FPM flavor"
+    vars:
+      PHP: '{{.PHP | default "8.5"}}'
     cmds:
-      - for: ["8.3", "8.4"]
-        cmd: docker build -t presso-runtime:php{{.ITEM}} --build-arg PHP_VERSION={{.ITEM}} runtime
+      - |
+        case "{{.PHP}}" in
+          7.4|8.0) docker build -f runtime/base-legacy.Dockerfile --build-arg PHP_VERSION={{.PHP}} --build-arg DEBIAN=bullseye -t presso-runtime-base:php{{.PHP}} runtime ;;
+          8.1)     docker build -f runtime/base-legacy.Dockerfile --build-arg PHP_VERSION={{.PHP}} --build-arg DEBIAN=bookworm -t presso-runtime-base:php{{.PHP}} runtime ;;
+          *)       docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION={{.PHP}} -t presso-runtime-base:php{{.PHP}} runtime ;;
+        esac
+
+  build:runtime:
+    desc: "Build presso-runtime:php{PHP}-wp{WP} (defaults 8.5 / 7.1) on top of its base"
+    vars:
+      PHP: '{{.PHP | default "8.5"}}'
+      WP: '{{.WP | default "7.1"}}'
+    deps:
+      - task: build:runtime:base
+        vars: { PHP: "{{.PHP}}" }
+    cmds:
+      - docker build --build-arg BASE_IMAGE=presso-runtime-base:php{{.PHP}} --build-arg WP_VERSION={{.WP}} -t presso-runtime:php{{.PHP}}-wp{{.WP}} runtime
+
+  runtime:matrix:
+    desc: "Print the runtime image build matrix as JSON (add -- --bases or -- --legacy=false)"
+    cmds:
+      - go run ./cmd/pressod runtime-matrix {{.CLI_ARGS}}
 
   # --- Dev loop ---
 

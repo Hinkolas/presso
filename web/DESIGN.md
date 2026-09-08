@@ -60,6 +60,37 @@ palette values.
   table. `Menu` is the overflow menu. `CommandPalette` is the ⌘K search.
 - Status wording is shared through `components/status.ts` (`toneOf`,
   `statusLabel`); use `StatusPill` (30px chip when `soft`) and `Lamp`.
+- `Badge` is the small tinted label for a fact, not a state: tones `brand`,
+  `info`, `neutral`, `busy`, `danger`; `sm` is the inline chip ("Latest",
+  "This device"), `md` matches the 30px soft StatusPill so the two can sit
+  side by side. `RuntimeBadge` is the one home for the runtime wording: a
+  site on the legacy runtime (nginx + PHP-FPM, PHP 7.4 to 8.1) gets an
+  `info` "Legacy" badge wherever it appears (plate footer, list row, site
+  header, version picker); FrankenPHP renders nothing unless `always`.
+  Runtime names come from `state/capabilities.svelte.ts` (`runtimeLabel`).
+- `Modal` takes `size="lg"` (46rem) for forms, a `header` snippet under the
+  title (the wizard's stepper) and `dismissable={false}` while a submit is in
+  flight. `Field` renders `error` in place of the hint in `text-danger-ink`;
+  the control points at it with `aria-describedby="{for}-error"`. `Select`
+  options may be `disabled`: still listed with their hint saying why, skipped
+  by the keys.
+
+## Creating a site
+
+`components/create-site/CreateSiteModal` is mounted once in the app shell
+and opened through `state/create-site.svelte.ts` from the Sites page, ⌘K
+and `/sites/new`. Four steps (Basics → WordPress → Administrator → Review)
+with a `Stepper` under the title; Enter advances, done steps are clickable,
+"Edit" links on the review jump back. Errors are inline per field; what only
+the server knows (a taken slug, a disabled runtime) is mapped back onto its
+step. The draft survives a close and reopen; "Start over" blanks it.
+
+The WordPress step is a `VersionPicker`: an inline filterable listbox, one
+row per branch pinned to its newest release, with the PHP version and
+runtime the row lands on. Rows the server cannot run (legacy disabled) stay
+listed, dimmed, with the reason. PHP is derived from the branch; "Advanced"
+opens an override limited to compatible, offered versions and warns when the
+choice moves the site to another runtime.
 
 ## Rules of thumb
 

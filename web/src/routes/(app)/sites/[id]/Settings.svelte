@@ -4,6 +4,15 @@
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { api, errorText } from '$lib/api/client';
+	import {
+		branchOf,
+		capabilities,
+		findBranch,
+		loadCapabilities,
+		phpOptionsFor,
+		runtimeLabel,
+		runtimeOfPhp
+	} from '$lib/state/capabilities.svelte';
 	import type { Job } from '$lib/types/job';
 	import type {
 		FileMods,
@@ -12,24 +21,37 @@
 		SiteSettings,
 		UpdateSiteRequest
 	} from '$lib/types/site';
-	import type { RuntimeInfo } from '$lib/types/system';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Field from '$lib/components/Field.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import RuntimeBadge from '$lib/components/RuntimeBadge.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 
 	let { site, onJob }: { site: Site; onJob: (j: Job) => void } = $props();
 
-	let runtime = $state<RuntimeInfo | null>(null);
+	// PHP choices are bounded by the site's WordPress version: what the matrix
+	// allows for its branch, intersected with what this server offers.
 	$effect(() => {
-		api
-			.get<RuntimeInfo>('/v1/system/runtime')
-			.then((r) => (runtime = r))
-			.catch(() => (runtime = { php_versions: [site.php_version], default_php: site.php_version }));
+		loadCapabilities().catch(() => {});
 	});
+	const caps = $derived(capabilities.current);
+	const branch = $derived(findBranch(caps, branchOf(site.wp_version ?? '')));
+	const phpOptions = $derived.by(() => {
+		const opts = phpOptionsFor(caps, branch);
+		if (!opts.some((o) => o.value === site.php_version)) {
+			opts.unshift({
+				value: site.php_version,
+				label: `PHP ${site.php_version}`,
+				hint: runtimeLabel(site.runtime),
+				disabled: false
+			});
+		}
+		return opts;
+	});
+	const phpLocked = $derived(!caps || !branch);
 
 	// Editable copy of the site; reset whenever the live record changes id or
 	// updated_at (i.e. after our own save or someone else's).
@@ -41,6 +63,11 @@
 			form = snapshot(site);
 		}
 	});
+
+	const phpRuntime = $derived(runtimeOfPhp(caps, form.php_version) ?? site.runtime);
+	const runtimeMoves = $derived(
+		form.php_version !== site.php_version && phpRuntime !== site.runtime
+	);
 
 	function snapshot(s: Site) {
 		return {
@@ -112,18 +139,39 @@
 				<Field label="Name" for="s-name">
 					<input id="s-name" class="input" bind:value={form.name} required />
 				</Field>
-				<Field label="PHP version" for="s-php">
+				<Field label="WordPress" for="s-wp" hint="Chosen when the site was created.">
+					<div id="s-wp" class="flex input items-center gap-2 bg-sunken text-ink-2">
+						<span class="num"
+							>{site.wp_version ? `WordPress ${site.wp_version}` : 'Not detected yet'}</span
+						>
+						<RuntimeBadge runtime={site.runtime} />
+					</div>
+				</Field>
+				<Field
+					label="PHP version"
+					for="s-php"
+					hint={!caps
+						? undefined
+						: !branch
+							? 'Available once the WordPress version has been detected.'
+							: `WordPress ${branch.branch} runs on PHP ${branch.php_versions.join(', ')}.`}
+				>
 					<Select
 						id="s-php"
 						block
 						bind:value={form.php_version}
-						disabled={!runtime}
-						options={(runtime?.php_versions ?? [site.php_version]).map((v) => ({
-							value: v,
-							label: `PHP ${v}`
-						}))}
+						disabled={phpLocked}
+						options={phpOptions}
 					/>
 				</Field>
+				{#if runtimeMoves}
+					<div class="sm:col-span-2">
+						<Alert tone="warn">
+							PHP {form.php_version} moves the site from {runtimeLabel(site.runtime)} to
+							{runtimeLabel(phpRuntime)}. The container is recreated.
+						</Alert>
+					</div>
+				{/if}
 				<Field
 					label="Profile"
 					for="s-profile"

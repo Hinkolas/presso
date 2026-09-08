@@ -440,17 +440,24 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Sit
 			return Site{}, nil, err
 		}
 	}
-	name, php, fileMods, tls, profile, pageCache := row.Name, row.PhpVersion, row.FileMods, row.TlsMode, row.Profile, row.PageCache
+	name, php, runtime, image := row.Name, row.PhpVersion, row.Runtime, row.Image
+	fileMods, tls, profile, pageCache := row.FileMods, row.TlsMode, row.Profile, row.PageCache
 	if in.Name != nil {
 		if name = strings.TrimSpace(*in.Name); name == "" {
 			return Site{}, nil, fmt.Errorf("%w: name is required", ErrInvalidInput)
 		}
 	}
-	if in.PHPVersion != nil {
-		if !containsString(s.cfg.PHPVersions, *in.PHPVersion) {
-			return Site{}, nil, fmt.Errorf("%w: php_version must be one of %v", ErrInvalidInput, s.cfg.PHPVersions)
+	if in.PHPVersion != nil && *in.PHPVersion != row.PhpVersion {
+		// A PHP change is re-resolved against the site's WordPress release, so
+		// it can also move the site between runtimes (image swap).
+		if row.WpVersion == "" {
+			return Site{}, nil, fmt.Errorf("%w: the site's WordPress version is not known yet; start it once so it can be detected", ErrInvalidInput)
 		}
-		php = *in.PHPVersion
+		res, err := s.catalog.Resolve(row.WpVersion, *in.PHPVersion)
+		if err != nil {
+			return Site{}, nil, err
+		}
+		php, runtime, image = res.PHP, res.Runtime, res.Image
 	}
 	if in.FileMods != nil {
 		if *in.FileMods != "locked" && *in.FileMods != "open" {
@@ -476,12 +483,12 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Sit
 	if in.PageCache != nil {
 		pageCache = *in.PageCache
 	}
-	recreate := php != row.PhpVersion || fileMods != row.FileMods || profile != row.Profile || tls != row.TlsMode ||
+	recreate := image != row.Image || fileMods != row.FileMods || profile != row.Profile || tls != row.TlsMode ||
 		pageCache != row.PageCache || requiresRecreate(oldSettings, newSettings)
 	edgeOnly := !recreate && (newSettings.CacheTTL != oldSettings.CacheTTL)
 
 	updated, err := s.st.UpdateSiteConfig(ctx, store.UpdateSiteConfigParams{
-		Name: name, PhpVersion: php, Image: s.cfg.RuntimeImage(php), PageCache: pageCache, FileMods: fileMods,
+		Name: name, PhpVersion: php, Image: image, Runtime: runtime, PageCache: pageCache, FileMods: fileMods,
 		TlsMode: tls, Profile: profile, Settings: newSettings.encode(), UpdatedAt: s.now(), ID: id,
 	})
 	if err != nil {

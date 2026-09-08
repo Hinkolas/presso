@@ -1,5 +1,7 @@
 <!-- Custom select: a 44px trigger and a floating listbox in the plate style.
-     Arrow keys move, Enter picks, Escape closes, typing jumps to a match. -->
+     Arrow keys move, Enter picks, Escape closes, typing jumps to a match.
+     Disabled options stay visible (with their hint saying why) but are
+     skipped by the keys and cannot be picked. -->
 <script lang="ts" generics="T extends string">
 	import { tick } from 'svelte';
 	import { placePanel, type Placement } from '$lib/popover';
@@ -16,7 +18,7 @@
 		class: klass = '',
 		onchange
 	}: {
-		options: { value: T; label: string; hint?: string }[];
+		options: { value: T; label: string; hint?: string; disabled?: boolean }[];
 		value: T;
 		id?: string;
 		/** Accessible name when there is no <label for>. */
@@ -40,6 +42,22 @@
 	const selected = $derived(options.find((o) => o.value === value));
 	const listId = $derived(`${id ?? 'select'}-list`);
 
+	/** Next enabled index from `from` (exclusive) in `dir`; `from` when there is none. */
+	function step(from: number, dir: 1 | -1): number {
+		for (let i = from + dir; i >= 0 && i < options.length; i += dir) {
+			if (!options[i].disabled) return i;
+		}
+		return from;
+	}
+	function firstEnabled(): number {
+		const i = options.findIndex((o) => !o.disabled);
+		return i < 0 ? 0 : i;
+	}
+	function lastEnabled(): number {
+		for (let i = options.length - 1; i >= 0; i--) if (!options[i].disabled) return i;
+		return options.length - 1;
+	}
+
 	async function show() {
 		if (disabled) return;
 		cursor = Math.max(
@@ -59,7 +77,7 @@
 	}
 	function pick(i: number) {
 		const o = options[i];
-		if (!o) return;
+		if (!o || o.disabled) return;
 		if (o.value !== value) {
 			value = o.value;
 			onchange?.(o.value);
@@ -77,19 +95,19 @@
 		switch (e.key) {
 			case 'ArrowDown':
 				e.preventDefault();
-				cursor = Math.min(options.length - 1, cursor + 1);
+				cursor = step(cursor, 1);
 				break;
 			case 'ArrowUp':
 				e.preventDefault();
-				cursor = Math.max(0, cursor - 1);
+				cursor = step(cursor, -1);
 				break;
 			case 'Home':
 				e.preventDefault();
-				cursor = 0;
+				cursor = firstEnabled();
 				break;
 			case 'End':
 				e.preventDefault();
-				cursor = options.length - 1;
+				cursor = lastEnabled();
 				break;
 			case 'Enter':
 			case ' ':
@@ -108,7 +126,9 @@
 					const now = Date.now();
 					typed = now - typedAt < 600 ? typed + e.key : e.key;
 					typedAt = now;
-					const i = options.findIndex((o) => o.label.toLowerCase().startsWith(typed.toLowerCase()));
+					const i = options.findIndex(
+						(o) => !o.disabled && o.label.toLowerCase().startsWith(typed.toLowerCase())
+					);
 					if (i >= 0) cursor = i;
 				}
 		}
@@ -182,12 +202,16 @@
 				role="option"
 				tabindex="-1"
 				aria-selected={o.value === value}
-				onpointerenter={() => (cursor = i)}
+				aria-disabled={o.disabled || undefined}
+				onpointerenter={() => {
+					if (!o.disabled) cursor = i;
+				}}
 				onclick={() => pick(i)}
-				class="flex cursor-pointer items-center gap-3 rounded-control-sm px-3 py-2.5 text-sm {i ===
-				cursor
-					? 'bg-sunken text-ink'
-					: 'text-ink'}"
+				class="flex items-center gap-3 rounded-control-sm px-3 py-2.5 text-sm {o.disabled
+					? 'cursor-not-allowed text-ink-3'
+					: i === cursor
+						? 'cursor-pointer bg-sunken text-ink'
+						: 'cursor-pointer text-ink'}"
 			>
 				<span class="grid size-4 shrink-0 place-items-center text-brand">
 					{#if o.value === value}<Icon name="check" size={16} />{/if}

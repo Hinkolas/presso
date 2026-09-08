@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Hinkolas/presso/internal/auth"
+	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/config"
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/docker/fake"
@@ -53,18 +54,26 @@ func newTestAPI(t *testing.T) *testAPI {
 	box, _ := secrets.New(strings.Repeat("k", 32))
 	cfg := &config.API{
 		Platform: config.Platform{Network: "presso", EngineInternalURL: "http://host.docker.internal:7080"},
-		Runtime:  config.Runtime{ImageTemplate: "presso-runtime:php{php}", PHPVersions: []string{"8.3", "8.4"}, DefaultPHP: "8.3"},
+		Runtime:  config.Runtime{ImageTemplate: "presso-runtime:php{php}-wp{wp}", LegacyEnabled: true},
 		Edge:     config.Edge{HTTPListen: "127.0.0.1:1", CacheAdminListen: "127.0.0.1:2020", DefaultCacheTTL: 12 * time.Hour},
 	}
+	// Full compatibility matrix (no build policy) so the lifecycle test can
+	// move a site to another PHP version; the policy is covered in compat.
+	matrix := *compat.Default
+	matrix.Build = compat.Build{}
+	catalog, err := compat.New(&matrix, compat.Options{ImageTemplate: cfg.ImageTemplate, LegacyEnabled: cfg.LegacyEnabled})
+	if err != nil {
+		t.Fatal(err)
+	}
 	runner := jobs.New(st, hub, 2)
-	sites := site.New(site.Deps{Config: cfg, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: fakePlatform{}})
+	sites := site.New(site.Deps{Config: cfg, Catalog: catalog, Store: st, Docker: dk, Secrets: box, Hub: hub, Jobs: runner, Platform: fakePlatform{}})
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	if err := runner.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
 	ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("<html>ui</html>")) })
-	h := StripAPIPrefix(NewRouter(Deps{Auth: authSvc, Store: st, DB: st.DB, Version: "test", Config: cfg, Sites: sites, Hub: hub, Docker: dk, WebUI: ui}))
+	h := StripAPIPrefix(NewRouter(Deps{Auth: authSvc, Store: st, DB: st.DB, Version: "test", Config: cfg, Catalog: catalog, Sites: sites, Hub: hub, Docker: dk, WebUI: ui}))
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return &testAPI{t: t, srv: srv, st: st, dk: dk, hub: hub}
@@ -181,7 +190,7 @@ func TestAuthFlow(t *testing.T) {
 		t.Fatalf("meta: %d %v", res.StatusCode, body)
 	}
 	res, body = a.do("GET", "/v1/system/runtime", token, nil)
-	if res.StatusCode != http.StatusOK || body["default_php"] != "8.3" {
+	if res.StatusCode != http.StatusOK || body["default_wp"] != "7.1" || body["legacy_enabled"] != true || len(body["wordpress"].([]any)) != 16 || len(body["runtimes"].([]any)) != 2 {
 		t.Fatalf("runtime: %d %v", res.StatusCode, body)
 	}
 
@@ -232,7 +241,8 @@ func TestSiteLifecycle(t *testing.T) {
 	}
 	siteObj := body["site"].(map[string]any)
 	id := siteObj["id"].(string)
-	if siteObj["slug"] != "demo" || siteObj["status"] != "provisioning" || siteObj["url"] != "http://demo.localhost" {
+	if siteObj["slug"] != "demo" || siteObj["status"] != "provisioning" || siteObj["url"] != "http://demo.localhost" ||
+		siteObj["wp_version"] != "7.1" || siteObj["php_version"] != "8.5" || siteObj["runtime"] != "frankenphp" {
 		t.Fatalf("site: %v", siteObj)
 	}
 	jobID := body["job"].(map[string]any)["id"].(string)
@@ -275,6 +285,15 @@ func TestSiteLifecycle(t *testing.T) {
 	res, body = a.do("POST", "/v1/sites", admin, map[string]any{"name": "x", "slug": "y", "admin_email": "bad", "admin_password": "supersecret1"})
 	if res.StatusCode != http.StatusBadRequest || errorCode(body) != "bad_request" {
 		t.Fatalf("validation: %d %v", res.StatusCode, body)
+	}
+	// Version choices outside the matrix get their own codes.
+	res, body = a.do("POST", "/v1/sites", admin, map[string]any{"name": "x", "slug": "yy", "wp_version": "5.9", "php_version": "8.4", "admin_email": "a@example.com", "admin_password": "supersecret1"})
+	if res.StatusCode != http.StatusBadRequest || errorCode(body) != "php_incompatible" {
+		t.Fatalf("incompatible: %d %v", res.StatusCode, body)
+	}
+	res, body = a.do("POST", "/v1/sites", admin, map[string]any{"name": "x", "slug": "yy", "wp_version": "4.9", "admin_email": "a@example.com", "admin_password": "supersecret1"})
+	if res.StatusCode != http.StatusBadRequest || errorCode(body) != "wp_unsupported" {
+		t.Fatalf("unsupported: %d %v", res.StatusCode, body)
 	}
 
 	// Login link, wp, stats, metrics, activity.

@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/Hinkolas/presso/internal/auth"
+	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/config"
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/events"
@@ -34,8 +35,11 @@ type Deps struct {
 	// Version is the engine build version reported on /v1/system/meta and
 	// stamped onto every response as the Presso-Version header.
 	Version string
-	// Config feeds the runtime metadata endpoint; nil reports no PHP versions.
-	Config *config.API
+	// Config is the engine configuration (nil is tolerated by the handlers
+	// that read it). Catalog feeds /v1/system/runtime; nil reports an empty
+	// offer.
+	Config  *config.API
+	Catalog *compat.Catalog
 	// Sites, Hub, Docker and Platform back the product surface; nil disables
 	// the corresponding routes (auth-only deployments and tests).
 	Sites    *site.Service
@@ -93,7 +97,7 @@ func NewRouter(d Deps) http.Handler {
 	})
 
 	ah := &authHandlers{auth: d.Auth}
-	sh := &systemHandlers{version: d.Version, cfg: d.Config, dk: d.Docker, platform: d.Platform, st: d.Store, started: time.Now()}
+	sh := &systemHandlers{version: d.Version, cfg: d.Config, catalog: d.Catalog, dk: d.Docker, platform: d.Platform, st: d.Store, started: time.Now()}
 	r.Route("/v1", func(r chi.Router) {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(30 * time.Second))

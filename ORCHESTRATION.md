@@ -137,8 +137,8 @@ Implemented in this repo (see README.md for the dev loop):
   and SNI, no dependence on public DNS, and the preview shows what visitors
   get through the page cache.
 
-Deferred, in roughly the order they are likely needed: nginx+FPM legacy
-build, migration plugin / SSH pull / archive import, backups and snapshots,
+Deferred, in roughly the order they are likely needed: migration plugin /
+SSH pull / archive import, backups and snapshots,
 update-with-rollback, domain change operation, staging and maintenance mode,
 mail relay, outbound-HTTP allowlist, multi-host, harness CLI.
 
@@ -284,15 +284,35 @@ Not all MVP. Rough order of value:
 Goal: run basically every existing WordPress site, either by giving it what it
 needs or by migrating it.
 
-PHP versions:
-- Runtime images are tagged per PHP version and WordPress version, e.g.
-  `runtime:php8.3-wp6.6`. Sites choose their PHP version in settings.
-- FrankenPHP requires PHP >= 8.2. Legacy sites on 7.4 / 8.0 / 8.1 run on the
-  nginx + PHP-FPM build of the same image layout (RUNTIME.md keeps this as a
-  first-class fallback build for exactly this reason). Same volume layout,
-  same env contract, same system plugin; only the execution layer differs.
-  EOL PHP versions are allowed with a persistent warning and a per-site
-  "upgrade readiness" report.
+WordPress and PHP versions (implemented, September 2026):
+- A site chooses a WordPress release; PHP defaults to the newest version that
+  release supports according to wordpress.org. The matrix lives in
+  `internal/compat/matrix.json` (one entry per branch, 5.6 to the current
+  release, pinned to the newest patch) and drives validation, the UI's
+  version picker (`GET /v1/system/runtime`) and the CI build matrix
+  (`pressod runtime-matrix`).
+- Runtime images are pre-built by CI (`.github/workflows/runtime.yml`) and
+  pushed to a registry; the engine only pulls. Which (PHP, WordPress) pairs
+  exist is the matrix's `build` policy: currently one branch per WordPress
+  major (5.9, 6.9, 7.1) on its newest supported PHP, three images. The engine
+  offers exactly that set, so the registry always has what a site can
+  request; widening the policy in `matrix.json` widens both. Tags are
+  `php<x.y>-wp<release>`, e.g. `php8.5-wp6.9.7`, under one repository for
+  both flavors (`RUNTIME_IMAGE_TEMPLATE`). The tag always carries the
+  branch's pinned release, so a site on an older patch moves to the pinned
+  one when its container is recreated.
+- FrankenPHP requires PHP >= 8.2, which WordPress 6.1 introduced support for.
+  Older releases (5.6-6.0) and any site an operator pins to PHP 7.4 / 8.0 /
+  8.1 run on the **legacy** runtime: the nginx + PHP-FPM build of the same
+  image layout (RUNTIME.md). Same volume layout, same env contract, same
+  system plugin; only the execution layer differs. Sites on it are marked
+  "Legacy" everywhere in the UI. `RUNTIME_LEGACY_ENABLED=false` removes the
+  legacy PHP versions and the WordPress releases that need them from the
+  offer and rejects them in the API.
+- The PHP version can be changed later in settings, limited to what the
+  site's WordPress release supports; moving across the 8.1/8.2 boundary swaps
+  the runtime with the image. EOL PHP versions are allowed; the persistent
+  warning and per-site "upgrade readiness" report are still to do.
 - Upgrade readiness: PHP compatibility scan of plugins/themes (PHPCompatibility
   via WP-CLI or the migration plugin), plus a trial run in a staging clone on
   the target PHP version with fatals captured.

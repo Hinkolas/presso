@@ -24,6 +24,10 @@ const (
 	LabelKind    = "presso.kind" // site|edge|mariadb|redis|browser|network
 	LabelSiteID  = "presso.site_id"
 	LabelSlug    = "presso.slug"
+	// LabelRuntime and LabelWPVersion mirror the site row (frankenphp|legacy,
+	// e.g. 6.8.8) so `docker ps` alone tells what a container runs.
+	LabelRuntime   = "presso.runtime"
+	LabelWPVersion = "presso.wp_version"
 
 	// LabelComposeProject is the label Docker Compose stamps on its objects.
 	// presso does not use Compose, but Docker Desktop groups containers that

@@ -8,6 +8,7 @@
 	import { api, ApiError, errorText } from '$lib/api/client';
 	import { deletedSites, jobs, seedJob, sites as liveSites } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
+	import { runtimeLabel } from '$lib/state/capabilities.svelte';
 	import type { Job } from '$lib/types/job';
 	import type { LoginLinkResponse, Site } from '$lib/types/site';
 	import { formatRelative } from '$lib/format';
@@ -15,6 +16,7 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import RuntimeBadge from '$lib/components/RuntimeBadge.svelte';
 	import StatusPill from '$lib/components/StatusPill.svelte';
 	import Thumb from '$lib/components/Thumb.svelte';
 	import Overview from './Overview.svelte';
@@ -175,6 +177,7 @@
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
 				<h1 class="display text-4xl text-ink">{site.name}</h1>
 				<StatusPill status={shown} soft />
+				<RuntimeBadge runtime={site.runtime} size="md" />
 			</div>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site URL -->
 			<a
@@ -197,7 +200,8 @@
 				</p>
 			{/if}
 			<p class="mt-3 text-sm text-ink-3">
-				PHP {site.php_version}, {site.profile === 'dev' ? 'development' : 'production'} profile,
+				{site.wp_version ? `WordPress ${site.wp_version} on ` : ''}PHP {site.php_version}
+				({runtimeLabel(site.runtime)}), {site.profile === 'dev' ? 'development' : 'production'} profile,
 				{#if site.screenshot_at}
 					preview from {formatRelative(site.screenshot_at)}
 				{:else}

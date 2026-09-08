@@ -127,7 +127,7 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 		return fail("secrets", err)
 	}
 
-	r.Step(ctx, "image", "Ensuring runtime image "+row.Image)
+	r.Step(ctx, "image", fmt.Sprintf("Ensuring runtime image %s (WordPress %s, PHP %s, %s)", row.Image, row.WpVersion, row.PhpVersion, row.Runtime))
 	if err := s.dk.EnsureImage(ctx, row.Image, func(line string) { r.Info(ctx, line) }); err != nil {
 		return fail("image", err)
 	}
@@ -143,7 +143,7 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 	}
 
 	r.Step(ctx, "volume", "Ensuring wp-content volume "+row.VolumeName)
-	if err := s.dk.EnsureVolume(ctx, row.VolumeName, docker.Labels("site", map[string]string{docker.LabelSiteID: row.ID.String(), docker.LabelSlug: row.Slug})); err != nil {
+	if err := s.dk.EnsureVolume(ctx, row.VolumeName, siteLabels(row)); err != nil {
 		return fail("volume", err)
 	}
 
@@ -189,6 +189,7 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 			r.Warn(ctx, "could not set permalink structure")
 		}
 	}
+	s.detectWPVersion(ctx, &row, cid)
 
 	r.Step(ctx, "edge", "Publishing route at the edge")
 	if err := s.platform.ApplyEdge(ctx); err != nil {
@@ -202,6 +203,24 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 	s.setStatus(ctx, row.ID, StatusRunning, "")
 	s.logActivity(ctx, job.CreatedBy, row.ID, "site.provisioned", fmt.Sprintf("Site %s is running at %s", row.Slug, siteURL(row.PrimaryDomain, row.TlsMode)), nil)
 	return nil
+}
+
+// detectWPVersion records what `wp core version` reports so the row reflects
+// the release actually running (images carry a pinned release; sites created
+// before versions were tracked start out empty). Best effort: a failure
+// leaves the row untouched.
+func (s *Service) detectWPVersion(ctx context.Context, row *store.Site, containerID string) {
+	res, err := s.exec(ctx, containerID, time.Minute, "core", "version")
+	if err != nil || res.ExitCode != 0 {
+		return
+	}
+	v := strings.TrimSpace(string(res.Stdout))
+	if v == "" || v == row.WpVersion || strings.ContainsAny(v, " \n") {
+		return
+	}
+	if err := s.st.SetSiteWPVersion(ctx, store.SetSiteWPVersionParams{WpVersion: v, UpdatedAt: s.now(), ID: row.ID}); err == nil {
+		row.WpVersion = v
+	}
 }
 
 // warm issues one request through the edge so the first visitor gets a hit.
@@ -268,6 +287,9 @@ func (s *Service) runStart(ctx context.Context, job store.Job, r *jobs.Reporter)
 		s.setStatus(ctx, row.ID, StatusError, "health: "+err.Error())
 		return err
 	}
+	if row.WpVersion == "" {
+		s.detectWPVersion(ctx, &row, info.ID)
+	}
 	s.screenshot(ctx, row, r)
 	s.setStatus(ctx, row.ID, StatusRunning, "")
 	s.logActivity(ctx, job.CreatedBy, row.ID, "site.start", "Site started", nil)
@@ -329,7 +351,7 @@ func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Report
 	if err != nil {
 		return err
 	}
-	r.Step(ctx, "image", "Ensuring runtime image "+row.Image)
+	r.Step(ctx, "image", fmt.Sprintf("Ensuring runtime image %s (WordPress %s, PHP %s, %s)", row.Image, row.WpVersion, row.PhpVersion, row.Runtime))
 	if err := s.dk.EnsureImage(ctx, row.Image, func(line string) { r.Info(ctx, line) }); err != nil {
 		s.setStatus(ctx, row.ID, StatusError, "image: "+err.Error())
 		return err
@@ -349,6 +371,7 @@ func (s *Service) runRecreate(ctx context.Context, job store.Job, r *jobs.Report
 		s.setStatus(ctx, row.ID, StatusError, "health: "+err.Error())
 		return err
 	}
+	s.detectWPVersion(ctx, &row, cid)
 	r.Step(ctx, "edge", "Refreshing the edge and purging the page cache")
 	if err := s.platform.ApplyEdge(ctx); err != nil {
 		r.Warn(ctx, "edge apply failed: "+err.Error())
@@ -516,6 +539,10 @@ func (s *Service) ReconcileAll(ctx context.Context) error {
 			return err
 		}
 		s.ObserveContainer(ctx, row.ID, info)
+		// Backfill for sites created before WordPress versions were tracked.
+		if row.WpVersion == "" && info != nil && info.Running() {
+			s.detectWPVersion(ctx, &row, info.ID)
+		}
 	}
 	return nil
 }

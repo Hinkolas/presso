@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/Hinkolas/presso/internal/auth"
+	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/edge"
 	"github.com/Hinkolas/presso/internal/jobs"
@@ -45,6 +46,12 @@ const (
 	codeDockerUnavailable  = "docker_unavailable"
 	codeEdgeUnavailable    = "edge_unavailable"
 	codeBrowserUnavailable = "browser_unavailable"
+
+	// Runtime catalog (internal/compat) rejections, all 400.
+	codeWPUnsupported   = "wp_unsupported"
+	codePHPUnsupported  = "php_unsupported"
+	codePHPIncompatible = "php_incompatible"
+	codeLegacyDisabled  = "legacy_disabled"
 )
 
 // writeInternalError logs the real error and reports an opaque 500.
@@ -95,6 +102,14 @@ func writeSiteError(ctx context.Context, w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, codeBadRequest, "confirmation does not match the site slug")
 	case errors.Is(err, site.ErrInvalidToken):
 		writeError(w, http.StatusUnauthorized, codeInvalidToken, "invalid purge token")
+	case errors.Is(err, compat.ErrWPUnsupported):
+		writeError(w, http.StatusBadRequest, codeWPUnsupported, err.Error())
+	case errors.Is(err, compat.ErrPHPUnsupported):
+		writeError(w, http.StatusBadRequest, codePHPUnsupported, err.Error())
+	case errors.Is(err, compat.ErrPHPIncompatible):
+		writeError(w, http.StatusBadRequest, codePHPIncompatible, err.Error())
+	case errors.Is(err, compat.ErrLegacyDisabled):
+		writeError(w, http.StatusBadRequest, codeLegacyDisabled, err.Error())
 	case errors.Is(err, site.ErrInvalidInput), errors.Is(err, jobs.ErrUnknownKind):
 		writeError(w, http.StatusBadRequest, codeBadRequest, err.Error())
 	case errors.Is(err, jobs.ErrQueueFull):

@@ -1,0 +1,114 @@
+# nginx for the presso-runtime FPM flavor. Rendered from env by render.sh
+# into /run/presso/nginx.conf at boot; mirrors runtime/Caddyfile block by
+# block (RUNTIME.md "Container structure"). Only ${NGINX_*} placeholders are
+# substituted; every other $var is nginx's own. Runs as `web`, so pid, temp
+# paths and the socket live under /tmp/presso (the engine's tmpfs).
+pid /tmp/presso/nginx.pid;
+worker_processes 1;
+error_log /dev/stderr warn;
+# Graceful shutdown must finish under the engine's 10s stop timeout.
+worker_shutdown_timeout 8s;
+
+events {
+	worker_connections 1024;
+}
+
+http {
+	include /etc/nginx/mime.types;
+	default_type application/octet-stream;
+
+	# Access log as JSON on stdout; PHP errors go to stderr (php-fpm.conf).
+	log_format presso escape=json '{"ts":"$time_iso8601","status":$status,'
+		'"method":"$request_method","host":"$host","uri":"$request_uri",'
+		'"bytes":$body_bytes_sent,"duration":$request_time,'
+		'"remote_ip":"$remote_addr","user_agent":"$http_user_agent"}';
+	access_log /dev/stdout presso;
+
+	# Nothing here identifies the stack (expose_php is off too).
+	server_tokens off;
+	fastcgi_hide_header X-Powered-By;
+
+	client_body_temp_path /tmp/presso/client_body;
+	fastcgi_temp_path /tmp/presso/fastcgi;
+	proxy_temp_path /tmp/presso/proxy;
+	uwsgi_temp_path /tmp/presso/uwsgi;
+	scgi_temp_path /tmp/presso/scgi;
+
+	sendfile on;
+	tcp_nopush on;
+	keepalive_timeout 65;
+	# max(upload_max_filesize, post_max_size), in bytes.
+	client_max_body_size ${NGINX_MAX_BODY};
+
+	gzip on;
+	gzip_vary on;
+	gzip_min_length 1024;
+	gzip_types text/plain text/css text/xml application/json application/javascript
+		application/xml application/rss+xml image/svg+xml;
+
+	# Only the edge reaches :8080; take the visitor address from it.
+	set_real_ip_from 10.0.0.0/8;
+	set_real_ip_from 172.16.0.0/12;
+	set_real_ip_from 192.168.0.0/16;
+	set_real_ip_from 127.0.0.1;
+	real_ip_header X-Forwarded-For;
+	real_ip_recursive on;
+
+	upstream php {
+		server unix:/tmp/presso/php-fpm.sock;
+	}
+
+	server {
+		listen 8080 default_server;
+		root /var/www/html;
+		index index.php;
+
+		# Liveness probe used by health.php; never reaches PHP.
+		location = /-/ping {
+			default_type text/plain;
+			return 200 "ok";
+		}
+
+		# php-fpm's own ping (ping.path in php-fpm.conf), also for health.php.
+		location = /-/fpm-ping {
+			access_log off;
+			include /etc/nginx/fastcgi_params;
+			fastcgi_param SCRIPT_NAME /-/fpm-ping;
+			fastcgi_param SCRIPT_FILENAME /-/fpm-ping;
+			fastcgi_pass php;
+		}
+
+		location = /wp-config.php { return 404; }
+		location = /wp-content/debug.log { return 404; }
+		location ~ /\. { return 404; }
+
+		# Never execute PHP under uploads (RUNTIME.md section 8): a compromised
+		# request that manages to drop a .php file there gains nothing.
+		# Case-insensitive, with path-info (x.php/foo) covered.
+		location ^~ /wp-content/uploads/ {
+			location ~* \.(php[0-9]*|phtml|phar)(/|$) { return 403; }
+			try_files $uri =404;
+		}
+
+		# Static files straight from disk, everything else through index.php.
+		location / {
+			try_files $uri $uri/ /index.php$is_args$args;
+		}
+
+		location ~ [^/]\.php(/|$) {
+			fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+			if (!-f $document_root$fastcgi_script_name) { return 404; }
+			include /etc/nginx/fastcgi_params;
+			fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+			fastcgi_param PATH_INFO $fastcgi_path_info;
+			# httpoxy: never let a request header become the HTTP_PROXY env.
+			fastcgi_param HTTP_PROXY "";
+			fastcgi_index index.php;
+			# max_execution_time + 30, so PHP's own limit fires first.
+			fastcgi_read_timeout ${NGINX_FASTCGI_TIMEOUT}s;
+			fastcgi_buffer_size 32k;
+			fastcgi_buffers 16 16k;
+			fastcgi_pass php;
+		}
+	}
+}

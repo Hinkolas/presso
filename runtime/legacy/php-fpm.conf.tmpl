@@ -1,0 +1,25 @@
+; php-fpm for the presso-runtime FPM flavor. Rendered from env by render.sh
+; into /run/presso/php-fpm.conf at boot and loaded with -y (the stock
+; php-fpm.d/ pool is removed from the image). Runs as `web` already, so no
+; user/group/listen.owner here.
+[global]
+error_log = /proc/self/fd/2
+log_limit = 8192
+; Graceful stop budget; stays under the engine's 10s stop timeout.
+process_control_timeout = 8s
+
+[www]
+listen = /tmp/presso/php-fpm.sock
+pm = dynamic
+pm.max_children = ${PHP_WORKERS}
+pm.start_servers = ${PHP_WORKERS_START}
+pm.min_spare_servers = ${PHP_WORKERS_MIN_SPARE}
+pm.max_spare_servers = ${PHP_WORKERS_MAX_SPARE}
+pm.max_requests = 500
+ping.path = /-/fpm-ping
+ping.response = pong
+; PRESSO_*/PHP_* must reach wp-config.php and the system plugin.
+clear_env = no
+; Worker stderr (PHP errors) goes to error_log above, one plain line each.
+catch_workers_output = yes
+decorate_workers_output = no

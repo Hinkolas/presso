@@ -3,9 +3,11 @@
      fetches an hour of request buckets per site for p95. -->
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { api, errorText } from '$lib/api/client';
+	import { openCreateSite } from '$lib/state/create-site.svelte';
 	import { deletedSites, live, sites as liveSites } from '$lib/state/live.svelte';
 	import { isAdmin } from '$lib/state/session.svelte';
 	import type { MetricsResponse, Site, SiteStatus } from '$lib/types/site';
@@ -44,6 +46,14 @@
 			// Not remembered this time.
 		}
 	}
+
+	// /?new (also where /sites/new lands) opens the wizard, then the URL is
+	// cleaned so a reload or a back-step does not reopen it.
+	afterNavigate(() => {
+		if (!page.url.searchParams.has('new')) return;
+		openCreateSite();
+		replaceState(resolve('/'), {});
+	});
 
 	type Filter = 'all' | SiteStatus;
 	let filter = $state<Filter>('all');
@@ -148,7 +158,7 @@
 			/>
 		{/if}
 		{#if isAdmin()}
-			<Button variant="primary" href={resolve('/sites/new')} icon="plus">New site</Button>
+			<Button variant="primary" onclick={openCreateSite} icon="plus">New site</Button>
 		{/if}
 	{/snippet}
 </PageHeader>
@@ -175,7 +185,7 @@
 		text="A new WordPress site takes about a minute: the runtime container, its database and cache, and a route at the edge."
 	>
 		{#if isAdmin()}
-			<Button variant="primary" href={resolve('/sites/new')} icon="plus">New site</Button>
+			<Button variant="primary" onclick={openCreateSite} icon="plus">New site</Button>
 		{/if}
 	</Empty>
 {:else if shown.length === 0}
@@ -197,7 +207,7 @@
 				<th class="{th} text-right">Requests, 1 h</th>
 				<th class="{th} text-right">From cache</th>
 				<th class="{th} text-right">p95</th>
-				<th class="{th} text-right">PHP</th>
+				<th class="{th} text-right">Runtime</th>
 				<th class={th}><span class="sr-only">Actions</span></th>
 			</tr>
 		</thead>

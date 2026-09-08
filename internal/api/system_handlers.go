@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Hinkolas/presso/internal/compat"
 	"github.com/Hinkolas/presso/internal/config"
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/platform"
@@ -17,6 +18,7 @@ import (
 type systemHandlers struct {
 	version  string
 	cfg      *config.API
+	catalog  *compat.Catalog
 	dk       docker.Client
 	platform *platform.Service
 	st       *store.Store
@@ -30,16 +32,14 @@ func (h *systemHandlers) meta(w http.ResponseWriter, r *http.Request) {
 	}{h.version})
 }
 
-// GET /v1/system/runtime
+// GET /v1/system/runtime: what this server can run (internal/compat), the
+// contract the UI's version picker is built on.
 func (h *systemHandlers) runtime(w http.ResponseWriter, r *http.Request) {
-	versions, def := []string{}, ""
-	if h.cfg != nil {
-		versions, def = h.cfg.PHPVersions, h.cfg.DefaultPHP
+	if h.catalog == nil {
+		writeJSON(w, http.StatusOK, compat.Capabilities{Runtimes: []compat.RuntimeInfo{}, WordPress: []compat.WordPressInfo{}})
+		return
 	}
-	writeJSON(w, http.StatusOK, struct {
-		PHPVersions []string `json:"php_versions"`
-		DefaultPHP  string   `json:"default_php"`
-	}{versions, def})
+	writeJSON(w, http.StatusOK, h.catalog.Capabilities())
 }
 
 type dockerStatus struct {
