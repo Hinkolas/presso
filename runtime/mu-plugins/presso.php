@@ -4,7 +4,8 @@
  * Description: Wires a site into the presso platform: edge cache headers and purges, hardening defaults, one-click login, request telemetry. Shipped read-only in the runtime image (RUNTIME.md section 14).
  * Version: 0.1.0
  * Author: presso
- * License: MIT
+ * License: Apache-2.0
+ * License URI: https://www.apache.org/licenses/LICENSE-2.0
  *
  * WordPress only loads top-level files from WPMU_PLUGIN_DIR, so this file is
  * the loader; the modules live in presso/. Every module is toggled by

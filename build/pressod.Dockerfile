@@ -26,6 +26,7 @@ RUN CGO_ENABLED=0 go build -ldflags "-X github.com/Hinkolas/presso/internal/vers
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /pressod /usr/local/bin/pressod
+COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/licenses/presso/
 ENV DATA_DIR=/data
 # Tells the engine it cannot replace its own binary (self-update is refused;
 # pull a newer image instead).

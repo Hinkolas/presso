@@ -1,11 +1,15 @@
 # RUNTIME — The optimized per-site WordPress runtime
 
-Status: active design. This is the foundation for both HARNESS and ORCHESTRATION.
+Status: technical design notes, including historical proposals. See
+[README.md](README.md) for shipped features and [ROADMAP.md](ROADMAP.md) for
+planned work. Unimplemented optimizations and update/recovery ideas below are
+not release promises. All pre-1.0 releases are experimental and are not
+recommended for production workloads.
 
 ## Goal
 
 A container image that runs one WordPress site as fast as WordPress can
-reasonably go, with production-safe defaults, and that doubles as the local dev
+reasonably go, with conservative defaults, and that doubles as the local dev
 image via a profile switch. Optimizations are applied at the runtime level so
 that sites do not depend on caching plugins or tuning by the site owner.
 
@@ -416,7 +420,9 @@ Core upgrade = new image tag. Images are published per engine release as
 `ghcr.io/hinkolas/presso-runtime:<release>-php<php>-wp<wp>`, so updating the
 engine (System → Updates) is what moves sites: the rollout job recreates the
 container with the same volume and the recreate job runs `wp core update-db`.
-Rollback = previous tag. Docker shares image layers across all containers
+Rollback is not automated; restoring a previous image alone cannot undo a
+database upgrade. Backup and restore tooling is deferred to the roadmap.
+Docker shares image layers across all containers
 from the same image, so core exists once on disk regardless of site count;
 OPcache is still per container.
 

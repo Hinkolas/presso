@@ -16,6 +16,7 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH xcaddy build \
 FROM caddy:2
 RUN apk add --no-cache socat
 COPY Caddyfile /etc/caddy/Caddyfile
+COPY LICENSE NOTICE /usr/share/licenses/presso/
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 # Container-loopback administration; every boot serves an unavailable response
 # until the engine reconciles the current site state.

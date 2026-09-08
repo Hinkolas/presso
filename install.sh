@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # presso installer: one command on a fresh Linux host.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash -s -- --version v0.1.0-rc.1
 #
 # What it does: installs Docker when missing (get.docker.com), downloads the
 # pressod release binary for this CPU, verifies its checksum, writes
@@ -12,7 +12,7 @@
 # (System → Updates); this script is the way back when that is not possible.
 #
 # Options (after `bash -s --`):
-#   --version vX.Y.Z      install this release instead of the latest
+#   --version vX.Y.Z      explicit release (required for pre-1.0/prereleases)
 #   --panel-domain HOST   serve the panel at https://HOST through the edge
 #   --acme-email EMAIL    contact e-mail for Let's Encrypt
 #   --email EMAIL         first admin's e-mail (asked interactively otherwise)
@@ -162,6 +162,11 @@ if [ -z "$VERSION" ]; then
   [ -n "$VERSION" ] || die "no published release found for $REPO (a release is published only once all of its images are built; try again in a few minutes or pass --version)"
 fi
 [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]] || die "not a release tag: $VERSION"
+if [[ "$VERSION" == v0.* || "$VERSION" == *-* ]]; then
+  say "Experimental prerelease: not recommended for production workloads."
+  say "Breaking changes and data loss are possible. No automated backups or rollback."
+  say "Managed WordPress/plugin security updates are planned, not available yet."
+fi
 ARCHIVE="pressod_${VERSION}_linux_${ARCH}.tar.gz"
 SUMS="pressod_${VERSION}_checksums.txt"
 BASE="https://github.com/$REPO/releases/download/$VERSION"
@@ -206,6 +211,7 @@ DATA_DIR="$DATA_DIR"
 HTTP_ADDR="127.0.0.1:$PORT"
 INTERNAL_HTTPS_ADDR=":7081"
 ENGINE_INTERNAL_URL="https://host.docker.internal:7081"
+RUNTIME_LEGACY_ENABLED="true"
 AUTH_SECRET="$secret"
 LOG_FORMAT="json"
 PANEL_DOMAIN="$PANEL_DOMAIN"

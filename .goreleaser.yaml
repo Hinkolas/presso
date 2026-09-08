@@ -33,6 +33,19 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
+      - LICENSE
+      - NOTICE
+      - THIRD_PARTY_NOTICES.md
+      - SECURITY.md
+      - CONTRIBUTING.md
+      - ROADMAP.md
+      - .env.example
+      - ORCHESTRATION.md
+      - RUNTIME.md
+      - HARNESS.md
+      - RELEASE_VERIFICATION.md
+      - runtime/dropins/COPYING
+      - runtime/dropins/README.md
 
 checksum:
   # Must match internal/update assetNames: pressod_<tag>_checksums.txt
@@ -62,18 +75,24 @@ release:
     owner: Hinkolas
     name: presso
   draft: true
-  # -rc / -beta tags are marked pre-release; /releases/latest never returns
-  # them, so stable hosts are not offered a rehearsal.
+  # Suffixes mark the initial draft as a prerelease. The final publish job
+  # additionally marks every v0.x release as a prerelease, even without a suffix.
   prerelease: auto
   extra_files:
     - glob: ./install.sh
   header: |
-    Install or upgrade with:
+    **Experimental before v1.0.0 — not recommended for production workloads.**
+    Pre-1.0 releases may introduce breaking changes, downtime, and data loss.
+    Automated backups, restore, rollback, and managed WordPress/plugin security
+    updates are not available yet. Provided as-is under the Apache 2.0 license.
+
+    Install or upgrade to this exact release with:
 
     ```sh
-    curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash
+    curl -fsSL https://github.com/Hinkolas/presso/releases/download/{{ .Tag }}/install.sh | sudo bash -s -- --version {{ .Tag }}
     ```
 
-    Running hosts update from **System → Updates** in the panel. Images for this
-    release: `ghcr.io/hinkolas/presso-edge:{{ .Tag }}` and
+    The panel's **System → Updates** uses the stable release feed; for prereleases,
+    select a version explicitly with the installer above. Images for this release:
+    `ghcr.io/hinkolas/presso-edge:{{ .Tag }}` and
     `ghcr.io/hinkolas/presso-runtime:{{ .Tag }}-php<php>-wp<wp>`.

@@ -32,7 +32,10 @@ for t in /opt/presso/wp-content-seed/themes/*/; do
 done
 rm -rf /opt/presso/wp-content-seed/plugins/akismet /opt/presso/wp-content-seed/plugins/hello.php
 echo "seed keeps theme $default_theme; bundled plugins removed"
-rm -f /var/www/html/wp-config-sample.php /var/www/html/readme.html /var/www/html/license.txt
+# Retain the upstream license in the distributed image, outside the web root.
+mkdir -p /opt/presso/licenses
+mv /var/www/html/license.txt /opt/presso/licenses/wordpress.txt
+rm -f /var/www/html/wp-config-sample.php /var/www/html/readme.html
 chown -R root:root /var/www/html /opt/presso
 find /var/www/html /opt/presso -type d -exec chmod 0755 {} +
 find /var/www/html /opt/presso -type f -exec chmod 0644 {} +

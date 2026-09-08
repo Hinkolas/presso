@@ -14,7 +14,8 @@ is off.
   `713e9a12018e865f7daf71d84e6257b7756251560f04aac6cc6b5b15bf9d0b33`,
   identical to `includes/object-cache.php` in
   https://downloads.wordpress.org/plugin/redis-cache.2.8.0.zip)
-- License: GPLv3
+- License: GPLv3; the full text is in [COPYING](COPYING). This vendored file
+  retains its upstream license and is not relicensed under presso's Apache 2.0 license.
 - Configured entirely through the `WP_REDIS_*` constants in `wp-config.php`,
   which the runtime derives from `PRESSO_REDIS_*`. With no
   `PRESSO_REDIS_HOST` the entrypoint removes the file and `WP_REDIS_DISABLED`

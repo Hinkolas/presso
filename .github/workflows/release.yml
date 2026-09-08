@@ -97,9 +97,10 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          # Pre-releases (-rc, -beta) stay marked as such and are not "latest".
-          if [[ "$TAG" == *-* ]]; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+          # Every pre-1.0 release is experimental, even without a suffix.
+          # Explicitly exclude prereleases from "latest" as well.
+          if [[ "$TAG" == v0.* || "$TAG" == *-* ]]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
           else
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           fi

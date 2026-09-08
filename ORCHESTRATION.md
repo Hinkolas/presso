@@ -1,6 +1,10 @@
 # ORCHESTRATION — Running many WordPress sites on shared infrastructure
 
-Status: rough plan. Depends on RUNTIME.
+Status: technical design notes, including historical proposals. Shipped features
+are listed in [README.md](README.md); current planned work is in
+[ROADMAP.md](ROADMAP.md). Backups, managed site-software updates, snapshots,
+and automatic rollback described below are not implemented. All pre-1.0
+releases are experimental and are not recommended for production workloads.
 
 ## Goal
 
@@ -142,10 +146,7 @@ Implemented in this repo (see README.md for the dev loop):
   runtime rollout; see "Release and update" below. Rollback of the engine is
   manual (`pressod.previous`, `install.sh --version`).
 
-Deferred, in roughly the order they are likely needed: migration plugin /
-SSH pull / archive import, backups and snapshots, automatic
-update-rollback, domain change operation, staging and maintenance mode,
-mail relay, outbound-HTTP allowlist, multi-host, harness CLI.
+Deferred features and current priorities are tracked in [ROADMAP.md](ROADMAP.md).
 
 Edge cache notes learned while building (Souin `cache-handler`):
 
@@ -275,7 +276,7 @@ Per-site memory budget (idle, low traffic): roughly 80–150 MB for PHP plus a
 negligible share of Redis/MySQL. A 32 GB host should hold well over a hundred
 small sites.
 
-## Engine responsibilities
+## Proposed engine responsibilities
 
 - Provision: create DB + user, Redis ACL, volumes, container, proxy route, TLS.
 - Configure: generate wp-config from a site model (constants, salts, cache,
@@ -308,7 +309,8 @@ are layered: platform defaults -> size class defaults -> per-site overrides.
 The engine stores them in SQLite, renders them into env vars / mounted config
 for the site container, and applies them (most PHP ini changes need a container
 recreate; per-site containers restart in a second or two, done gracefully
-behind stale-if-error at the edge so visitors see cached pages meanwhile).
+behind an unavailable route: deliberate changes return 503 with no-store;
+stale-cache behavior is reserved for unexpected runtime outages).
 
 Settings surface (initial list):
 - Runtime: PHP version (image tag), WordPress version (image tag), size class.

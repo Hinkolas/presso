@@ -1,7 +1,9 @@
 # HARNESS — Local development harness for AI-driven WordPress work
 
-Status: rough plan. Deprioritized until RUNTIME is solid. Designed to fall out of
-the runtime image with a dev profile rather than be built separately.
+Status: unimplemented design proposal. Current planning lives in
+[ROADMAP.md](ROADMAP.md); the CLI and workflows described here have not shipped.
+Designed to fall out of the runtime image with a dev profile rather than be
+built separately.
 
 ## Goal
 

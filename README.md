@@ -1,175 +1,244 @@
 # presso
 
-presso is an optimized WordPress runtime, an orchestration engine that runs many sites
-on one host, and a development harness for AI coding agents. The plans live in
-[RUNTIME.md](RUNTIME.md), [ORCHESTRATION.md](ORCHESTRATION.md) and
-[HARNESS.md](HARNESS.md).
+**Self-hosted WordPress hosting, with one panel for your sites.**
 
-## Naming
+presso runs multiple WordPress sites on a single host, combining per-site
+containers with shared routing, caching, databases, and a management UI. It
+handles provisioning and routine operations so you can manage sites without
+maintaining a separate Docker setup for each one.
 
-The product is **presso**; its parts carry the prefix: **presso-runtime** (the
-per-site image, RUNTIME.md), **presso-engine** (the orchestration engine, this
-repo's Go code, binary `pressod`), **presso-web** (the UI), **presso-harness**
-(the agent-facing CLI, binary `presso`, not started yet).
+> **Experimental — not recommended for production workloads.**
+> Every version before `v1.0.0` is a prerelease, including versions without an
+> `-rc` suffix. Expect bugs, breaking changes, downtime, and possible data loss.
+> APIs, configuration, storage formats, and upgrade paths may change without
+> backward compatibility. Automated backups, restore, and rollback are not
+> available yet. Use disposable test sites and keep independent copies of any
+> data you need. The software is provided as-is, without warranties, subject to
+> the terms of the [Apache 2.0 license](LICENSE).
 
-## Components
+[Getting started](#getting-started) · [Configuration](#configuration) ·
+[Roadmap](ROADMAP.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-- **pressod** (`cmd/pressod`, Go): the engine. One host process that talks to
-  the local Docker Engine: REST API, embedded web UI, SQLite state, the site
-  lifecycle jobs, the shared-platform reconciler (MariaDB, Redis, edge), the
-  WP cron runner and the observability workers.
-- **web** (`web/`, SvelteKit): the UI, built as a static SPA and embedded in
-  the `pressod` binary (`internal/webui`). It talks to `/api/v1` on the same
-  origin; the session lives in an httpOnly cookie set by the API.
-- **runtime** (`runtime/`): the `presso-runtime:php<x.y>-wp<release>` images,
-  one container per site (WordPress core + WP-CLI + the `presso` system
-  plugin on FrankenPHP for PHP 8.2+, or nginx + PHP-FPM for the legacy
-  7.4-8.1 flavor). Which pairs exist is decided by the compatibility matrix in
-  `internal/compat`; CI pre-builds them. See RUNTIME.md.
-- **edge** (`build/edge.Dockerfile`): `presso-edge`, Caddy with the Souin page
-  cache. pressod renders and pushes its whole Caddyfile.
-- **browser**: `presso-browser`, a stock headless Chrome
-  (`chromedp/headless-shell`) that captures each site's front page for the
-  UI previews. Optional (`SHOTS_ENABLED=false`); see `SHOTS_*` in
-  `.env.example`.
+## What you can do today
 
-## Topology (single host)
+- **Manage sites in one panel:** create, start, stop, restart, and delete sites;
+  follow background jobs and retry failed operations.
+- **Choose a runtime:** select from the WordPress/PHP pairs published with your
+  release. Modern runtimes use FrankenPHP; legacy runtimes use nginx + PHP-FPM.
+- **Serve sites through a shared edge:** Caddy routes domains and manages HTTPS
+  certificates. Souin provides page caching, with content-driven invalidation
+  and optional cache warming.
+- **Cache database objects:** Redis Object Cache uses a separate Redis ACL user
+  and key prefix for each site. MariaDB uses a separate database and user per site.
+- **Tune individual sites:** configure PHP settings, container CPU/memory limits,
+  cache behavior, and file modification policy.
+- **Operate WordPress:** run WP-CLI, open a short-lived WordPress admin login
+  link, and run due cron events through the engine.
+- **See what is happening:** inspect live logs, container statistics, request
+  metrics, job history, system status, and optional site screenshots.
 
-```
-host: pressod (127.0.0.1:7080 API + UI, :7081 internal HTTPS, docker.sock, SQLite)
-docker network "presso":
-  presso-edge       :80 :443 public; admin/cache on container loopback only
-  presso-mariadb    127.0.0.1:3306      one database + user per site
-  presso-redis      127.0.0.1:6379      one ACL user + key prefix per site
-  presso-browser    no published ports; DevTools on container loopback only
-  presso-site-<slug>  no published ports; the edge proxies to site-<id>:8080
-```
+The engine also includes release-based self-update and runtime rollout machinery.
+This does **not** provide managed WordPress/plugin security updates; see
+[Updates and recovery](#updates-and-recovery). Planned capabilities live in
+[ROADMAP.md](ROADMAP.md).
 
-pressod reaches edge and browser management through streaming Docker exec
-connections. MariaDB and Redis publish host-loopback ports. Site containers
-send purge callbacks to `https://host.docker.internal:7081`, verify the engine
-using their mounted public CA, and authenticate using per-site bearer tokens.
-Panel requests on that listener additionally require the edge's client
-certificate. The local panel always binds a loopback IP, including without a
-panel domain. Forwarding headers are trusted only from the authenticated edge.
+## Getting started
 
-Trust lives under `DATA_DIR/control`: keep the CA and keys together. The edge
-receives only `control/edge`; sites receive only `control/ca.pem`. Leaf
-certificates renew automatically before expiry. Missing or invalid trust files
-are an error; restore them rather than replacing the CA. These changes target
-fresh installations; no development installation is reset or migrated for you.
+Use a **fresh, disposable Linux host** with systemd, an amd64 or arm64 CPU,
+root access, `curl`, CA certificates, `tar`, and `sha256sum`. The installer can
+install Docker Engine if it is missing. Linux is the deployment target; macOS
+with Docker Desktop is supported for [local development](#local-development).
 
-## Layout
-
-```
-cmd/pressod/          daemon entrypoint + operator subcommands (serve, user, migrate)
-internal/api/         HTTP layer: chi router, cookie/bearer auth, handlers, SSE
-internal/auth/        operator accounts: argon2id passwords, bearer sessions
-internal/config/      env-driven config (go-envconfig), .env for dev only
-internal/cron/        wp cron runner (DISABLE_WP_CRON is set in the runtime)
-internal/docker/      Docker Engine wrapper (interface + moby client + fake for tests)
-internal/edge/        Caddyfile rendering, admin API push, page-cache purges
-internal/events/      in-process pub/sub feeding the /v1/events SSE stream
-internal/jobs/        durable background jobs with per-site serialization
-internal/obs/         slog setup
-internal/observe/     status watcher, container stats, edge access-log rollups, retention
-internal/platform/    reconciler for network, MariaDB, Redis, edge; per-site DB/ACL provisioning
-internal/secrets/     AES-GCM at-rest encryption keyed from AUTH_SECRET
-internal/site/        site model, validation, provisioning/lifecycle jobs, WP-CLI, login links
-internal/store/       sqlc-generated queries + handwritten Open/WithTx glue
-internal/testdb/      fresh migrated SQLite database per test
-internal/webui/       embedded SPA (dist/ is filled by `task build:web`)
-migrations/           goose SQL migrations, embedded; also sqlc's schema source
-query/                sqlc query files, one per table group
-runtime/              presso-runtime image sources (Dockerfile, Caddyfile, wp-config, system plugin)
-build/                Dockerfiles for pressod and the edge
-web/                  SvelteKit UI (adapter-static)
-```
-
-## Install
-
-One command on a fresh Linux host (Debian/Ubuntu tested; amd64 or arm64,
-systemd). It installs Docker Engine when missing, the `pressod` release
-binary, a systemd unit and the first admin account:
+For the first test release, select the version explicitly. Run this once
+`v0.1.0-rc.1` is available on the [releases page](https://github.com/Hinkolas/presso/releases):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash
+curl -fsSL https://github.com/Hinkolas/presso/releases/download/v0.1.0-rc.1/install.sh \
+  | sudo bash -s -- --version v0.1.0-rc.1
 ```
 
-Non-interactive form:
+The installer downloads and checks the release binary, writes configuration,
+starts `presso.service`, and creates the first admin account. It prompts for
+your admin email and an optional panel domain.
+
+For an unattended test installation with a panel domain:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash -s -- \
-  --panel-domain panel.example.com --acme-email you@example.com --email you@example.com --yes
+curl -fsSL https://github.com/Hinkolas/presso/releases/download/v0.1.0-rc.1/install.sh \
+  | sudo bash -s -- --version v0.1.0-rc.1 \
+    --panel-domain panel.example.com --acme-email you@example.com \
+    --email you@example.com --yes
 ```
 
-What it leaves behind: `/usr/local/bin/pressod`, `/etc/presso/presso.env`
-(secrets, generated once and never rewritten: `AUTH_SECRET` encrypts the
-database and per-site credentials at rest), `/var/lib/presso` (SQLite,
-screenshots) and `presso.service`. Ports 80 and 443 are the edge; 7080 is the
-loopback panel; 7081 is the internal TLS listener. With a panel domain, the edge serves the admin UI at
-`https://<panel-domain>` with an automatic certificate (point the DNS record
-at the host first) and authenticates to the engine with a client certificate; without a domain,
-reach the panel through an SSH tunnel:
-`ssh -L 7080:127.0.0.1:7080 root@host` → http://127.0.0.1:7080.
-
-Upgrades happen from the panel (System → Updates, see below). Re-running the
-installer also upgrades (or `--version vX.Y.Z` pins one); `install.sh
---uninstall [--purge]` removes the service and binary (and, with `--purge`,
-every presso container, volume and the data).
-
-## Releases and updates
-
-Everything ships from a version tag. `task release:tag V=v0.1.0` (or `git
-tag v0.1.0 && git push origin v0.1.0`) triggers `.github/workflows/release.yml`:
-
-1. goreleaser builds `pressod` for linux/amd64 and linux/arm64 with the UI
-   embedded and creates a **draft** GitHub release with the tarballs, a
-   SHA-256 checksum file and `install.sh`.
-2. The edge image is pushed as `ghcr.io/hinkolas/presso-edge:v0.1.0`.
-3. The runtime images are built for every pair in the compat matrix's build
-   policy and pushed as `ghcr.io/hinkolas/presso-runtime:v0.1.0-php8.5-wp7.1`
-   (bases as `presso-runtime-base:v0.1.0-php8.5`), then smoke-tested.
-4. The draft is published. Hosts poll `/releases/latest`, which never returns
-   drafts, so an update is only offered once every image exists.
-
-A release is one version string that names everything: the engine derives
-its edge and runtime image references from its own version (`{release}` in
-`EDGE_IMAGE` / `RUNTIME_IMAGE_TEMPLATE`). Updating the engine therefore
-updates the runtimes. From System → Updates, "Update to vX.Y.Z" runs the
-`engine.update` job: it waits for site jobs to finish, downloads and verifies
-the binary, pre-pulls the new images, swaps the binary atomically (the old
-one stays as `pressod.previous`) and re-execs. The new engine notices the
-version change on boot and enqueues `engine.rollout`, which recreates every
-running site on the new runtime image (stopped sites move on their next
-start) and runs `wp core update-db`; the platform reconciler recreates the
-edge. Pre-release tags (`v0.2.0-rc.1`) are published as pre-releases and are
-never offered to stable hosts. `task release:snapshot` rehearses the binary
-build locally.
-
-## Development
-
-Requirements: Go 1.26, Node 22, Docker, [task](https://taskfile.dev), [sqlc](https://sqlc.dev).
+Point the panel domain's DNS at the host before installation. The panel will
+be available at `https://panel.example.com`. Without a panel domain, use an
+SSH tunnel and open <http://127.0.0.1:7080>:
 
 ```sh
-cp .env.example .env            # set AUTH_SECRET (openssl rand -base64 32)
-task build:edge                 # the edge image the engine starts (minutes)
-task build:runtime PHP=8.5 WP=7.1   # one local runtime image (dev builds must use local images; see .env.example)
+ssh -L 7080:127.0.0.1:7080 root@your-host
+```
+
+Sign in with the generated credentials, create a site, and point its domain
+at the host. The site becomes available after WordPress installation and
+validation succeed. Real domains use automatic HTTPS; `.localhost` domains
+use HTTP for local development.
+
+The installer writes:
+
+| Path | Purpose |
+| --- | --- |
+| `/usr/local/bin/pressod` | Engine binary with embedded web UI |
+| `/etc/presso/presso.env` | Host configuration and generated secrets |
+| `/var/lib/presso` | Engine database, management certificates, and screenshots |
+| Docker named volumes | Site content, MariaDB data, and shared service data |
+
+An unversioned installation and the panel's update checker use GitHub's stable
+release feed. Prereleases are excluded, so **use `--version` for pre-1.0 testing**.
+The GitHub release assets and GHCR images must be public for installation
+without registry credentials.
+
+## Configuration
+
+Edit `/etc/presso/presso.env` and restart `presso.service` to apply host settings.
+For local development, use `.env`. See [.env.example](.env.example) for the full
+configuration reference.
+
+| Setting | Default / purpose |
+| --- | --- |
+| `HTTP_ADDR` | `127.0.0.1:7080`; the local panel must bind to loopback |
+| `INTERNAL_HTTPS_ADDR` | `:7081`; authenticated edge traffic and site callbacks |
+| `PANEL_DOMAIN` | Optional public hostname for the HTTPS panel |
+| `RUNTIME_LEGACY_ENABLED` | `true`; offer published legacy runtime pairs |
+| `RUNTIME_PHP_VERSIONS` | Optional allowlist within the published runtime pairs |
+| `RUNTIME_DEFAULT_WP` | Default WordPress branch; newest in the catalog if unset |
+| `SHOTS_ENABLED` | `true`; enable the shared screenshot browser |
+
+### Legacy runtimes
+
+Legacy support is **enabled by default** for compatibility testing. The legacy
+flavor supports PHP 7.4–8.1, but only pairs selected by the release's build
+policy are published and offered. Availability is not a security-support promise.
+
+To stop offering legacy runtimes, set:
+
+```ini
+RUNTIME_LEGACY_ENABLED=false
+```
+
+This restricts the catalog and API selections to published FrankenPHP pairs.
+It can discourage new use of old versions and avoid additional legacy image
+downloads. It does not delete existing sites, remove downloaded images, or
+automatically reduce the resources used by running containers. Review existing
+legacy sites before disabling it. Host PHP restrictions can narrow the published
+catalog; they cannot create extra image combinations.
+
+## Updates and recovery
+
+A release names the engine, edge image, and runtime images together. Runtime
+rollouts recreate running sites, run the required WordPress database upgrade,
+and validate WordPress before enabling traffic. Stopped sites defer pending
+configuration until their next Start.
+
+Failed or interrupted applications remain pending and require an **explicit
+retry**. Deliberately stopped sites and sites with incomplete changes return
+503 responses that bypass the cache. There is no automatic rollback.
+
+WordPress core is supplied by the runtime image, and WordPress's automatic
+updater is disabled. **Managed WordPress core and plugin updates, including
+security updates, are planned for a later release.** Engine updates are not a
+guarantee that every site's WordPress, plugins, or themes are current. Testers
+are responsible for their installed software; see [SECURITY.md](SECURITY.md).
+
+For another prerelease, read its release notes and rerun that release's
+installer with an explicit `--version`. Compatibility with older development
+installations is not guaranteed. Keeping `pressod.previous` is not a backup:
+reverting a binary cannot undo database or site-content changes.
+
+Backups, scheduled snapshots, restore tooling, and automatic rollback are
+deferred. Preserve your own copies of site databases and content, engine state,
+`AUTH_SECRET`, and the management trust material. Do not use presso as the only
+copy of important data.
+
+## How it fits together
+
+```text
+Linux host: pressod + embedded panel + SQLite + Docker API
+  └─ shared Docker network
+       ├─ Caddy / Souin edge          public HTTP and HTTPS
+       ├─ MariaDB                    database and user per site
+       ├─ Redis                      ACL user and key prefix per site
+       ├─ headless Chrome            optional screenshots
+       └─ WordPress containers       one runtime and content volume per site
+```
+
+The engine connects to edge administration and Chrome DevTools through Docker
+exec streams to container loopback endpoints; these ports are not published.
+The local panel and the published MariaDB/Redis ports bind to host loopback.
+Site purge callbacks use HTTPS and per-site bearer tokens. Panel requests on
+the internal HTTPS listener additionally require the edge's client certificate.
+
+Management trust lives under `DATA_DIR/control`. The CA persists across restarts;
+leaf certificates renew automatically. Sites receive only the public CA and the
+edge receives its own client credentials. Missing or invalid trust material
+fails clearly instead of silently creating a new CA.
+
+These boundaries do not make a shared Docker host a sandbox for hostile tenants.
+The engine is privileged through its Docker access. See [SECURITY.md](SECURITY.md)
+for scope and reporting.
+
+## Local development
+
+Requirements: Go 1.26, Node.js 22, Docker Engine or Docker Desktop, and
+[Task](https://taskfile.dev). [sqlc](https://sqlc.dev) is needed when changing SQL
+queries or the schema.
+
+```sh
+cp .env.example .env
+# Set AUTH_SECRET in .env, e.g. using: openssl rand -base64 32
+task build:edge
+task build:runtime PHP=8.5 WP=7.1
 task user -- create --email you@example.com --role admin
-task dev                        # engine on :7080; creates network, MariaDB, Redis, edge
-task dev:web                    # UI dev server on :5173 (proxies /api to :7080)
-task check                      # vet + tests + web check/lint
-task build                      # web build embedded into bin/pressod
+task dev
 ```
 
-Open http://localhost:5173 (dev) or http://localhost:7080 (embedded build),
-create a site, and visit `http://<slug>.localhost` once the provisioning job
-finishes. `task nuke` removes every presso container and volume (dev only).
+In another terminal, run `cd web && npm ci`, then `task dev:web` from the repository
+root. Open <http://localhost:5173>. Local `.env` image templates use the images
+you build; build any additional WordPress/PHP pair before selecting it.
 
-Ports 80/443 (edge), 3306/6379/7080 (loopback), and 7081 (internal TLS) must
-be free on the host.
+Use a Docker environment without an existing presso installation. Ports
+80/443, 3306/6379/7080, and 7081 must be available. `task dev` stops an existing
+listener on 7080; `task nuke` deletes presso-managed containers and volumes.
 
-Conventions: every package states its responsibility and boundary in a doc
-comment, business logic lives in service packages and handlers only translate
-HTTP, errors carry a package prefix and sentinel errors are mapped to stable
-codes in `internal/api/errors.go`.
+`task check` runs Go vet/tests and frontend checks/lint. `task build` builds the
+UI and embeds it in `bin/pressod`. CI additionally runs Linux race tests,
+installer checks, a clean frontend build, and Docker integration tests.
+See [RELEASE_VERIFICATION.md](RELEASE_VERIFICATION.md) for release test evidence.
+
+To prepare a release, wait for CI on the committed changes to pass, then run
+`task release:tag V=v0.1.0-rc.1` with an unused version. This creates and pushes
+the tag. The release workflow requires verification before publishing images
+and keeps the GitHub release in draft until binary, edge, runtime, and smoke
+jobs succeed. All `v0.x` tags and tags with a prerelease suffix are published as
+prereleases and excluded from the stable feed. `task release:snapshot` rehearses
+the binary packaging locally without publishing.
+
+## Project documentation
+
+- [ROADMAP.md](ROADMAP.md): planned work, deferred features, and longer-term ideas.
+- [SECURITY.md](SECURITY.md): security scope, updates, and private reporting.
+- [CONTRIBUTING.md](CONTRIBUTING.md): the current contribution policy.
+- [ORCHESTRATION.md](ORCHESTRATION.md), [RUNTIME.md](RUNTIME.md), and
+  [HARNESS.md](HARNESS.md): technical design notes, including historical proposals;
+  these are not a list of shipped features.
+
+## License
+
+Copyright 2026 Hinkolas and contributors.
+
+Unless otherwise noted, presso's original code and documentation are licensed
+under the [Apache License, Version 2.0](LICENSE). Third-party components retain
+their own licenses, including the vendored GPLv3 Redis Object Cache drop-in.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+External pull requests and patches are not being accepted at this time.
+Bug reports and feedback are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
