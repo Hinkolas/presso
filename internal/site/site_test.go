@@ -37,11 +37,11 @@ func (f *fakePlatform) DropSiteDatabase(_ context.Context, db, _ string) error {
 	f.dropped = append(f.dropped, db)
 	return nil
 }
-func (f *fakePlatform) ApplyRedisACL(_ context.Context, user, _, prefix string) error {
+func (f *fakePlatform) ApplyCacheACL(_ context.Context, user, _, prefix string) error {
 	f.acls = append(f.acls, user+" "+prefix)
 	return nil
 }
-func (f *fakePlatform) DeleteRedisACL(_ context.Context, user string) error {
+func (f *fakePlatform) DeleteCacheACL(_ context.Context, user string) error {
 	f.deletedACLs = append(f.deletedACLs, user)
 	return nil
 }

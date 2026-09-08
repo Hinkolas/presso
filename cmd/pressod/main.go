@@ -1,7 +1,7 @@
 // Command pressod is the orchestration engine: the client-facing REST API
 // (embedded web UI, harness CLI) plus the workers that provision and manage
 // WordPress site containers through the Docker API, reconcile the shared
-// platform containers (MariaDB, Redis, edge) and collect observability data.
+// platform containers (MariaDB, Valkey, edge) and collect observability data.
 //
 // Besides serving (the default), the binary carries the operator commands,
 // one artifact to deploy and exec into:

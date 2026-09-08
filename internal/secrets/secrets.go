@@ -1,5 +1,5 @@
 // Package secrets encrypts values the engine must store but never expose in
-// plaintext at rest: per-site database and Redis passwords, WordPress salts,
+// plaintext at rest: per-site database and object-cache passwords, WordPress salts,
 // login HMAC keys, platform root passwords. The key is derived from
 // AUTH_SECRET with HKDF, so rotating AUTH_SECRET invalidates stored secrets
 // (documented on the config field) and nothing else needs to be configured.

@@ -25,13 +25,13 @@ import (
 	"github.com/Hinkolas/presso/internal/testdb"
 )
 
-// fakePlatform satisfies site.Platform without MariaDB/Redis/Caddy.
+// fakePlatform satisfies site.Platform without MariaDB/Valkey/Caddy.
 type fakePlatform struct{}
 
 func (fakePlatform) CreateSiteDatabase(context.Context, string, string, string) error { return nil }
 func (fakePlatform) DropSiteDatabase(context.Context, string, string) error           { return nil }
-func (fakePlatform) ApplyRedisACL(context.Context, string, string, string) error      { return nil }
-func (fakePlatform) DeleteRedisACL(context.Context, string) error                     { return nil }
+func (fakePlatform) ApplyCacheACL(context.Context, string, string, string) error      { return nil }
+func (fakePlatform) DeleteCacheACL(context.Context, string) error                     { return nil }
 func (fakePlatform) ApplyEdge(context.Context) error                                  { return nil }
 func (fakePlatform) SetEdgeRenderer(platform.EdgeRenderer)                            {}
 

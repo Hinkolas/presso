@@ -24,7 +24,7 @@ Passed locally:
 - Complete Go race suite on Linux, in a disposable Go container.
 - Installer Bash syntax and ShellCheck.
 - Frontend check, lint and build; GoReleaser also performed a clean `npm ci`.
-- Docker Desktop integration tests with isolated MariaDB, Redis, WordPress,
+- Docker Desktop integration tests with isolated MariaDB, Redis (before the Valkey change), WordPress,
   edge, browser, networks, databases and volumes.
 - Management isolation and authenticated forwarding with a Linux test engine
   inside a separate Docker daemon. No existing host management-port bindings
@@ -48,6 +48,10 @@ also requires those host-gateway connections to fail.
 
 ## Reproduce
 
+The subsequent Valkey change also passed the production cache spec/ACL/restart
+test and the WordPress lifecycle test with real object-cache persistence and
+selective flushing. See [the Valkey record](docs/license-review/valkey.md).
+
 The integration tests require a Docker daemon and these locally built tags:
 `presso-edge:release-verification` and `presso-runtime:release-verification`.
 The reusable workflow builds both from this checkout, selecting the runtime
@@ -57,7 +61,7 @@ from `pressod runtime-matrix`. It also obtains the browser and curl test images.
 go test ./internal/... ./cmd/...
 go vet ./internal/... ./cmd/...
 go test -race ./internal/... ./cmd/...
-go test -tags integration -count=1 -timeout 10m ./internal/integration
+go test -tags integration -count=1 -timeout 10m ./internal/integration ./internal/platform
 bash -n install.sh
 shellcheck --severity=warning install.sh
 ruby scripts/check-release-gates.rb

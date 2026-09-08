@@ -41,7 +41,7 @@ reports.
 ## Security boundaries
 
 presso is intended for an administrator managing trusted test workloads on a
-single host. Containers and per-site database/Redis credentials reduce shared
+single host. Containers and per-site database/Valkey credentials reduce shared
 access, but they are not a guarantee of isolation between hostile tenants.
 Containers share the host kernel and infrastructure services.
 

@@ -16,7 +16,7 @@ import (
 func testConfig() *config.API {
 	return &config.API{
 		Platform: config.Platform{Managed: true, Network: "presso-test", MariaDBImage: "mariadb:11.4", MariaDBListen: "127.0.0.1:3306",
-			RedisImage: "redis:7-alpine", RedisListen: "127.0.0.1:6379", RedisMaxMemory: "64mb"},
+			ValkeyImage: config.DefaultValkeyImage, ValkeyListen: "127.0.0.1:6379", ValkeyMaxMemory: "64mb"},
 		Edge: config.Edge{Image: "presso-edge:test", HTTPListen: "0.0.0.0:80", HTTPSListen: "0.0.0.0:443"},
 	}
 }
@@ -29,7 +29,7 @@ func TestReconcileCreatesAndRecreates(t *testing.T) {
 	svc := New(cfg, dk, st, box, events.New(), nil)
 	ctx := context.Background()
 
-	// Redis/MariaDB are unreachable in tests; ACL apply is skipped because
+	// Valkey/MariaDB are unreachable in tests; ACL apply is skipped because
 	// there are no sites. Reconcile must still succeed for the containers.
 	if err := svc.Reconcile(ctx); err != nil {
 		t.Fatalf("reconcile: %v", err)
@@ -37,7 +37,7 @@ func TestReconcileCreatesAndRecreates(t *testing.T) {
 	if len(dk.Created) != 3 {
 		t.Fatalf("expected 3 containers, created %d", len(dk.Created))
 	}
-	for _, name := range []string{NameMariaDB, NameRedis, NameEdge} {
+	for _, name := range []string{NameMariaDB, NameValkey, NameEdge} {
 		info, err := dk.InspectContainer(ctx, name)
 		if err != nil || !info.Running() {
 			t.Fatalf("%s: %v %+v", name, err, info)
@@ -110,6 +110,24 @@ func TestEdgeSpecPorts(t *testing.T) {
 	}
 	if spec.Ports[2].Protocol != "udp" {
 		t.Fatalf("h3 udp port missing: %+v", spec.Ports[2])
+	}
+}
+
+func TestLegacyCacheIsNotAutomaticallyReplaced(t *testing.T) {
+	dk := fake.New()
+	ctx := context.Background()
+	id, err := dk.CreateContainer(ctx, docker.Spec{Name: "presso-redis", Image: "redis:7-alpine", Labels: managedLabels("redis")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = dk.StartContainer(ctx, id)
+	svc := New(testConfig(), dk, nil, nil, nil, nil)
+	if err := svc.Reconcile(ctx); err == nil || !strings.Contains(err.Error(), "automatic migration is unsupported") {
+		t.Fatalf("legacy cache should require an explicit transition: %v", err)
+	}
+	info, err := dk.InspectContainer(ctx, id)
+	if err != nil || !info.Running() || len(dk.Removed) != 0 || len(dk.Created) != 1 || len(dk.Networks) != 0 {
+		t.Fatal("legacy installation was changed")
 	}
 }
 

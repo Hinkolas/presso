@@ -206,7 +206,7 @@ if [ "$FRESH" = 1 ]; then
   cat >"$ENV_FILE" <<EOT
 # presso engine configuration (systemd EnvironmentFile). Every setting is
 # documented in .env.example of the repository. AUTH_SECRET encrypts the
-# database/Redis and per-site secrets at rest: never rotate it casually.
+# database/Valkey and per-site secrets at rest: never rotate it casually.
 DATA_DIR="$DATA_DIR"
 HTTP_ADDR="127.0.0.1:$PORT"
 INTERNAL_HTTPS_ADDR=":7081"

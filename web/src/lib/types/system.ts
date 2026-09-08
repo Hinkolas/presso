@@ -9,7 +9,7 @@ export type DockerInfo = {
 	error?: string;
 };
 
-export type ComponentName = 'network' | 'mariadb' | 'redis' | 'edge' | 'browser';
+export type ComponentName = 'network' | 'mariadb' | 'valkey' | 'edge' | 'browser';
 
 export type PlatformComponent = {
 	name: ComponentName;

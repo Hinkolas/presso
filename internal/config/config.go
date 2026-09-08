@@ -22,6 +22,10 @@ import (
 	"github.com/Hinkolas/presso/internal/version"
 )
 
+// DefaultValkeyImage is the supported cache server used by fresh installations
+// and integration checks. Keep the Platform env default aligned with this pin.
+const DefaultValkeyImage = "valkey/valkey:8.1.10-alpine"
+
 // Logging is shared by every binary.
 type Logging struct {
 	LogLevel  string `env:"LOG_LEVEL,default=info"`
@@ -96,7 +100,7 @@ type API struct {
 }
 
 // Platform configures the shared containers pressod reconciles on the host
-// (network, MariaDB, Redis). Database and Redis ports publish on host loopback;
+// (network, MariaDB, Valkey). Database and Valkey ports publish on host loopback;
 // edge and browser management use Docker exec, including on Docker Desktop.
 type Platform struct {
 	// Managed=false skips the reconciler entirely (tests, or an operator
@@ -108,9 +112,9 @@ type Platform struct {
 	MariaDBImage  string `env:"MARIADB_IMAGE,default=mariadb:11.4"`
 	MariaDBListen string `env:"MARIADB_LISTEN,default=127.0.0.1:3306"`
 
-	RedisImage     string `env:"REDIS_IMAGE,default=redis:7-alpine"`
-	RedisListen    string `env:"REDIS_LISTEN,default=127.0.0.1:6379"`
-	RedisMaxMemory string `env:"REDIS_MAXMEMORY,default=256mb"`
+	ValkeyImage     string `env:"VALKEY_IMAGE,default=valkey/valkey:8.1.10-alpine"`
+	ValkeyListen    string `env:"VALKEY_LISTEN,default=127.0.0.1:6379"`
+	ValkeyMaxMemory string `env:"VALKEY_MAXMEMORY,default=256mb"`
 
 	// EngineInternalURL is how site containers reach this engine (system
 	// plugin purge callbacks). host.docker.internal resolves on Docker Desktop
@@ -225,6 +229,15 @@ func (a *API) Validate() error {
 		if v := os.Getenv(key); v != "" {
 			return fmt.Errorf("%s is obsolete; management uses the Docker API", key)
 		}
+	}
+	for _, suffix := range []string{"IMAGE", "LISTEN", "MAXMEMORY"} {
+		if os.Getenv("REDIS_"+suffix) != "" {
+			return fmt.Errorf("REDIS_%s is obsolete; fresh installations use VALKEY_%s (see README.md, Object cache); existing Redis installations are not automatically migrated", suffix, suffix)
+		}
+	}
+	cacheHost, _, cacheErr := net.SplitHostPort(a.ValkeyListen)
+	if cacheErr != nil || net.ParseIP(cacheHost) == nil || !net.ParseIP(cacheHost).IsLoopback() {
+		return fmt.Errorf("VALKEY_LISTEN must bind a loopback IP")
 	}
 	host, _, err := net.SplitHostPort(a.HTTPAddr)
 	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {

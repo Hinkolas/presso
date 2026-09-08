@@ -175,9 +175,9 @@ func (s *Service) runProvision(ctx context.Context, job store.Job, r *jobs.Repor
 		return fail("database", err)
 	}
 
-	r.Step(ctx, "redis", "Creating Redis ACL user "+row.RedisUser)
-	if err := s.platform.ApplyRedisACL(ctx, row.RedisUser, d.redisPassword, platform.RedisKeyPrefix(row.ID.String())); err != nil {
-		return fail("redis", err)
+	r.Step(ctx, "valkey", "Creating Valkey ACL user "+row.RedisUser)
+	if err := s.platform.ApplyCacheACL(ctx, row.RedisUser, d.redisPassword, platform.CacheKeyPrefix(row.ID.String())); err != nil {
+		return fail("valkey", err)
 	}
 
 	r.Step(ctx, "volume", "Ensuring wp-content volume "+row.VolumeName)
@@ -418,9 +418,9 @@ func (s *Service) runDelete(ctx context.Context, job store.Job, r *jobs.Reporter
 		return s.deleteFailed(ctx, row.ID, "database", err)
 	}
 
-	r.Step(ctx, "redis", "Removing Redis ACL user")
-	if err := s.platform.DeleteRedisACL(ctx, row.RedisUser); err != nil {
-		r.Warn(ctx, "redis: "+err.Error())
+	r.Step(ctx, "valkey", "Removing Valkey ACL user")
+	if err := s.platform.DeleteCacheACL(ctx, row.RedisUser); err != nil {
+		r.Warn(ctx, "valkey: "+err.Error())
 	}
 
 	if args.KeepVolume {

@@ -62,4 +62,4 @@ jobs:
           docker build -f runtime/Dockerfile --build-arg BASE_IMAGE=presso-runtime-base:verification --build-arg WP_VERSION="$wp" -t presso-runtime:release-verification runtime
       - run: docker pull chromedp/headless-shell:stable
       - run: docker pull curlimages/curl:latest
-      - run: go test -tags integration -count=1 -timeout 10m ./internal/integration
+      - run: go test -tags integration -count=1 -timeout 10m ./internal/integration ./internal/platform

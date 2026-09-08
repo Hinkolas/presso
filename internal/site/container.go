@@ -32,7 +32,7 @@ func (s *Service) decrypt(row store.Site) (decrypted, error) {
 		return d, fmt.Errorf("site: decrypt db password: %w", err)
 	}
 	if d.redisPassword, err = s.box.DecryptString(row.RedisPasswordEnc); err != nil {
-		return d, fmt.Errorf("site: decrypt redis password: %w", err)
+		return d, fmt.Errorf("site: decrypt object cache password: %w", err)
 	}
 	saltsJSON, err := s.box.Decrypt(row.SaltsEnc)
 	if err != nil {
@@ -80,11 +80,11 @@ func (s *Service) containerSpec(row store.Site, d decrypted) docker.Spec {
 		"PRESSO_DB_USER=" + row.DbUser,
 		"PRESSO_DB_PASSWORD=" + d.dbPassword,
 		"PRESSO_DB_PREFIX=wp_",
-		"PRESSO_REDIS_HOST=" + platform.NameRedis,
+		"PRESSO_REDIS_HOST=" + platform.NameValkey,
 		"PRESSO_REDIS_PORT=6379",
 		"PRESSO_REDIS_USER=" + row.RedisUser,
 		"PRESSO_REDIS_PASSWORD=" + d.redisPassword,
-		"PRESSO_REDIS_PREFIX=" + platform.RedisKeyPrefix(id),
+		"PRESSO_REDIS_PREFIX=" + platform.CacheKeyPrefix(id),
 		"PRESSO_ENGINE_URL=" + s.cfg.EngineInternalURL,
 		"PRESSO_EDGE_HOST=" + platform.NameEdge, // Loopback requests are pinned to the edge (system plugin).
 		"PRESSO_PURGE_TOKEN=" + purgeTokenFor(d.loginSecret),

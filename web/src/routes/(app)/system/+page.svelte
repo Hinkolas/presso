@@ -126,7 +126,7 @@
 	const names: Record<string, string> = {
 		network: 'Network',
 		mariadb: 'MariaDB',
-		redis: 'Redis',
+		valkey: 'Valkey',
 		edge: 'Edge',
 		browser: 'Preview browser'
 	};

@@ -62,7 +62,7 @@ the edge proxy entirely:
   |    core RO in image, wp-content volume, editable code     |
   |    bind-mounted or synced in                              |
   |                                                           |
-  |  mariadb (single db)    redis        mailcatcher          |
+  |  mariadb (single db)    valkey       mailcatcher          |
   +-----------------------------------------------------------+
   | host: Claude Code, editor, browser, `bw` CLI wrapper      |
   +-----------------------------------------------------------+
@@ -127,7 +127,7 @@ Same image as production, different profile:
 - Xdebug installed, disabled by default
 - Mail routed to catcher
 - No full-page cache (or trivially bypassable)
-- Object cache on (Redis), to match production behavior
+- Object cache on (Valkey), to match production behavior
 - Real cron via CLI, same as production
 
 ## Open questions

@@ -232,7 +232,7 @@
 
 	const nextSteps = $derived([
 		'Pull the runtime image if this host has not seen it yet',
-		'Create the database and a Redis cache user for the site',
+		'Create the database and a Valkey cache user for the site',
 		'Start the container and wait until it reports healthy',
 		branch
 			? `Install WordPress ${branch.version} with the administrator account`

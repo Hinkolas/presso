@@ -32,7 +32,7 @@ done
 
 # --- Object cache drop-in ---------------------------------------------------
 # Refreshed on every start so a new image tag always wins; removed when the
-# site has no Redis so WordPress falls back to its in-memory cache.
+# site has no Valkey so WordPress falls back to its in-memory cache.
 if [ -n "${PRESSO_REDIS_HOST:-}" ]; then
 	cp "$DROPINS/object-cache.php" "$WP_CONTENT/object-cache.php"
 	chown root:web "$WP_CONTENT/object-cache.php"
@@ -86,6 +86,8 @@ mkdir -p /tmp && chmod 1777 /tmp
 # ships none. Sourced, so a failing hook aborts the boot (set -e).
 for hook in /etc/presso/entrypoint.d/*.sh; do
 	[ -e "$hook" ] || continue
+	# Flavor hooks are supplied by the image and selected at runtime.
+	# shellcheck disable=SC1090
 	. "$hook"
 done
 

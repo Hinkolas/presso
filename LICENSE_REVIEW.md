@@ -7,7 +7,8 @@ certification of every file in the distribution.
 **Conclusion: keep Apache 2.0 for original presso code, but do not treat the
 binary/container release as cleared for publication yet.** The unchanged GPLv3
 Redis Object Cache drop-in is not the main blocker. Dependency notices,
-container source delivery, and the Redis server license policy need follow-up.
+and container source delivery still need follow-up. The subsequent Valkey
+change resolves the default Redis server policy finding (3), as recorded below.
 
 Making source available and distributing compiled images are different review
 scopes. A pre-1.0 label, a free download, or a no-warranty disclaimer does not
@@ -144,31 +145,30 @@ root MIT license as a separately named file. The download script now retains the
 root license and a versioned source reference outside the PHAR. This fixes that
 specific omission; auditing all PHAR dependency notices remains outstanding.
 
-### 3. The default Redis server needs a license policy decision — release blocker
+### 3. Default Redis server license policy — resolved by Valkey
 
-`internal/config/config.go` defaults to `redis:7-alpine`. The inspected local
-image reports **Redis 7.4.11**, not a BSD-licensed Redis 7.2 release. Redis's
-official version table lists 7.4 under **RSALv2 or SSPLv1**. This is entirely
-separate from the GPLv3 PHP drop-in and the BSD-licensed Go Redis client.
+The original review observed `redis:7-alpine` resolving to **Redis 7.4.11**,
+under RSALv2 or SSPLv1. That historical observation remains in the inventory;
+it does not describe the current default.
 
-The engine pulls this upstream server image on the host; the current release
-workflow does not republish it under a presso image name. That distinction
-matters, but does not remove deployment-license considerations for operators.
+The pre-release backend change selects **Valkey 8.1.10** with BSD-3-Clause
+server licensing, using `valkey/valkey:8.1.10-alpine`. The engine pulls this
+upstream image directly; the release does not republish it as a presso image.
+Its dependencies still retain their respective licenses. See the
+[separate verification record](docs/license-review/valkey.md) for the inspected
+image index, platform digests, compatibility coverage, and boundaries.
 
-This finding is not a conclusion that using Redis internally for WordPress
-violates its license. RSAL/SSPL service provisions require an assessment of the
-actual offering. The project should not silently assume the default is BSD or
-that every downstream hosting model is permitted.
+The unchanged GPLv3 PHP drop-in, PHP-licensed phpredis extension, and
+BSD-licensed Go client connect using Valkey's compatible protocol. They do not
+pull in the Redis server's service-related license. Apache 2.0 remains the
+license for original presso code. This change does not resolve findings 1–2.
 
-Choose and document a policy before release. A tested, maintained Valkey version
-is a candidate if the goal is a permissively licensed Redis-compatible server.
-It requires compatibility tests for ACLs, commands, configuration, and persisted
-data; it has not been substituted here. Alternatively, choose a specific Redis
-version and license route after checking the intended use. Do not downgrade to
-an old release solely to obtain a preferred license without reviewing maintenance.
+No existing Redis container, cache file, site volume, or engine database is
+automatically migrated or removed. The server runs as an ephemeral cache with
+persistence disabled; Redis 7.4 data files are not compatible with Valkey.
 
-Sources: [Redis's license/version table](https://redis.io/legal/licenses/) and
-[Valkey's BSD license](https://raw.githubusercontent.com/valkey-io/valkey/8.1/COPYING).
+Sources: [Valkey 8.1.10's BSD license](https://raw.githubusercontent.com/valkey-io/valkey/8.1.10/COPYING)
+and [Valkey's migration/protocol documentation](https://valkey.io/topics/migration/).
 
 ### 4. Independently published runtime bases lacked presso's own notice — fixed
 
@@ -189,11 +189,12 @@ This does not satisfy or replace licenses for the upstream base contents.
 - Clarified the server/drop-in distinction and remaining scope in
   `THIRD_PARTY_NOTICES.md`.
 - Added this report to the binary archive's document list and saved the review
-  inventory. No backend substitution or license change was made.
+  inventory. That initial review made no backend substitution; the subsequent
+  Valkey change is documented in finding 3 and its separate verification record.
 
 ## What remains before release approval
 
-- Resolve findings 1–3 and repeat checks on the exact final image digests for
+- Resolve findings 1–2 and repeat checks on the exact final image digests for
   both release architectures. The current functional CI gates do not prove
   license compliance.
 - Generate and distribute dependency notices and source-access records as part
@@ -201,8 +202,8 @@ This does not satisfy or replace licenses for the upstream base contents.
 - Check that an unauthenticated recipient can obtain the required materials
   from the public release/package pages. A temporary CI artifact or private
   repository link is not a reliable public source-distribution mechanism.
-- Obtain specialist legal review if retaining Redis's service-related terms or
-  relying on a disputed derivative-work boundary. This review supplies technical
+- Obtain specialist legal review if relying on a disputed derivative-work
+  boundary or choosing server overrides with different terms. This review supplies technical
   evidence and identifies obligations; it does not settle those legal questions.
 
 No license conflict found here requires abandoning Apache 2.0 for original

@@ -21,5 +21,11 @@ is off.
   `PRESSO_REDIS_HOST` the entrypoint removes the file and `WP_REDIS_DISABLED`
   keeps WordPress on its in-memory cache.
 
+The default server is Valkey. The upstream plugin name, phpredis extension,
+and `WP_REDIS_*` / `PRESSO_REDIS_*` protocol settings remain unchanged. The
+plugin is still GPLv3; using Valkey does not relicense it. Presso also retains
+the existing `redis_user` / `redis_password_enc` SQLite column names for these
+protocol credentials; no schema or stored site data is reset.
+
 To upgrade, replace the file with the new release and update the version
 and hash above.

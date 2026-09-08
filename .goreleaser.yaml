@@ -38,6 +38,7 @@ archives:
       - THIRD_PARTY_NOTICES.md
       - LICENSE_REVIEW.md
       - docs/license-review/inventory.json
+      - docs/license-review/valkey.md
       - web/static/third-party-licenses.txt
       - SECURITY.md
       - CONTRIBUTING.md

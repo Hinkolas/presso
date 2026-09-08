@@ -19,6 +19,10 @@ end
     raise "#{name} ignores a failed check" if step['continue-on-error']
   end
 end
+integration_checks = verify.fetch('integration').fetch('steps').map { |step| step['run'] }.compact
+raise 'Valkey integration tests are not a release prerequisite' unless integration_checks.any? { |command|
+  command.include?('go test -tags integration') && command.include?('./internal/integration') && command.include?('./internal/platform')
+}
 required.concat(['publish']).each do |name|
   job = release.fetch(name)
   raise "#{name} overrides success prerequisites" if job.key?('if') || job['continue-on-error']

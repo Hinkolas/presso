@@ -28,7 +28,7 @@ maintaining a separate Docker setup for each one.
 - **Serve sites through a shared edge:** Caddy routes domains and manages HTTPS
   certificates. Souin provides page caching, with content-driven invalidation
   and optional cache warming.
-- **Cache database objects:** Redis Object Cache uses a separate Redis ACL user
+- **Cache database objects:** Redis Object Cache uses a separate Valkey ACL user
   and key prefix for each site. MariaDB uses a separate database and user per site.
 - **Tune individual sites:** configure PHP settings, container CPU/memory limits,
   cache behavior, and file modification policy.
@@ -166,14 +166,14 @@ Linux host: pressod + embedded panel + SQLite + Docker API
   └─ shared Docker network
        ├─ Caddy / Souin edge          public HTTP and HTTPS
        ├─ MariaDB                    database and user per site
-       ├─ Redis                      ACL user and key prefix per site
+       ├─ Valkey                     ACL user and key prefix per site
        ├─ headless Chrome            optional screenshots
        └─ WordPress containers       one runtime and content volume per site
 ```
 
 The engine connects to edge administration and Chrome DevTools through Docker
 exec streams to container loopback endpoints; these ports are not published.
-The local panel and the published MariaDB/Redis ports bind to host loopback.
+The local panel and the published MariaDB/Valkey ports bind to host loopback.
 Site purge callbacks use HTTPS and per-site bearer tokens. Panel requests on
 the internal HTTPS listener additionally require the edge's client certificate.
 
@@ -185,6 +185,35 @@ fails clearly instead of silently creating a new CA.
 These boundaries do not make a shared Docker host a sandbox for hostile tenants.
 The engine is privileged through its Docker access. See [SECURITY.md](SECURITY.md)
 for scope and reporting.
+
+## Object cache
+
+Fresh installations use `valkey/valkey:8.1.10-alpine`, the BSD-3-Clause licensed
+Valkey server, in `presso-valkey`. Presso pulls the upstream image directly.
+The host settings are `VALKEY_IMAGE`, `VALKEY_LISTEN` (default
+`127.0.0.1:6379`), and `VALKEY_MAXMEMORY` (default `256mb`). Image overrides must
+provide `valkey-server` and `valkey-cli`; operators maintain their chosen image.
+
+Each site receives a separate ACL user and key prefix. The WordPress client is
+still the GPLv3 **Redis Object Cache** plugin using phpredis. Its upstream name,
+`WP_REDIS_*` constants, and the runtime's `PRESSO_REDIS_*` protocol settings stay
+unchanged; they connect to Valkey. This does not require a Redis server or
+relicense the plugin. See [third-party notices](THIRD_PARTY_NOTICES.md) and
+[the Valkey verification record](docs/license-review/valkey.md).
+
+Valkey is a disposable object cache: RDB snapshots and AOF persistence are
+disabled. A restart loses cached objects; WordPress rebuilds them, and the
+engine reapplies site ACLs during reconciliation. Site databases, content, and
+engine state live elsewhere.
+
+This first release targets fresh installations. `REDIS_IMAGE`, `REDIS_LISTEN`,
+and `REDIS_MAXMEMORY` are rejected, and a managed `presso-redis` installation
+blocks reconciliation before any managed resources are changed. There is no
+automatic in-place migration or cleanup. Keep an existing development
+installation separate while testing; do not run the new engine against its
+state or use `task nuke` to migrate it. Retiring the old cache and moving
+existing sites requires a deliberate operator transition. Redis 7.4 data files
+must not be mounted into Valkey; [upstream documents the incompatibility](https://valkey.io/topics/migration/).
 
 ## Local development
 

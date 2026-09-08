@@ -22,7 +22,7 @@ var ErrNotFound = errors.New("docker: not found")
 // containers after a restart and the status watcher can filter events.
 const (
 	LabelManaged = "presso.managed"
-	LabelKind    = "presso.kind" // site|edge|mariadb|redis|browser|network
+	LabelKind    = "presso.kind" // site|edge|mariadb|valkey|browser|network
 	LabelSiteID  = "presso.site_id"
 	LabelSlug    = "presso.slug"
 	// LabelRuntime and LabelWPVersion mirror the site row (frankenphp|legacy,

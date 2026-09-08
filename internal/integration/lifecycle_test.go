@@ -33,11 +33,12 @@ import (
 )
 
 type lifecyclePlatform struct {
-	dk        *docker.Moby
-	db, redis string
-	edge      *edge.Client
-	render    platform.EdgeRenderer
-	mu        sync.Mutex
+	dk     *docker.Moby
+	db     string
+	cache  *platform.Service
+	edge   *edge.Client
+	render platform.EdgeRenderer
+	mu     sync.Mutex
 }
 
 func (p *lifecyclePlatform) SetEdgeRenderer(r platform.EdgeRenderer) { p.render = r }
@@ -66,19 +67,11 @@ func (p *lifecyclePlatform) CreateSiteDatabase(ctx context.Context, db, user, pw
 func (p *lifecyclePlatform) DropSiteDatabase(ctx context.Context, db, user string) error {
 	return p.sql(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS `%s`; DROP USER IF EXISTS '%s'@'%%';", db, user))
 }
-func (p *lifecyclePlatform) ApplyRedisACL(ctx context.Context, user, pw, prefix string) error {
-	r, err := p.dk.Exec(ctx, p.redis, docker.ExecOptions{Cmd: []string{"redis-cli", "ACL", "SETUSER", user, "on", ">" + pw, "~" + prefix + "*", "+@all"}})
-	if err != nil {
-		return err
-	}
-	if r.ExitCode != 0 {
-		return fmt.Errorf("redis: %s", r.Stderr)
-	}
-	return nil
+func (p *lifecyclePlatform) ApplyCacheACL(ctx context.Context, user, pw, prefix string) error {
+	return p.cache.ApplyCacheACL(ctx, user, pw, prefix)
 }
-func (p *lifecyclePlatform) DeleteRedisACL(ctx context.Context, user string) error {
-	_, err := p.dk.Exec(ctx, p.redis, docker.ExecOptions{Cmd: []string{"redis-cli", "ACL", "DELUSER", user}})
-	return err
+func (p *lifecyclePlatform) DeleteCacheACL(ctx context.Context, user string) error {
+	return p.cache.DeleteCacheACL(ctx, user)
 }
 
 type pausedInstall struct {
@@ -140,14 +133,26 @@ func TestFreshSiteLifecycleAndHTTPSCallbacks(t *testing.T) {
 		t.Fatal(err)
 	}
 	database := create(docker.Spec{Name: name + "-db", Image: "mariadb:11.4", Network: network, NetworkAliases: []string{platform.NameMariaDB}, Env: []string{"MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1"}, Mounts: []docker.Mount{{Type: docker.MountTmpfs, Target: "/var/lib/mysql"}}})
-	redis := create(docker.Spec{Name: name + "-redis", Image: "redis:7-alpine", Network: network, NetworkAliases: []string{platform.NameRedis}})
+	valkey := create(docker.Spec{Name: name + "-valkey", Image: config.DefaultValkeyImage, Network: network, NetworkAliases: []string{platform.NameValkey}, Cmd: []string{"valkey-server", "--requirepass", "isolated-cache-password", "--save", "", "--appendonly", "no"}, Ports: []docker.PortBinding{{HostIP: "127.0.0.1", HostPort: 0, ContainerPort: 6379}}})
 	edgeID := create(docker.Spec{Name: name + "-edge", Image: "presso-edge:release-verification", Network: network, NetworkAliases: []string{platform.NameEdge}, Mounts: []docker.Mount{{Type: docker.MountBind, Source: filepath.Join(dir, "control/edge"), Target: "/etc/presso/control", ReadOnly: true}}, Ports: []docker.PortBinding{{HostIP: "127.0.0.1", HostPort: 0, ContainerPort: 80}}})
 	portBytes, err := exec.Command("docker", "port", edgeID, "80/tcp").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
 	address := strings.TrimSpace(string(portBytes))
-	p := &lifecyclePlatform{dk: dk, db: database, redis: redis, edge: edge.NewDockerClient(dk, edgeID, dir)}
+	st := testdb.New(t)
+	box, _ := secrets.New(strings.Repeat("x", 32))
+	cacheSecret, _ := box.EncryptString("isolated-cache-password")
+	if err := st.SetKV(ctx, store.SetKVParams{Key: "valkey.default_password", Value: cacheSecret, UpdatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	cachePort, err := exec.Command("docker", "port", valkey, "6379/tcp").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := platform.New(&config.API{Platform: config.Platform{ValkeyListen: strings.TrimSpace(string(cachePort))}}, dk, st, box, nil, nil)
+	defer cache.Close()
+	p := &lifecyclePlatform{dk: dk, db: database, cache: cache, edge: edge.NewDockerClient(dk, edgeID, dir)}
 	for {
 		if err = p.sql(ctx, "SELECT 1;"); err == nil {
 			break
@@ -178,9 +183,7 @@ func TestFreshSiteLifecycleAndHTTPSCallbacks(t *testing.T) {
 		t.Fatalf("runtime image: %s %v", out, err)
 	}
 	t.Cleanup(func() { _ = exec.Command("docker", "image", "rm", pair.Image).Run() })
-	st := testdb.New(t)
 	runner := jobs.New(st, nil, 1)
-	box, _ := secrets.New(strings.Repeat("x", 32))
 	paused := &pausedInstall{Moby: dk, entered: make(chan struct{}), release: make(chan struct{})}
 	svc := site.New(site.Deps{Config: cfg, Catalog: cat, Store: st, Docker: paused, Secrets: box, Jobs: runner, Platform: p, Edge: p.edge})
 	server := &http.Server{Handler: api.InternalOnly(api.NewRouter(api.Deps{Store: st, DB: st.DB, Config: cfg, Sites: svc}))}
@@ -283,6 +286,36 @@ installationWait:
 	fetch(200)
 	if h := fetch(200); !strings.Contains(h.Get("Cache-Status"), "hit") {
 		t.Fatalf("page was not cached before stop: %v", h)
+	}
+	// The real phpredis drop-in must persist objects across separate WordPress
+	// processes. WP_REDIS_GRACEFUL can hide failures, so check backend state too.
+	wpEval := func(script string) string {
+		t.Helper()
+		res, err := svc.RunWP(ctx, row.ID, []string{"eval", script}, "test")
+		if err != nil || res.ExitCode != 0 {
+			t.Fatalf("WordPress object cache: %+v %v", res, err)
+		}
+		return res.Stdout
+	}
+	wpEval(`if (!wp_using_ext_object_cache() || !$GLOBALS['wp_object_cache']->redis_status()) { WP_CLI::error('external cache disconnected'); } if (!wp_cache_set('presso-test', 'persisted', 'verification', 60)) { WP_CLI::error('cache write failed'); }`)
+	if got := wpEval(`$v=wp_cache_get('presso-test', 'verification', true, $found); if (!$found) { WP_CLI::error('cache miss in new process'); } echo $v;`); !strings.Contains(got, "persisted") {
+		t.Fatalf("object did not persist across WordPress processes: %q", got)
+	}
+	cacheAdmin, err := cache.Valkey(ctx, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A second tenant's marker must survive this site's selective Lua flush.
+	if err := cache.ApplyCacheACL(ctx, "other-site", "other-password", "site-other:"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cacheAdmin.Set(ctx, "site-other:marker", "keep", time.Minute).Err(); err != nil {
+		t.Fatal(err)
+	}
+	wpEval(`if (!wp_cache_flush()) { WP_CLI::error('selective flush failed'); }`)
+	wpEval(`wp_cache_get('presso-test', 'verification', true, $found); if ($found) { WP_CLI::error('flushed object survived'); }`)
+	if got, err := cacheAdmin.Get(ctx, "site-other:marker").Result(); err != nil || got != "keep" {
+		t.Fatalf("selective WordPress flush affected another tenant: %q %v", got, err)
 	}
 	// Execute WordPress's HTTP client with the exact mounted CA and callback
 	// credentials. This verifies TLS from the actual runtime namespace.

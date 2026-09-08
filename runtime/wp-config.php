@@ -118,13 +118,14 @@ define( 'WPMU_PLUGIN_URL', ( defined( 'WP_SITEURL' ) ? WP_SITEURL : '' ) . '/-/m
 
 // --- Object cache (RUNTIME.md section 5) -------------------------------------
 // The Redis Object Cache drop-in is copied into wp-content by the entrypoint
-// when PRESSO_REDIS_HOST is set. One ACL user per site, scoped to the prefix.
+// when PRESSO_REDIS_HOST is set. The server is Valkey; WP_REDIS_* and
+// PRESSO_REDIS_* name the compatible Redis protocol. One ACL user per site.
 define( 'WP_CACHE', true );
 $presso_redis_host = presso_env( 'PRESSO_REDIS_HOST' );
 if ( $presso_redis_host !== null ) {
 	define( 'WP_REDIS_HOST', $presso_redis_host );
 	define( 'WP_REDIS_PORT', (int) presso_env( 'PRESSO_REDIS_PORT', '6379' ) );
-	// Redis ACL credentials. The drop-in's phpredis path only performs ACL
+	// Valkey ACL credentials. The drop-in's phpredis path only performs ACL
 	// authentication when WP_REDIS_PASSWORD is the [username, password] array
 	// form (WP_REDIS_USERNAME is honoured by the Predis client alone).
 	if ( presso_env( 'PRESSO_REDIS_PASSWORD' ) !== null ) {
@@ -142,7 +143,7 @@ if ( $presso_redis_host !== null ) {
 	define( 'WP_REDIS_MAXTTL', 86400 ); // Bound keys so volatile-lru can evict.
 	define( 'WP_REDIS_DISABLE_BANNERS', true );
 	define( 'WP_REDIS_DISABLE_METRICS', true );
-	define( 'WP_REDIS_GRACEFUL', true ); // Redis down degrades, never fatals.
+	define( 'WP_REDIS_GRACEFUL', true ); // Cache outage degrades, never fatals.
 } else {
 	define( 'WP_REDIS_DISABLED', true );
 }

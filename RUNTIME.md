@@ -122,21 +122,21 @@ prototype Caddy's cache module, fallback Varnish behind the edge Caddy.
 
 ### 5. Object cache
 Options:
-- Redis with a drop-in (redis-cache plugin's object-cache.php, or Object Cache
+- Valkey with a drop-in (redis-cache plugin's object-cache.php, or Object Cache
   Pro).
 - Relay (PHP extension, Redis-backed with in-process cache; fastest, licensing
   to check).
 - Memcached. Fine, less tooling.
 - APCu in-process. Rejected: WP-CLI and cron processes cannot see or flush it.
-Decision: Redis, one shared instance per host (ORCHESTRATION), one ACL user
+Decision: Valkey, one shared instance per host (ORCHESTRATION), one ACL user
 per site restricted to a key prefix (`~site-<id>:*`). The drop-in sets the
 prefix from env. The drop-in is copied into the wp-content volume by the
 entrypoint (drop-ins must live in WP_CONTENT_DIR; they cannot be relocated
 like mu-plugins). Relay remains an evaluation item, not a dependency.
 
-Redis config: maxmemory cap, eviction policy volatile-lru (only evicts keys
+Valkey config: maxmemory cap, eviction policy volatile-lru (only evicts keys
 with a TTL) so that non-cache data (telemetry, events) is never silently
-dropped. Redis is strictly cache + fire-and-forget messaging; the engine's
+dropped. Valkey is strictly cache + fire-and-forget messaging; the engine's
 durable state lives in its own database.
 
 ### 6. Database
@@ -279,8 +279,8 @@ orchestrator; no site-owner toggles):
   signed token; plugin validates and creates the session. Application
   passwords cover REST.
 - telemetry: sampled per-request timing + query count to structured logs or
-  Redis, so the engine can show latency and slow requests per site.
-- events: fire-and-forget to Redis (plugin activated, user login, fatal
+  Valkey, so the engine can show latency and slow requests per site.
+- events: fire-and-forget to Valkey (plugin activated, user login, fatal
   error, core upgraded) for the engine's audit log.
 - domain: output filter rewriting known former domains to the current primary
   as a safety net after a domain change; logs hits. Staging flag: force
@@ -292,7 +292,7 @@ is removed afterwards. Separate codebase with a minimal PHP floor.
 
 Constants that need no plugin stay in the generated wp-config (section 7):
 DISABLE_WP_CRON, WP_POST_REVISIONS, DISALLOW_FILE_EDIT, WP_AUTO_UPDATE_CORE,
-WPMU_PLUGIN_DIR, cache/redis credentials.
+WPMU_PLUGIN_DIR, cache credentials.
 
 Risks and mitigations:
 - Kitchen sink: scope rule above.
@@ -339,7 +339,7 @@ and the OCI label `presso.runtime.flavor`.
 +------------------------------------------------------------+
         |                              |
         v                              v
-   MySQL (site db + user)        Redis (site ACL user)
+   MySQL (site db + user)        Valkey (site ACL user)
    provided externally           provided externally
 ```
 
@@ -375,7 +375,7 @@ Images are built in two stages (`runtime/`, published by
 
 Per-site differences arrive as environment variables (the env contract in
 `internal/site/container.go`): db host/name/user/password/charset/collation/
-prefix, redis host/ACL credentials, salts, primary domain (WP_HOME/
+prefix, Valkey host/ACL credentials, salts, primary domain (WP_HOME/
 WP_SITEURL), profile (prod|dev), file-mod policy, and the PHP ini values the
 settings UI exposes (`PHP_MEMORY_LIMIT`, `PHP_UPLOAD_MAX_FILESIZE`,
 `PHP_POST_MAX_SIZE`, `PHP_MAX_EXECUTION_TIME`, `PHP_MAX_INPUT_VARS`,

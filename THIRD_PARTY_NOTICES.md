@@ -46,13 +46,22 @@ with the root `LICENSE` and `NOTICE`.
 The runtime-base images also include the original presso license and notice
 under `/usr/share/licenses/presso/`, since they are published independently.
 
-## Redis server is a separate component
+## Valkey server and Redis protocol clients
 
-The GPLv3 Redis Object Cache PHP drop-in is not the Redis server. The current
-`REDIS_IMAGE=redis:7-alpine` default was observed resolving to Redis 7.4.11 in
-the 2026-09-08 review. Redis 7.4 uses RSALv2/SSPLv1, not BSD or the drop-in's GPLv3.
-See [Redis's version-specific license terms](https://redis.io/legal/licenses/)
-before choosing a server version and deployment model.
+The default cache server is `valkey/valkey:8.1.10-alpine`, pulled directly from
+upstream by the engine. Valkey's server license is BSD-3-Clause; its
+[versioned source and notices](https://github.com/valkey-io/valkey/tree/8.1.10)
+and [full COPYING file](https://raw.githubusercontent.com/valkey-io/valkey/8.1.10/COPYING)
+include both Valkey contributors' and inherited Redis copyright notices.
+The container's other packages retain their own terms. Presso does not
+republish this image as part of its own runtime or edge images.
+
+The server change removes Redis 7.4's RSALv2/SSPLv1 from the default deployment.
+It does not change the GPLv3 license of Redis Object Cache, the BSD license of
+`github.com/redis/go-redis/v9`, or the PHP license of phpredis. Those clients
+speak the protocol Valkey supports and do not require the Redis server.
+`WP_REDIS_*` / `PRESSO_REDIS_*` remain protocol configuration names.
+See [the Valkey verification record](docs/license-review/valkey.md).
 
 Go and frontend dependencies, fonts, operating-system packages, and shared
 service images retain their respective licenses and notices. Dependency versions

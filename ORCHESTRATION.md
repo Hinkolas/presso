@@ -24,7 +24,7 @@ daemon socket, exposes an HTTP/JSON API consumed by the UI and by the harness
 CLI. Keeps its durable state (site model, credentials, tokens, jobs, backups
 index, metrics rollups) in SQLite. Decided: single-host scope for now; one
 engine per host, one SQLite file. Postgres only if multi-host ever needs a
-shared store. Consumes telemetry/events from Redis. Runs the
+shared store. Consumes telemetry/events from Valkey. Runs the
 cron runner and the update/snapshot/rollback jobs as internal workers.
 
 UI: SvelteKit, talking only to the engine's API. No direct Docker or
@@ -39,7 +39,7 @@ Go packages, so local and production provisioning share code.
 |----------------------|--------------|---------------------------------------------------|
 | Edge proxy           | 1 per host   | TLS, hostname routing, full-page cache, rate limit|
 | Site container       | 1 per site   | Runtime image (FrankenPHP), see RUNTIME.md        |
-| Redis                | shared       | One container, one ACL user per site              |
+| Valkey                | shared       | One container, one ACL user per site              |
 | MariaDB              | shared       | One container, one database + user per site       |
 | Cron runner          | 1 per host   | Invokes WP-CLI cron in each site container        |
 | Management engine    | 1 per host   | Provisioning, updates, backups, metrics, API      |
@@ -68,7 +68,7 @@ Go packages, so local and production provisioning share code.
           +------------+------------+
           |                         |
      +----+----+              +-----+----+
-     | mariadb |              |  redis   |
+     | mariadb |              |  valkey  |
      | shared  |              |  shared  |
      +---------+              +----------+
 
@@ -80,7 +80,7 @@ Request flow:
 2. Edge checks the page cache. Hit: respond, no PHP runs.
 3. Miss: route by Host header to the site container over plain HTTP.
 4. Site container's FrankenPHP serves the static file or runs PHP, using its
-   own MySQL database and Redis ACL user over the internal network.
+   own MySQL database and Valkey ACL user over the internal network.
 5. Edge stores the response in the page cache if cookies/path rules allow.
 
 Two web servers per request on a miss (edge Caddy, then the Caddy embedded in
@@ -93,13 +93,13 @@ global TLS, cache, and rate-limit policy. The engine adds/removes routes at
 runtime via the proxy's API; no restart.
 
 Networks: one internal network is sufficient. Site containers publish no
-ports and are isolated from each other by credentials (DB user grants, Redis
+ports and are isolated from each other by credentials (DB user grants, Valkey
 ACL key patterns), not by network. Per-site networks are possible later but
 hit Docker's default address pool limits after a few dozen.
 
-Sharing Redis and MariaDB saves memory (buffer pool, process overhead).
+Sharing Valkey and MariaDB saves memory (buffer pool, process overhead).
 Isolation is by credentials: separate DB users with grants scoped to their
-database, separate Redis ACL users restricted to a per-site key prefix.
+database, separate Valkey ACL users restricted to a per-site key prefix.
 Trade-off accepted: a compromise of the shared database server itself affects
 all sites; per-site PHP containers cannot reach other sites' data through
 WordPress-level exploits.
@@ -107,7 +107,7 @@ WordPress-level exploits.
 Shared services (decided, details in RUNTIME.md sections 4-6, 14):
 - MariaDB: one instance, utf8mb4, per-site db + user, slow query log on,
   buffer pool sized for the host.
-- Redis: one instance, ACL user per site (`~site-<id>:*`), maxmemory with
+- Valkey: one instance, ACL user per site (`~site-<id>:*`), maxmemory with
   volatile-lru so non-TTL data (telemetry, events) is never evicted. Cache and
   fire-and-forget messaging only; the engine keeps its own durable database.
 - Edge page cache: see "Edge page cache" below.
@@ -118,11 +118,11 @@ Implemented in this repo (see README.md for the dev loop):
 
 - Engine on the host (`pressod`), embedded web UI, SQLite state, jobs runner
   with live progress over SSE.
-- Platform reconciler: docker network, MariaDB, Redis and the edge container
+- Platform reconciler: docker network, MariaDB, Valkey and the edge container
   are created and kept running by the engine; per-site database/user and
-  Redis ACL user provisioning; ACLs re-applied every minute (Redis keeps them
+  Valkey ACL user provisioning; ACLs re-applied every minute (Valkey keeps them
   in memory only).
-- Sites: create (provision job: image, db, redis, volume, container, health,
+- Sites: create (provision job: image, db, valkey, volume, container, health,
   `wp core install`, edge route, warm), start/stop/restart/recreate/retry,
   delete (typed-slug confirm, optional volume keep), settings with automatic
   recreate, WP-CLI runner, one-click admin login link, cache purge.
@@ -229,7 +229,7 @@ tag tooling, no TLS, extra process). nginx proxy_cache rejected: mature but
 tag purge is not native.
 
 Policy (decided):
-- Storage: persistent (disk or Redis backed), never memory-only, so an edge
+- Storage: persistent (disk or Valkey backed), never memory-only, so an edge
   restart does not cause a cold-start storm across all sites. Per-site size
   quota so one site cannot evict the others.
 - stale-if-error ON for every site: the system plugin's Cache-Control always
@@ -273,12 +273,12 @@ Policy (decided):
   tag so publishing purges them and new URLs are seen on the next walk.
 
 Per-site memory budget (idle, low traffic): roughly 80–150 MB for PHP plus a
-negligible share of Redis/MySQL. A 32 GB host should hold well over a hundred
+negligible share of Valkey/MySQL. A 32 GB host should hold well over a hundred
 small sites.
 
 ## Proposed engine responsibilities
 
-- Provision: create DB + user, Redis ACL, volumes, container, proxy route, TLS.
+- Provision: create DB + user, Valkey ACL, volumes, container, proxy route, TLS.
 - Configure: generate wp-config from a site model (constants, salts, cache,
   cron off, debug off, file mods policy).
 - Update: swap runtime image tag (core/PHP), run db upgrade via WP-CLI, roll
@@ -294,7 +294,7 @@ small sites.
   site on demand and on deploy. Content-driven purges come from the system
   plugin directly; the engine issues a site purge after core/plugin updates.
 - System plugin integration: issue per-site purge tokens and login tokens,
-  consume telemetry and events from Redis, set module toggles via env.
+  consume telemetry and events from Valkey, set module toggles via env.
 - Guard: warn or refuse installation of known page-cache plugins that
   conflict with the platform cache.
 - Metrics: per-site request rate, p95 latency, PHP errors, slow queries,
@@ -479,7 +479,7 @@ How the platform handles it:
 ## Later (explicitly out of scope for now)
 
 Scope decision: single host. Everything above assumes one machine running the
-edge, all site containers, MariaDB, Redis and the engine. Multi-host is a
+edge, all site containers, MariaDB, Valkey and the engine. Multi-host is a
 later phase and should not shape the current design beyond keeping the site
 model host-agnostic (a site is a record; its host is an attribute).
 

@@ -1,12 +1,12 @@
 // Package platform reconciles the shared infrastructure every site depends
-// on: the docker network, the MariaDB and Redis containers and the Caddy
+// on: the docker network, the MariaDB and Valkey containers and the Caddy
 // edge. pressod runs the reconciler on boot and periodically, so a fresh
 // host needs nothing but Docker and the engine binary, and a container that
 // disappears is recreated. Volumes persist across recreates.
 //
-// Platform-level secrets (MariaDB root password, Redis default password) are
+// Platform-level secrets (MariaDB root password, Valkey default password) are
 // generated once and stored encrypted in platform_kv. Per-site database and
-// Redis ACL provisioning lives here too because it needs those credentials.
+// Valkey ACL provisioning lives here too because it needs those credentials.
 package platform
 
 import (
@@ -43,14 +43,14 @@ import (
 // Container names are fixed: the engine finds them by name after a restart.
 const (
 	NameMariaDB = "presso-mariadb"
-	NameRedis   = "presso-redis"
+	NameValkey  = "presso-valkey"
 	NameEdge    = "presso-edge"
 	NameBrowser = "presso-browser"
 
 	labelHash = "presso.config_hash"
 
 	kvMariaDBRoot     = "mariadb.root_password"
-	kvRedisPassword   = "redis.default_password"
+	kvValkeyPassword  = "valkey.default_password"
 	kvEdgeLastApplied = "edge.last_applied_at"
 	kvEdgeLastError   = "edge.last_error"
 	// kvEdgeRenderedBy is the engine version that last pushed the edge config.
@@ -121,9 +121,19 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 }
 
 // Reconcile ensures every shared component exists and runs, re-applies the
-// Redis ACLs and pushes the edge config when the edge is not carrying ours.
+// Valkey ACLs and pushes the edge config when the edge is not carrying ours.
 // Errors on one component are recorded on it and do not stop the others.
 func (s *Service) Reconcile(ctx context.Context) error {
+	// Pre-release Redis installations need an explicit operator transition.
+	// Never remove their container, reuse their state, or silently compete for
+	// the same published port. Check before touching any managed resources.
+	if s.cfg.Managed {
+		if _, err := s.dk.InspectContainer(ctx, "presso-redis"); err == nil {
+			return fmt.Errorf("platform: found legacy presso-redis; automatic migration is unsupported; use a fresh installation or explicitly retire the old cache after reviewing README.md, Object cache")
+		} else if !errors.Is(err, docker.ErrNotFound) {
+			return fmt.Errorf("platform: check legacy cache: %w", err)
+		}
+	}
 	var comps []Component
 	var errs []error
 	record := func(name string, info *docker.ContainerInfo, image string, err error) {
@@ -152,11 +162,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		}
 		record("mariadb", info, s.cfg.MariaDBImage, err)
 
-		spec, err = s.redisSpec(ctx)
+		spec, err = s.valkeySpec(ctx)
+		info = nil
 		if err == nil {
 			info, _, err = s.ensureContainer(ctx, spec)
 		}
-		record("redis", info, s.cfg.RedisImage, err)
+		record("valkey", info, s.cfg.ValkeyImage, err)
 
 		var created bool
 		info, created, err = s.ensureContainer(ctx, s.edgeSpec())
@@ -170,7 +181,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			record("browser", info, s.cfg.Shots.Image, err)
 		}
 	} else {
-		names := []string{NameMariaDB, NameRedis, NameEdge}
+		names := []string{NameMariaDB, NameValkey, NameEdge}
 		if s.cfg.Shots.Enabled {
 			names = append(names, NameBrowser)
 		}
@@ -183,9 +194,9 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		}
 	}
 
-	if err := s.applyAllRedisACLs(ctx); err != nil && ctx.Err() == nil {
+	if err := s.applyAllCacheACLs(ctx); err != nil && ctx.Err() == nil {
 		errs = append(errs, err)
-		slog.WarnContext(ctx, "platform: redis acls", "err", err)
+		slog.WarnContext(ctx, "platform: valkey acls", "err", err)
 	}
 	// Force a push when the edge is fresh or a newer engine renders the
 	// config; otherwise compare the complete desired configuration generation.
@@ -269,36 +280,36 @@ func (s *Service) mariadbSpec(ctx context.Context) (docker.Spec, error) {
 	}, nil
 }
 
-func (s *Service) redisSpec(ctx context.Context) (docker.Spec, error) {
-	pw, err := s.secret(ctx, kvRedisPassword)
+func (s *Service) valkeySpec(ctx context.Context) (docker.Spec, error) {
+	pw, err := s.secret(ctx, kvValkeyPassword)
 	if err != nil {
 		return docker.Spec{}, err
 	}
-	hostIP, port, err := splitListen(s.cfg.RedisListen)
+	hostIP, port, err := splitListen(s.cfg.ValkeyListen)
 	if err != nil {
 		return docker.Spec{}, err
 	}
 	return docker.Spec{
-		Name:  NameRedis,
-		Image: s.cfg.RedisImage,
+		Name:  NameValkey,
+		Image: s.cfg.ValkeyImage,
 		Cmd: []string{
-			"redis-server",
+			"valkey-server",
 			"--requirepass", pw,
-			"--maxmemory", s.cfg.RedisMaxMemory,
+			"--maxmemory", s.cfg.ValkeyMaxMemory,
 			"--maxmemory-policy", "volatile-lru",
 			"--save", "",
 			"--appendonly", "no",
 		},
-		Labels:         managedLabels("redis"),
+		Labels:         managedLabels("valkey"),
 		Network:        s.cfg.Network,
-		NetworkAliases: []string{"redis"},
+		NetworkAliases: []string{"valkey"},
 		Ports:          []docker.PortBinding{{HostIP: hostIP, HostPort: port, ContainerPort: 6379}},
 		RestartPolicy:  "unless-stopped",
 		StopTimeout:    10 * time.Second,
 		LogMaxSize:     "10m",
 		LogMaxFile:     2,
 		Healthcheck: &docker.Healthcheck{
-			Test:     []string{"CMD", "redis-cli", "-a", pw, "--no-auth-warning", "ping"},
+			Test:     []string{"CMD", "valkey-cli", "-a", pw, "--no-auth-warning", "ping"},
 			Interval: 10 * time.Second, Timeout: 3 * time.Second, Retries: 3, StartPeriod: 10 * time.Second,
 		},
 	}, nil
@@ -545,17 +556,17 @@ func (s *Service) MariaDB(ctx context.Context, wait time.Duration) (*sql.DB, err
 	return db, waitReady(ctx, wait, func(ctx context.Context) error { return db.PingContext(ctx) })
 }
 
-// Redis returns a client authenticated as the default user.
-func (s *Service) Redis(ctx context.Context, wait time.Duration) (*redis.Client, error) {
+// Valkey returns a client authenticated as the default user.
+func (s *Service) Valkey(ctx context.Context, wait time.Duration) (*redis.Client, error) {
 	s.mu.Lock()
 	rdb := s.rdb
 	s.mu.Unlock()
 	if rdb == nil {
-		pw, err := s.secret(ctx, kvRedisPassword)
+		pw, err := s.secret(ctx, kvValkeyPassword)
 		if err != nil {
 			return nil, err
 		}
-		rdb = redis.NewClient(&redis.Options{Addr: s.cfg.RedisListen, Password: pw, DialTimeout: 3 * time.Second, MaxRetries: 1})
+		rdb = redis.NewClient(&redis.Options{Addr: s.cfg.ValkeyListen, Password: pw, DialTimeout: 3 * time.Second, MaxRetries: 1})
 		s.mu.Lock()
 		if s.rdb == nil {
 			s.rdb = rdb
@@ -636,12 +647,12 @@ func (s *Service) DropSiteDatabase(ctx context.Context, dbName, user string) err
 	return nil
 }
 
-// --- Redis ACLs ---
+// --- Valkey ACLs ---
 
-// ApplyRedisACL creates or updates a site's Redis user, restricted to its
+// ApplyCacheACL creates or updates a site's Valkey user, restricted to its
 // key prefix and stripped of admin/dangerous commands (no FLUSHDB, no ACL).
-func (s *Service) ApplyRedisACL(ctx context.Context, user, password, keyPrefix string) error {
-	rdb, err := s.Redis(ctx, 30*time.Second)
+func (s *Service) ApplyCacheACL(ctx context.Context, user, password, keyPrefix string) error {
+	rdb, err := s.Valkey(ctx, 30*time.Second)
 	if err != nil {
 		return err
 	}
@@ -657,17 +668,17 @@ func aclSetUserArgs(user, password, keyPrefix string) []any {
 		"~" + keyPrefix + "*", "&*", "+@all", "-@dangerous", "-@admin", "+info", "+client|setname", "+client|setinfo"}
 }
 
-func (s *Service) DeleteRedisACL(ctx context.Context, user string) error {
-	rdb, err := s.Redis(ctx, 15*time.Second)
+func (s *Service) DeleteCacheACL(ctx context.Context, user string) error {
+	rdb, err := s.Valkey(ctx, 15*time.Second)
 	if err != nil {
 		return err
 	}
 	return rdb.Do(ctx, "ACL", "DELUSER", user).Err()
 }
 
-// applyAllRedisACLs re-applies every site's ACL: Redis keeps them in memory
-// only, so a Redis restart would otherwise lock every site out.
-func (s *Service) applyAllRedisACLs(ctx context.Context) error {
+// applyAllCacheACLs re-applies every site's ACL: Valkey keeps them in memory
+// only, so a Valkey restart would otherwise lock every site out.
+func (s *Service) applyAllCacheACLs(ctx context.Context) error {
 	sites, err := s.st.ListSites(ctx)
 	if err != nil {
 		return err
@@ -675,7 +686,7 @@ func (s *Service) applyAllRedisACLs(ctx context.Context) error {
 	if len(sites) == 0 {
 		return nil
 	}
-	rdb, err := s.Redis(ctx, 5*time.Second)
+	rdb, err := s.Valkey(ctx, 5*time.Second)
 	if err != nil {
 		return err
 	}
@@ -689,15 +700,15 @@ func (s *Service) applyAllRedisACLs(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("site %s: %w", site.Slug, err))
 			continue
 		}
-		if err := rdb.Do(ctx, aclSetUserArgs(site.RedisUser, pw, RedisKeyPrefix(site.ID.String()))...).Err(); err != nil {
+		if err := rdb.Do(ctx, aclSetUserArgs(site.RedisUser, pw, CacheKeyPrefix(site.ID.String()))...).Err(); err != nil {
 			errs = append(errs, fmt.Errorf("site %s: %w", site.Slug, err))
 		}
 	}
 	return errors.Join(errs...)
 }
 
-// RedisKeyPrefix is the key namespace of a site in the shared Redis.
-func RedisKeyPrefix(siteID string) string { return "site-" + siteID + ":" }
+// CacheKeyPrefix is the key namespace of a site in the shared Valkey.
+func CacheKeyPrefix(siteID string) string { return "site-" + siteID + ":" }
 
 // --- edge config ---
 

@@ -2,7 +2,7 @@
 // creation of site records, the provisioning / start / stop / recreate /
 // delete jobs, WP-CLI execution, one-click login links, cache purges and the
 // edge route list. It composes internal/docker (containers),
-// internal/platform (shared DB/Redis/edge) and internal/jobs (background
+// internal/platform (shared DB/Valkey/edge) and internal/jobs (background
 // execution); the HTTP layer only translates to and from this package.
 package site
 
@@ -87,13 +87,13 @@ type observedState struct {
 }
 
 // Platform is what the site lifecycle needs from internal/platform (shared
-// database, Redis ACLs, edge config push). *platform.Service implements it;
+// database, Valkey ACLs, edge config push). *platform.Service implements it;
 // tests substitute a fake.
 type Platform interface {
 	CreateSiteDatabase(ctx context.Context, dbName, user, password string) error
 	DropSiteDatabase(ctx context.Context, dbName, user string) error
-	ApplyRedisACL(ctx context.Context, user, password, keyPrefix string) error
-	DeleteRedisACL(ctx context.Context, user string) error
+	ApplyCacheACL(ctx context.Context, user, password, keyPrefix string) error
+	DeleteCacheACL(ctx context.Context, user string) error
 	ApplyEdge(ctx context.Context) error
 	SetEdgeRenderer(platform.EdgeRenderer)
 }
@@ -146,7 +146,7 @@ func New(d Deps) *Service {
 		s.jobs.Register(JobProvision, s.runProvision,
 			image,
 			jobs.Step{Name: "database", Label: "Database"},
-			jobs.Step{Name: "redis", Label: "Object cache"},
+			jobs.Step{Name: "valkey", Label: "Object cache"},
 			jobs.Step{Name: "volume", Label: "Files volume"},
 			container, health,
 			jobs.Step{Name: "wordpress", Label: "WordPress install"},
@@ -162,7 +162,7 @@ func New(d Deps) *Service {
 		s.jobs.Register(JobDelete, s.runDelete,
 			unavailable, container,
 			jobs.Step{Name: "database", Label: "Database"},
-			jobs.Step{Name: "redis", Label: "Object cache"},
+			jobs.Step{Name: "valkey", Label: "Object cache"},
 			jobs.Step{Name: "volume", Label: "Files volume"},
 			jobs.Step{Name: "record", Label: "Site record"},
 		)
