@@ -1,5 +1,5 @@
 <!-- App shell: a sidebar for navigation (with a Platform section that has
-     room to grow), a topbar for search, live state, jobs and the account,
+     room to grow) and platform health, a topbar for search and the account,
      and the page below. One event stream is opened here and shared by every
      page. -->
 <script lang="ts">
@@ -68,8 +68,11 @@
 		return n;
 	});
 
-	// Platform health for the sidebar chip: every component reported ok.
+	// Platform health for the sidebar chip: every component reported ok. A
+	// dropped event stream is surfaced here too, since the data on screen may
+	// be stale until it reconnects.
 	const platformState = $derived.by(() => {
+		if (!live.connected && live.generation > 0) return 'offline';
 		const comps = live.platform;
 		if (!comps || comps.length === 0) return null;
 		const bad = comps.some(
@@ -221,13 +224,17 @@
 						? 'bg-ok'
 						: platformState === 'error'
 							? 'bg-danger'
-							: 'bg-rule-strong'}"
+							: platformState === 'offline'
+								? 'breathe bg-busy'
+								: 'bg-rule-strong'}"
 				></span>
 				<span>
 					{#if platformState === 'ok'}
 						All systems healthy
 					{:else if platformState === 'error'}
 						A component needs attention
+					{:else if platformState === 'offline'}
+						Reconnecting live updates
 					{:else}
 						Checking the platform
 					{/if}
@@ -276,33 +283,6 @@
 					>⌘K</kbd
 				>
 			</button>
-
-			<span
-				class="hidden h-8 items-center gap-2 rounded-full px-3 text-xs font-medium sm:inline-flex {live.connected
-					? 'bg-ok-soft text-ok-ink'
-					: 'bg-sunken text-ink-3'}"
-				title={live.connected ? 'Live updates connected' : 'Live updates disconnected'}
-			>
-				<span class="size-2 rounded-full {live.connected ? 'bg-ok' : 'bg-rule-strong'}"></span>
-				{live.connected ? 'Live' : 'Reconnecting'}
-			</span>
-
-			<a
-				href={resolve('/jobs')}
-				class="relative grid size-10 place-items-center rounded-control-sm text-ink-2 transition-colors hover:bg-sunken hover:text-ink"
-				aria-label="Jobs{runningJobs ? `, ${runningJobs} running` : ''}"
-				title="Jobs"
-			>
-				<Icon name="clock" size={20} />
-				{#if runningJobs}
-					<span
-						class="absolute top-0.5 right-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-busy-soft px-1 text-[11px] font-semibold text-busy-ink num ring-2 ring-surface"
-						>{runningJobs}</span
-					>
-				{/if}
-			</a>
-
-			<span class="mx-1 hidden h-6 w-px bg-rule sm:block"></span>
 
 			<Menu
 				items={accountItems}
