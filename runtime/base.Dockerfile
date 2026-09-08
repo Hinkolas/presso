@@ -60,3 +60,6 @@ ENV PRESSO_FLAVOR=frankenphp \
     SERVER_NAME=:8080
 EXPOSE 8080
 WORKDIR /var/www/html
+
+# This base is published independently of the site image.
+COPY mu-plugins/LICENSE mu-plugins/NOTICE /usr/share/licenses/presso/

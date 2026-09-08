@@ -44,3 +44,6 @@ go.work.sum
 # --- Embedded web UI build (copied from web/build by task build:web) ---
 /internal/webui/dist/*
 !/internal/webui/dist/.gitkeep
+
+# Generated from the installed frontend dependencies before each web build.
+/web/static/third-party-licenses.txt

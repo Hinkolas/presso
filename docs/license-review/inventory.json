@@ -1,0 +1,6541 @@
+{
+  "date": "2026-09-08",
+  "reviewed_commit": "8a8008287f9a298f9b425893d01dc7992818c2d5",
+  "scope": "Technical licensing review, not legal certification or a complete SBOM. Image records are representative local arm64 builds, not final release images.",
+  "go_basis": "Both prior Linux snapshot binaries; code, go.mod/go.sum and frontend sources unchanged between ff9c4aa and the reviewed commit. Root license files checked; not a file-by-file audit.",
+  "go_dependencies": [
+    {
+      "module": "filippo.io/edwards25519",
+      "version": "v1.2.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+        }
+      ]
+    },
+    {
+      "module": "github.com/cespare/xxhash/v2",
+      "version": "v2.3.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+        }
+      ]
+    },
+    {
+      "module": "github.com/chromedp/cdproto",
+      "version": "v0.0.0-20260714215040-dc233986426f",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "a0420372ef7d3cf6d111994ee3ed30e606d5043ee9be12b270f6441b60e19bab"
+        }
+      ]
+    },
+    {
+      "module": "github.com/chromedp/chromedp",
+      "version": "v0.16.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "a0420372ef7d3cf6d111994ee3ed30e606d5043ee9be12b270f6441b60e19bab"
+        }
+      ]
+    },
+    {
+      "module": "github.com/chromedp/sysutil",
+      "version": "v1.1.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "7c3f40700432f459a90770b4108f8526a6a62380c2a2720d8cf279ea8751662a"
+        }
+      ]
+    },
+    {
+      "module": "github.com/containerd/errdefs",
+      "version": "v1.0.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "4bbe3b885e8cd1907ab4cf9a41e862e74e24b5422297a4f2fe524e6a30ada2b4"
+        }
+      ]
+    },
+    {
+      "module": "github.com/containerd/errdefs/pkg",
+      "version": "v0.3.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "4bbe3b885e8cd1907ab4cf9a41e862e74e24b5422297a4f2fe524e6a30ada2b4"
+        }
+      ]
+    },
+    {
+      "module": "github.com/distribution/reference",
+      "version": "v0.6.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+        }
+      ]
+    },
+    {
+      "module": "github.com/docker/go-connections",
+      "version": "v0.8.1",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "ba3065d2f4b11bb42a0f7b708b021d1c28fa45d097b3eab3e7db9ab4745040d1"
+        }
+      ]
+    },
+    {
+      "module": "github.com/docker/go-units",
+      "version": "v0.5.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "ba3065d2f4b11bb42a0f7b708b021d1c28fa45d097b3eab3e7db9ab4745040d1"
+        }
+      ]
+    },
+    {
+      "module": "github.com/dustin/go-humanize",
+      "version": "v1.0.1",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71"
+        }
+      ]
+    },
+    {
+      "module": "github.com/felixge/httpsnoop",
+      "version": "v1.1.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "8108e14b5cb2b6bcd51583d3849ef0c2b5c4de61758256c20308bc70d1775dbb"
+        }
+      ]
+    },
+    {
+      "module": "github.com/go-chi/chi/v5",
+      "version": "v5.3.2",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "a2d51b7515acfaff2f7a88688650f2fc4fd99561383e72bba2305e3db59a1647"
+        }
+      ]
+    },
+    {
+      "module": "github.com/go-json-experiment/json",
+      "version": "v0.0.0-20260623181947-01eb4420fa68",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "14a34c4db2d21bf9cf80d028b802cd22fed9bf597a6c2db7ce30ee6ffd04967a"
+        }
+      ]
+    },
+    {
+      "module": "github.com/go-logr/logr",
+      "version": "v1.4.4",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        }
+      ]
+    },
+    {
+      "module": "github.com/go-logr/stdr",
+      "version": "v1.2.2",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "module": "github.com/go-sql-driver/mysql",
+      "version": "v1.10.1",
+      "root_license": "MPL-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+        }
+      ]
+    },
+    {
+      "module": "github.com/gobwas/httphead",
+      "version": "v0.1.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "7d168561ad5212bf5b3023d55cba37c9594eb011ba74445d99f82055be662589"
+        }
+      ]
+    },
+    {
+      "module": "github.com/gobwas/pool",
+      "version": "v0.2.1",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "bcc745631c0144db2c601650c55d108172c80d601cf2346c71594a0bc32f6f1c"
+        }
+      ]
+    },
+    {
+      "module": "github.com/gobwas/ws",
+      "version": "v1.4.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "db823214b3ef18274418accda3812faac38a1545b8bd589aeb613a849b949c7a"
+        }
+      ]
+    },
+    {
+      "module": "github.com/google/uuid",
+      "version": "v1.6.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "0a8d61ed3cbfd5312326e8126c31ce9c627a283adc99131b56896d29ada04b2d"
+        }
+      ]
+    },
+    {
+      "module": "github.com/joho/godotenv",
+      "version": "v1.5.1",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENCE",
+          "sha256": "4334bf49b7e1a6736ce1b21814d5cce392000204d059ee6a845eeb966e7a1e31"
+        }
+      ]
+    },
+    {
+      "module": "github.com/mfridman/interpolate",
+      "version": "v0.0.2",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "21408182c12c98d402fa38a8b678560dc63fd6bada5a0017722883e4b79e6620"
+        }
+      ]
+    },
+    {
+      "module": "github.com/moby/docker-image-spec",
+      "version": "v1.3.1",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "module": "github.com/moby/moby/api",
+      "version": "v1.56.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "module": "github.com/moby/moby/client",
+      "version": "v0.6.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "module": "github.com/opencontainers/go-digest",
+      "version": "v1.0.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "aceb55133c41c50c2e170c5918e301fe74f592d0f28724bf2f7a7bfdcff1fc5f"
+        },
+        {
+          "file": "LICENSE.docs",
+          "sha256": "a1d1adec3ba691ef6e377a78bbe9e9e2501f2f4a1723d08857da1ac6564e4fed"
+        }
+      ]
+    },
+    {
+      "module": "github.com/opencontainers/image-spec",
+      "version": "v1.1.1",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "b0a3f39513927db306adabea11d14c23f079d4febcea241d123a68d1a0d45418"
+        }
+      ]
+    },
+    {
+      "module": "github.com/pressly/goose/v3",
+      "version": "v3.28.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "f23985556a879c0e68bb4e136ee4b88a550d26fa33db77a65d76b721c93093ef"
+        }
+      ]
+    },
+    {
+      "module": "github.com/redis/go-redis/v9",
+      "version": "v9.22.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "a3a7dff87da3927db65cb4c87b1cfbc96ca2755704461a485d457be7ae300a86"
+        }
+      ]
+    },
+    {
+      "module": "github.com/remyoudompheng/bigfft",
+      "version": "v0.0.0-20230129092748-24d4a6f8daec",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d"
+        }
+      ]
+    },
+    {
+      "module": "github.com/sethvargo/go-envconfig",
+      "version": "v1.4.3",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "module": "github.com/sethvargo/go-retry",
+      "version": "v0.4.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "module": "go.opentelemetry.io/auto/sdk",
+      "version": "v1.2.1",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+      "version": "v0.71.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "1ae07514be1d7bb33f0698f8d91fb51b8b9fe1463157ec1c72081a49b9bc6f40"
+        }
+      ]
+    },
+    {
+      "module": "go.opentelemetry.io/otel",
+      "version": "v1.46.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "1ae07514be1d7bb33f0698f8d91fb51b8b9fe1463157ec1c72081a49b9bc6f40"
+        }
+      ]
+    },
+    {
+      "module": "go.opentelemetry.io/otel/metric",
+      "version": "v1.46.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "1ae07514be1d7bb33f0698f8d91fb51b8b9fe1463157ec1c72081a49b9bc6f40"
+        }
+      ]
+    },
+    {
+      "module": "go.opentelemetry.io/otel/trace",
+      "version": "v1.46.0",
+      "root_license": "Apache-2.0",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "1ae07514be1d7bb33f0698f8d91fb51b8b9fe1463157ec1c72081a49b9bc6f40"
+        }
+      ]
+    },
+    {
+      "module": "go.uber.org/atomic",
+      "version": "v1.11.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "edbb5a4d165ac69376c765b551c0662ff42bea87e1f1eda85f42ac90c34b09d0"
+        }
+      ]
+    },
+    {
+      "module": "go.uber.org/multierr",
+      "version": "v1.11.0",
+      "root_license": "MIT",
+      "notice_files": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "dcdabe03bef2382a130640d1c3a4cd5ec42aba1035095c38272fde694eb72405"
+        }
+      ]
+    },
+    {
+      "module": "golang.org/x/crypto",
+      "version": "v0.56.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "module": "golang.org/x/mod",
+      "version": "v0.41.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "module": "golang.org/x/sync",
+      "version": "v0.22.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "module": "golang.org/x/sys",
+      "version": "v0.47.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "module": "golang.org/x/term",
+      "version": "v0.45.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "module": "modernc.org/libc",
+      "version": "v1.75.6",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "95ff867eb55a56935fa7492406cfa953fb7c13ca73f4c0a86ae05756b4605600"
+        },
+        {
+          "file": "LICENSE-3RD-PARTY.md",
+          "sha256": "f597097efe3d97021f89170746bd3a0fb9a8b6fb26b82043ed68a4e0283bee6c"
+        }
+      ]
+    },
+    {
+      "module": "modernc.org/mathutil",
+      "version": "v1.7.1",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "bfa9bf72a72ca009fd62a8f84fca3dca67e51d93af96352723646599898b6cf5"
+        }
+      ]
+    },
+    {
+      "module": "modernc.org/memory",
+      "version": "v1.12.1",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "59895e669f48f168b6b858358f6005779cdf40a265f7828813061b56af67b496"
+        },
+        {
+          "file": "LICENSE-GO",
+          "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+        },
+        {
+          "file": "LICENSE-LOGO",
+          "sha256": "5ae5bee3072a841376451b48d8cfcec7188e10543926d5870828d36c8a750dc5"
+        },
+        {
+          "file": "LICENSE-MMAP-GO",
+          "sha256": "c2eba69f20d05414538c3a5df7694dde392e065ff70882e1625e90f5d6659fff"
+        }
+      ]
+    },
+    {
+      "module": "modernc.org/sqlite",
+      "version": "v1.58.0",
+      "root_license": "BSD family",
+      "notice_files": [
+        {
+          "file": "LICENSE",
+          "sha256": "c6fe05491a60ae13bcd223088d2705e36dede24e5587226231d2459ada5c4822"
+        },
+        {
+          "file": "LICENSE-SQLITE",
+          "sha256": "8438c9c89b849131ead81d5435cb97fcf052df5b0b286dda8a2d4c29e6cb3fd0"
+        },
+        {
+          "file": "LICENSE-SQLITE_VEC",
+          "sha256": "6ce72bbe12d975bd5286e5ab0a064c069693300c47bccbc57bec18485f1621ea"
+        }
+      ]
+    }
+  ],
+  "npm_basis": "All lockfile declarations, including build-only and platform-specific packages. dev flags do not reliably distinguish browser code.",
+  "npm_packages": [
+    {
+      "path": "node_modules/@cacheable/memory",
+      "version": "2.2.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@cacheable/utils",
+      "version": "2.5.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint-community/eslint-utils",
+      "version": "4.10.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint-community/eslint-utils/node_modules/eslint-visitor-keys",
+      "version": "3.4.3",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint-community/regexpp",
+      "version": "4.12.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint/config-array",
+      "version": "0.23.5",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint/config-helpers",
+      "version": "0.7.0",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint/core",
+      "version": "1.2.1",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint/js",
+      "version": "10.0.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint/object-schema",
+      "version": "3.0.5",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@eslint/plugin-kit",
+      "version": "0.7.3",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@fontsource-variable/instrument-sans",
+      "version": "5.3.0",
+      "declared_license": "OFL-1.1",
+      "dev": false,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@fontsource/ibm-plex-mono",
+      "version": "5.3.0",
+      "declared_license": "OFL-1.1",
+      "dev": false,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@fontsource/instrument-serif",
+      "version": "5.3.0",
+      "declared_license": "OFL-1.1",
+      "dev": false,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@humanfs/core",
+      "version": "0.19.2",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@humanfs/node",
+      "version": "0.16.8",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@humanfs/types",
+      "version": "0.15.0",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@humanwhocodes/module-importer",
+      "version": "1.0.1",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@humanwhocodes/retry",
+      "version": "0.4.3",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@jridgewell/gen-mapping",
+      "version": "0.3.13",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@jridgewell/remapping",
+      "version": "2.3.5",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@jridgewell/resolve-uri",
+      "version": "3.1.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@jridgewell/sourcemap-codec",
+      "version": "1.6.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@jridgewell/trace-mapping",
+      "version": "0.3.31",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@keyv/bigmap",
+      "version": "1.3.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@keyv/serialize",
+      "version": "1.1.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@oxc-project/types",
+      "version": "0.148.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@polka/url",
+      "version": "1.0.0-next.29",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@rolldown/binding-android-arm-eabi",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-android-arm64",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-darwin-arm64",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-darwin-x64",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-freebsd-x64",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-arm-gnueabihf",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-arm64-gnu",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-arm64-musl",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-ppc64-gnu",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-s390x-gnu",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-x64-gnu",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-x64-musl",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-openharmony-arm64",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-win32-arm64-msvc",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/binding-win32-x64-msvc",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@rolldown/pluginutils",
+      "version": "1.0.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@standard-schema/spec",
+      "version": "1.1.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@sveltejs/acorn-typescript",
+      "version": "1.0.13",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@sveltejs/adapter-static",
+      "version": "3.0.10",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@sveltejs/kit",
+      "version": "2.70.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@sveltejs/load-config",
+      "version": "0.2.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@sveltejs/vite-plugin-svelte",
+      "version": "7.3.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@sveltejs/vite-plugin-svelte/node_modules/magic-string",
+      "version": "1.2.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@tailwindcss/node",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-android-arm64",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-darwin-arm64",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-darwin-x64",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-freebsd-x64",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-linux-arm-gnueabihf",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-linux-arm64-gnu",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-linux-arm64-musl",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-linux-x64-gnu",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-linux-x64-musl",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-wasm32-wasi",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-win32-arm64-msvc",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-win32-x64-msvc",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/@tailwindcss/vite",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@types/cookie",
+      "version": "0.6.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@types/esrecurse",
+      "version": "4.3.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@types/estree",
+      "version": "1.0.9",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@types/json-schema",
+      "version": "7.0.15",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@types/node",
+      "version": "22.20.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/eslint-plugin",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/eslint-plugin/node_modules/ignore",
+      "version": "7.0.8",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/parser",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/project-service",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/scope-manager",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/tsconfig-utils",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/type-utils",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/types",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/typescript-estree",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/utils",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/@typescript-eslint/visitor-keys",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/acorn",
+      "version": "8.18.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/acorn-jsx",
+      "version": "5.3.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/ajv",
+      "version": "6.15.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/aria-query",
+      "version": "5.3.1",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/axobject-query",
+      "version": "4.1.0",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/balanced-match",
+      "version": "4.0.4",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/brace-expansion",
+      "version": "5.0.9",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/cacheable",
+      "version": "2.5.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/chokidar",
+      "version": "4.0.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/clsx",
+      "version": "2.1.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/cookie",
+      "version": "0.6.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/cross-spawn",
+      "version": "7.0.6",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/cssesc",
+      "version": "3.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/debug",
+      "version": "4.4.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/deep-is",
+      "version": "0.1.4",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/deepmerge",
+      "version": "4.3.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/detect-libc",
+      "version": "2.1.2",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/devalue",
+      "version": "5.9.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/enhanced-resolve",
+      "version": "5.24.5",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/escape-string-regexp",
+      "version": "4.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/eslint",
+      "version": "10.10.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/eslint-config-prettier",
+      "version": "10.1.8",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/eslint-plugin-svelte",
+      "version": "3.23.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/eslint-plugin-svelte/node_modules/globals",
+      "version": "16.5.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/eslint-scope",
+      "version": "9.1.2",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/eslint-visitor-keys",
+      "version": "5.0.1",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/esm-env",
+      "version": "1.2.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/espree",
+      "version": "11.2.0",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/esquery",
+      "version": "1.7.0",
+      "declared_license": "BSD-3-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/esrap",
+      "version": "2.3.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/esrecurse",
+      "version": "4.3.0",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/estraverse",
+      "version": "5.3.0",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/esutils",
+      "version": "2.0.3",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/fast-deep-equal",
+      "version": "3.1.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/fast-json-stable-stringify",
+      "version": "2.1.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/fast-levenshtein",
+      "version": "2.0.6",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/fdir",
+      "version": "6.5.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/file-entry-cache",
+      "version": "11.1.5",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/find-up",
+      "version": "5.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/flat-cache",
+      "version": "6.1.23",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/flatted",
+      "version": "3.4.4",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/fsevents",
+      "version": "2.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/glob-parent",
+      "version": "6.0.2",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/globals",
+      "version": "17.12.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/graceful-fs",
+      "version": "4.2.11",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/hashery",
+      "version": "1.5.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/hookified",
+      "version": "1.15.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/ignore",
+      "version": "5.3.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/imurmurhash",
+      "version": "0.1.4",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/is-extglob",
+      "version": "2.1.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/is-glob",
+      "version": "4.0.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/isexe",
+      "version": "2.0.0",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/jiti",
+      "version": "2.7.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/json-schema-traverse",
+      "version": "0.4.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/json-stable-stringify-without-jsonify",
+      "version": "1.0.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/keyv",
+      "version": "5.6.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/kleur",
+      "version": "4.1.5",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/known-css-properties",
+      "version": "0.37.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/levn",
+      "version": "0.4.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/lightningcss",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/lightningcss-android-arm64",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-darwin-arm64",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-darwin-x64",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-freebsd-x64",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-linux-arm-gnueabihf",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-linux-arm64-gnu",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-linux-arm64-musl",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-linux-x64-gnu",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-linux-x64-musl",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-win32-arm64-msvc",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lightningcss-win32-x64-msvc",
+      "version": "1.32.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/lilconfig",
+      "version": "2.1.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/locate-character",
+      "version": "3.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/locate-path",
+      "version": "6.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/magic-string",
+      "version": "0.30.21",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/minimatch",
+      "version": "10.2.6",
+      "declared_license": "BlueOak-1.0.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/mri",
+      "version": "1.2.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/mrmime",
+      "version": "2.0.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/ms",
+      "version": "2.1.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/nanoid",
+      "version": "3.3.18",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/natural-compare",
+      "version": "1.4.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/obug",
+      "version": "2.1.4",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/optionator",
+      "version": "0.9.4",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/p-limit",
+      "version": "3.1.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/p-locate",
+      "version": "5.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/path-exists",
+      "version": "4.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/path-key",
+      "version": "3.1.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/picocolors",
+      "version": "1.1.1",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/picomatch",
+      "version": "4.0.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/postcss",
+      "version": "8.5.28",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/postcss-load-config",
+      "version": "3.1.4",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/postcss-load-config/node_modules/yaml",
+      "version": "1.10.3",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/postcss-safe-parser",
+      "version": "7.1.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/postcss-scss",
+      "version": "4.0.9",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/postcss-selector-parser",
+      "version": "7.1.6",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/prelude-ls",
+      "version": "1.2.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/prettier",
+      "version": "3.9.6",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/prettier-plugin-svelte",
+      "version": "4.1.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/prettier-plugin-tailwindcss",
+      "version": "0.8.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/punycode",
+      "version": "2.3.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/qified",
+      "version": "0.10.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/qified/node_modules/hookified",
+      "version": "2.2.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/readdirp",
+      "version": "4.1.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/rolldown",
+      "version": "1.2.7",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/sade",
+      "version": "1.8.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/semver",
+      "version": "7.8.5",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/set-cookie-parser",
+      "version": "3.1.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/shebang-command",
+      "version": "2.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/shebang-regex",
+      "version": "3.0.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/sirv",
+      "version": "3.0.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/source-map-js",
+      "version": "1.2.1",
+      "declared_license": "BSD-3-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/svelte",
+      "version": "5.57.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/svelte-check",
+      "version": "4.7.6",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/svelte-eslint-parser",
+      "version": "1.8.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/svelte-eslint-parser/node_modules/eslint-scope",
+      "version": "8.4.0",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/svelte-eslint-parser/node_modules/eslint-visitor-keys",
+      "version": "4.2.1",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/svelte-eslint-parser/node_modules/espree",
+      "version": "10.4.0",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/svelte/node_modules/is-reference",
+      "version": "3.0.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/tailwindcss",
+      "version": "4.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/tapable",
+      "version": "2.3.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/tinyglobby",
+      "version": "0.2.17",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/totalist",
+      "version": "3.0.1",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/ts-api-utils",
+      "version": "2.5.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/type-check",
+      "version": "0.4.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/typescript",
+      "version": "6.0.3",
+      "declared_license": "Apache-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/typescript-eslint",
+      "version": "8.69.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/undici-types",
+      "version": "6.21.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/uplot",
+      "version": "1.6.32",
+      "declared_license": "MIT",
+      "dev": false,
+      "optional": false
+    },
+    {
+      "path": "node_modules/uri-js",
+      "version": "4.4.1",
+      "declared_license": "BSD-2-Clause",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/util-deprecate",
+      "version": "1.0.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/vite",
+      "version": "8.2.2",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-android-arm64",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-darwin-arm64",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-darwin-x64",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-freebsd-x64",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-linux-arm-gnueabihf",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-linux-arm64-gnu",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-linux-arm64-musl",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-linux-x64-gnu",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-linux-x64-musl",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-win32-arm64-msvc",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vite/node_modules/lightningcss-win32-x64-msvc",
+      "version": "1.33.0",
+      "declared_license": "MPL-2.0",
+      "dev": true,
+      "optional": true
+    },
+    {
+      "path": "node_modules/vitefu",
+      "version": "1.1.3",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/which",
+      "version": "2.0.2",
+      "declared_license": "ISC",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/word-wrap",
+      "version": "1.2.5",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/yocto-queue",
+      "version": "0.1.0",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    },
+    {
+      "path": "node_modules/zimmerframe",
+      "version": "1.1.5",
+      "declared_license": "MIT",
+      "dev": true,
+      "optional": false
+    }
+  ],
+  "edge_go_dependencies": [
+    {
+      "module": "cel.dev/expr",
+      "version": "v0.25.1",
+      "sum": "h1:1KrZg61W6TWSxuNZ37Xy49ps13NUovb66QLprthtwi4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "cloud.google.com/go/auth",
+      "version": "v0.20.0",
+      "sum": "h1:kXTssoVb4azsVDoUiF8KvxAqrsQcQtB53DcSgta74CA=",
+      "license_reviewed": false
+    },
+    {
+      "module": "cloud.google.com/go/auth/oauth2adapt",
+      "version": "v0.2.8",
+      "sum": "h1:keo8NaayQZ6wimpNSmW5OPc283g65QNIiLpZnkHRbnc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "cloud.google.com/go/compute/metadata",
+      "version": "v0.9.0",
+      "sum": "h1:pDUj4QMoPejqq20dK0Pg2N4yG9zIkYGdBtwLoEkH9Zs=",
+      "license_reviewed": false
+    },
+    {
+      "module": "dario.cat/mergo",
+      "version": "v1.0.2",
+      "sum": "h1:85+piFYR1tMbRrLcDwR18y4UKJ3aH1Tbzi24VRW1TK8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "filippo.io/bigmod",
+      "version": "v0.1.0",
+      "sum": "h1:UNzDk7y9ADKST+axd9skUpBQeW7fG2KrTZyOE4uGQy8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "filippo.io/edwards25519",
+      "version": "v1.2.0",
+      "sum": "h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/BurntSushi/toml",
+      "version": "v1.6.0",
+      "sum": "h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/DeRuina/timberjack",
+      "version": "v1.4.2",
+      "sum": "h1:4bKlzhKdsR+2oNkgef9mqb4n11ICow8VK88RfzJPzN8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/KimMachineGun/automemlimit",
+      "version": "v0.7.5",
+      "sum": "h1:RkbaC0MwhjL1ZuBKunGDjE/ggwAX43DwZrJqVwyveTk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/Masterminds/goutils",
+      "version": "v1.1.1",
+      "sum": "h1:5nUrii3FMTL5diU80unEVvNevw1nH4+ZV4DSLVJLSYI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/Masterminds/semver/v3",
+      "version": "v3.4.0",
+      "sum": "h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/Masterminds/sprig/v3",
+      "version": "v3.3.0",
+      "sum": "h1:mQh0Yrg1XPo6vjYXgtf5OtijNAKJRNcTdOOGZe3tPhs=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/alecthomas/chroma/v2",
+      "version": "v2.24.1",
+      "sum": "h1:m5ffpfZbIb++k8AqFEKy9uVgY12xIQtBsQlc6DfZJQM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/antlr4-go/antlr/v4",
+      "version": "v4.13.1",
+      "sum": "h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/aryann/difflib",
+      "version": "v0.0.0-20210328193216-ff5ff6dc229b",
+      "sum": "h1:uUXgbcPDK3KpW29o4iy7GtuappbWT0l5NaMo9H9pJDw=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/beorn7/perks",
+      "version": "v1.0.1",
+      "sum": "h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/caddyserver/caddy/v2",
+      "version": "v2.11.4",
+      "sum": "h1:XKxkMTgNSizEvKG6QHue6cAsFOteU2qA61w2tKkCWi0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/caddyserver/certmagic",
+      "version": "v0.25.3",
+      "sum": "h1:mGf5ba8F7xA4c5jfDZZbK2buY1VEkbnwpMDixaju94A=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/caddyserver/zerossl",
+      "version": "v0.1.5",
+      "sum": "h1:dkvOjBAEEtY6LIGAHei7sw2UgqSD6TrWweXpV7lvEvE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/ccoveille/go-safecast/v2",
+      "version": "v2.0.0",
+      "sum": "h1:+5eyITXAUj3wMjad6cRVJKGnC7vDS55zk0INzJagub0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/cenkalti/backoff/v5",
+      "version": "v5.0.3",
+      "sum": "h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/cespare/xxhash/v2",
+      "version": "v2.3.0",
+      "sum": "h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/chzyer/readline",
+      "version": "v1.5.1",
+      "sum": "h1:upd/6fQk4src78LMRzh5vItIt361/o4uq553V8B5sGI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/cloudflare/circl",
+      "version": "v1.6.3",
+      "sum": "h1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/coreos/go-oidc/v3",
+      "version": "v3.17.0",
+      "sum": "h1:hWBGaQfbi0iVviX4ibC7bk8OKT5qNr4klBaCHVNvehc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/cpuguy83/go-md2man/v2",
+      "version": "v2.0.7",
+      "sum": "h1:zbFlGlXEAKlwXpmvle3d8Oe3YnkKIK4xSRTd3sHPnBo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/darkweak/go-esi",
+      "version": "v0.0.6",
+      "sum": "h1:eVHCJfqrZwOHPfRK7JTlSYG9F8lfpX/d4lz/41RQkd8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/darkweak/souin",
+      "version": "v1.7.8",
+      "sum": "h1:yENXy0oSzknu0Uzz/bO01rYLCcmAITlDgvEEtbT10PE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/darkweak/souin/plugins/caddy",
+      "version": "v1.7.8",
+      "sum": "h1:MJgDhxwbe0I98qrUtQRP6a7kpyLgJs+c1K4SffTHCI8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/darkweak/storages/badger",
+      "version": "v0.0.19",
+      "sum": "h1:azvvARDBA4cCNv1dvxTyesMy5ndJOETcjwgpHUkAnU8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/darkweak/storages/badger/caddy",
+      "version": "v0.0.19",
+      "sum": "h1:wK0KEthwCPFhqyXMIdYjIBaGIlKfANA/4wFDqO7Zy2Y=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/darkweak/storages/core",
+      "version": "v0.0.19",
+      "sum": "h1:9++DR/dsMhYfuRY7I0L84Ur+aaQJYcW6S/HtiQtUpKQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/dgraph-io/badger/v4",
+      "version": "v4.9.1",
+      "sum": "h1:DocZXZkg5JJHJPtUErA0ibyHxOVUDVoXLSCV6t8NC8w=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/dgraph-io/ristretto/v2",
+      "version": "v2.2.0",
+      "sum": "h1:bkY3XzJcXoMuELV8F+vS8kzNgicwQFAaGINAEJdWGOM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/dlclark/regexp2",
+      "version": "v1.12.0",
+      "sum": "h1:0j4c5qQmnC6XOWNjP3PIXURXN2gWx76rd3KvgdPkCz8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/dustin/go-humanize",
+      "version": "v1.0.1",
+      "sum": "h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/felixge/httpsnoop",
+      "version": "v1.0.4",
+      "sum": "h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/fxamacker/cbor/v2",
+      "version": "v2.9.0",
+      "sum": "h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/go-chi/chi/v5",
+      "version": "v5.2.5",
+      "sum": "h1:Eg4myHZBjyvJmAFjFvWgrqDTXFyOzjj7YIm3L3mu6Ug=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/go-jose/go-jose/v3",
+      "version": "v3.0.5",
+      "sum": "h1:BLLJWbC4nMZOfuPVxoZIxeYsn6Nl2r1fITaJ78UQlVQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/go-jose/go-jose/v4",
+      "version": "v4.1.4",
+      "sum": "h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/go-logr/logr",
+      "version": "v1.4.3",
+      "sum": "h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/go-logr/stdr",
+      "version": "v1.2.2",
+      "sum": "h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/google/cel-go",
+      "version": "v0.28.1",
+      "sum": "h1:YWIwi77J4xIsYUwAF/iIuS6haffzIHS8yWI8glSbLWM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/google/certificate-transparency-go",
+      "version": "v1.1.8-0.20240110162603-74a5dd331745",
+      "sum": "h1:heyoXNxkRT155x4jTAiSv5BVSVkueifPUm+Q8LUXMRo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/google/flatbuffers",
+      "version": "v25.2.10+incompatible",
+      "sum": "h1:F3vclr7C3HpB1k9mxCGRMXq6FdUalZ6H/pNX4FP1v0Q=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/google/go-tpm",
+      "version": "v0.9.8",
+      "sum": "h1:slArAR9Ft+1ybZu0lBwpSmpwhRXaa85hWtMinMyRAWo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/google/go-tspi",
+      "version": "v0.3.0",
+      "sum": "h1:ADtq8RKfP+jrTyIWIZDIYcKOMecRqNJFOew2IT0Inus=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/google/s2a-go",
+      "version": "v0.1.9",
+      "sum": "h1:LGD7gtMgezd8a/Xak7mEWL0PjoTQFvpRudN895yqKW0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/google/uuid",
+      "version": "v1.6.0",
+      "sum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/googleapis/enterprise-certificate-proxy",
+      "version": "v0.3.15",
+      "sum": "h1:xolVQTEXusUcAA5UgtyRLjelpFFHWlPQ4XfWGc7MBas=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/googleapis/gax-go/v2",
+      "version": "v2.22.0",
+      "sum": "h1:PjIWBpgGIVKGoCXuiCoP64altEJCj3/Ei+kSU5vlZD4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/grpc-ecosystem/grpc-gateway/v2",
+      "version": "v2.28.0",
+      "sum": "h1:HWRh5R2+9EifMyIHV7ZV+MIZqgz+PMpZ14Jynv3O2Zs=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/huandu/xstrings",
+      "version": "v1.5.0",
+      "sum": "h1:2ag3IFq9ZDANvthTwTiqSSZLjDc+BedvHPAp5tJy2TI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/klauspost/compress",
+      "version": "v1.18.6",
+      "sum": "h1:2jupLlAwFm95+YDR+NwD2MEfFO9d4z4Prjl1XXDjuao=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/klauspost/cpuid/v2",
+      "version": "v2.3.0",
+      "sum": "h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/libdns/libdns",
+      "version": "v1.1.1",
+      "sum": "h1:wPrHrXILoSHKWJKGd0EiAVmiJbFShguILTg9leS/P/U=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/manifoldco/promptui",
+      "version": "v0.9.0",
+      "sum": "h1:3V4HzJk1TtXW1MTZMP7mdlwbBpIinw3HztaIlYthEiA=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/mattn/go-colorable",
+      "version": "v0.1.14",
+      "sum": "h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/mattn/go-isatty",
+      "version": "v0.0.20",
+      "sum": "h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/mgutz/ansi",
+      "version": "v0.0.0-20200706080929-d51e80ef957d",
+      "sum": "h1:5PJl274Y63IEHC+7izoQE9x6ikvDFZS2mDVS3drnohI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/mholt/acmez/v3",
+      "version": "v3.1.6",
+      "sum": "h1:eGVQNObP0pBN4sxqrXeg7MYqTOWyoiYpQqITVWlrevk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/miekg/dns",
+      "version": "v1.1.72",
+      "sum": "h1:vhmr+TF2A3tuoGNkLDFK9zi36F2LS+hKTRW0Uf8kbzI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/mitchellh/copystructure",
+      "version": "v1.2.0",
+      "sum": "h1:vpKXTN4ewci03Vljg/q9QvCGUDttBOGBIa15WveJJGw=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/mitchellh/go-ps",
+      "version": "v1.0.0",
+      "sum": "h1:i6ampVEEF4wQFF+bkYfwYgY+F/uYJDktmvLPf7qIgjc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/mitchellh/reflectwalk",
+      "version": "v1.0.2",
+      "sum": "h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/munnerz/goautoneg",
+      "version": "v0.0.0-20191010083416-a7dc8b61c822",
+      "sum": "h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/pbnjay/memory",
+      "version": "v0.0.0-20210728143218-7b4eea64cf58",
+      "sum": "h1:onHthvaw9LFnH4t2DcNVpwGmV9E1BkGknEliJkfwQj0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/pierrec/lz4/v4",
+      "version": "v4.1.26",
+      "sum": "h1:GrpZw1gZttORinvzBdXPUXATeqlJjqUG/D87TKMnhjY=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/pires/go-proxyproto",
+      "version": "v0.12.0",
+      "sum": "h1:TTCxD66dU898tahivkqc3hoceZp7P44FnorWyo9d5vM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/pkg/errors",
+      "version": "v0.9.1",
+      "sum": "h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/pquerna/cachecontrol",
+      "version": "v0.2.0",
+      "sum": "h1:vBXSNuE5MYP9IJ5kjsdo8uq+w41jSPgvba2DEnkRx9k=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/prometheus/client_golang",
+      "version": "v1.23.2",
+      "sum": "h1:Je96obch5RDVy3FDMndoUsjAhG5Edi49h0RJWRi/o0o=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/prometheus/client_model",
+      "version": "v0.6.2",
+      "sum": "h1:oBsgwpGs7iVziMvrGhE53c/GrLUsZdHnqNwqPLxwZyk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/prometheus/common",
+      "version": "v0.67.5",
+      "sum": "h1:pIgK94WWlQt1WLwAC5j2ynLaBRDiinoAb86HZHTUGI4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/prometheus/otlptranslator",
+      "version": "v1.0.0",
+      "sum": "h1:s0LJW/iN9dkIH+EnhiD3BlkkP5QVIUVEoIwkU+A6qos=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/prometheus/procfs",
+      "version": "v0.20.1",
+      "sum": "h1:XwbrGOIplXW/AU3YhIhLODXMJYyC1isLFfYCsTEycfc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/quic-go/qpack",
+      "version": "v0.6.0",
+      "sum": "h1:g7W+BMYynC1LbYLSqRt8PBg5Tgwxn214ZZR34VIOjz8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/quic-go/quic-go",
+      "version": "v0.59.1",
+      "sum": "h1:0Gmua0HW1Tv7ANR7hUYwRyD0MG5OJfgvYSZasGZzBic=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/rs/xid",
+      "version": "v1.6.0",
+      "sum": "h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/russross/blackfriday/v2",
+      "version": "v2.1.0",
+      "sum": "h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/shopspring/decimal",
+      "version": "v1.4.0",
+      "sum": "h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/shurcooL/sanitized_anchor_name",
+      "version": "v1.0.0",
+      "sum": "h1:PdmoCO6wvbs+7yrJyMORt4/BmY5IYyJwS/kOiWx8mHo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/sirupsen/logrus",
+      "version": "v1.9.4",
+      "sum": "h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/slackhq/nebula",
+      "version": "v1.10.3",
+      "sum": "h1:EstYj8ODEcv6T0R9X5BVq1zgWZnyU5gtPzk99QF1PMU=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/certificates",
+      "version": "v0.30.2",
+      "sum": "h1:1G3xBi8sJ740iA1mMPW2Svv7EIZKJ4Zf/iQtA5QlN0Y=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/cli-utils",
+      "version": "v0.12.2",
+      "sum": "h1:lGzM9PJrH/qawbzMC/s2SvgLdJPKDWKwKzx9doCVO+k=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/go-attestation",
+      "version": "v0.4.4-0.20241119153605-2306d5b464ca",
+      "sum": "h1:VX8L0r8vybH0bPeaIxh4NQzafKQiqvlOn8pmOXbFLO4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/linkedca",
+      "version": "v0.25.0",
+      "sum": "h1:txT9QHGbCsJq0MhAghBq7qhurGY727tQuqUi+n4BVBo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/nosql",
+      "version": "v0.8.0",
+      "sum": "h1:FBTCUfKPmWYbrozW+RBKu+fnvbn+zr5rVli/XB4Jp4A=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/pkcs7",
+      "version": "v0.2.1",
+      "sum": "h1:6Kfzr/QizdIuB6LSv8y1LJdZ3aPSfTNhTLqAx9CTLfA=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/scep",
+      "version": "v0.0.0-20250318231241-a25cabb69492",
+      "sum": "h1:k23+s51sgYix4Zgbvpmy+1ZgXLjr4ZTkBTqXmpnImwA=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/smallstep/truststore",
+      "version": "v0.13.0",
+      "sum": "h1:90if9htAOblavbMeWlqNLnO9bsjjgVv2hQeQJCi/py4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/spf13/cast",
+      "version": "v1.9.2",
+      "sum": "h1:SsGfm7M8QOFtEzumm7UZrZdLLquNdzFYfIbEXntcFbE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/spf13/cobra",
+      "version": "v1.10.2",
+      "sum": "h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/spf13/pflag",
+      "version": "v1.0.10",
+      "sum": "h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/tailscale/tscert",
+      "version": "v0.0.0-20251216020129-aea342f6d747",
+      "sum": "h1:RnBbFMmodYzhC6adOjTbtUQXyzV8dcvKYbolzs6Qch0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/urfave/cli",
+      "version": "v1.22.17",
+      "sum": "h1:SYzXoiPfQjHBbkYxbew5prZHS1TOLT3ierW8SYLqtVQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/x448/float16",
+      "version": "v0.8.4",
+      "sum": "h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/yuin/goldmark",
+      "version": "v1.8.2",
+      "sum": "h1:kEGpgqJXdgbkhcOgBxkC0X0PmoPG1ZyoZ117rDVp4zE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/yuin/goldmark-highlighting/v2",
+      "version": "v2.0.0-20230729083705-37449abec8cc",
+      "sum": "h1:+IAOyRda+RLrxa1WC7umKOZRsGq4QrFFMYApOeHzQwQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "github.com/zeebo/blake3",
+      "version": "v0.2.4",
+      "sum": "h1:KYQPkhpRtcqh0ssGYcKLG1JYvddkEA8QwCM/yBqhaZI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.etcd.io/bbolt",
+      "version": "v1.4.3",
+      "sum": "h1:dEadXpI6G79deX5prL3QRNP6JB8UxVkqo4UPnHaNXJo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/auto/sdk",
+      "version": "v1.2.1",
+      "sum": "h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/bridges/prometheus",
+      "version": "v0.68.0",
+      "sum": "h1:w3zlHYETbDwXyWHZlyyR58ZC39XGi8rAhkBgUgJ9d5w=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/exporters/autoexport",
+      "version": "v0.68.0",
+      "sum": "h1:0D3GFvELGIwQGfC6agLsbrEYSGWZTRTxIXxcQUqrOuk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+      "version": "v0.68.0",
+      "sum": "h1:CqXxU8VOmDefoh0+ztfGaymYbhdB/tT3zs79QaZTNGY=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/propagators/autoprop",
+      "version": "v0.68.0",
+      "sum": "h1:wLGFvNBPqQhzBn0QRBZjrriH8lZ9gqtTz8ufHEjLg7k=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/propagators/aws",
+      "version": "v1.43.0",
+      "sum": "h1:EwnsB3cXRLAh7/Nr/9rMuGw73nfb3z6uAvVDjRrbeUg=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/propagators/b3",
+      "version": "v1.43.0",
+      "sum": "h1:CETqV3QLLPTy5yNrqyMr41VnAOOD4lsRved7n4QG00A=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/propagators/jaeger",
+      "version": "v1.43.0",
+      "sum": "h1:peiLMz1+aqJE+3L4mOVtR9wlmv+yh/JVYXCBjqmzJJE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/contrib/propagators/ot",
+      "version": "v1.43.0",
+      "sum": "h1:Hh1HahlGc81AOE7siqi1tVOlbanY/UxMMWedpb0d5oQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel",
+      "version": "v1.43.0",
+      "sum": "h1:mYIM03dnh5zfN7HautFE4ieIig9amkNANT+xcVxAj9I=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc",
+      "version": "v0.19.0",
+      "sum": "h1:Dn8rkudDzY6KV9dr/D/bTUuWgqDf9xe0rr4G2elrn0Y=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp",
+      "version": "v0.19.0",
+      "sum": "h1:HIBTQ3VO5aupLKjC90JgMqpezVXwFuq6Ryjn0/izoag=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc",
+      "version": "v1.43.0",
+      "sum": "h1:8UQVDcZxOJLtX6gxtDt3vY2WTgvZqMQRzjsqiIHQdkc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp",
+      "version": "v1.43.0",
+      "sum": "h1:w1K+pCJoPpQifuVpsKamUdn9U0zM3xUziVOqsGksUrY=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/otlp/otlptrace",
+      "version": "v1.43.0",
+      "sum": "h1:88Y4s2C8oTui1LGM6bTWkw0ICGcOLCAI5l6zsD1j20k=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc",
+      "version": "v1.43.0",
+      "sum": "h1:RAE+JPfvEmvy+0LzyUA25/SGawPwIUbZ6u0Wug54sLc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp",
+      "version": "v1.43.0",
+      "sum": "h1:3iZJKlCZufyRzPzlQhUIWVmfltrXuGyfjREgGP3UUjc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/prometheus",
+      "version": "v0.65.0",
+      "sum": "h1:jOveH/b4lU9HT7y+Gfamf18BqlOuz2PWEvs8yM7Q6XE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/stdout/stdoutlog",
+      "version": "v0.19.0",
+      "sum": "h1:GJkybS+crDMdExT/BUNCEgfrmfboztcS6PhvSo88HKM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric",
+      "version": "v1.43.0",
+      "sum": "h1:TC+BewnDpeiAmcscXbGMfxkO+mwYUwE/VySwvw88PfA=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/exporters/stdout/stdouttrace",
+      "version": "v1.43.0",
+      "sum": "h1:mS47AX77OtFfKG4vtp+84kuGSFZHTyxtXIN269vChY0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/log",
+      "version": "v0.19.0",
+      "sum": "h1:KUZs/GOsw79TBBMfDWsXS+KZ4g2Ckzksd1ymzsIEbo4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/metric",
+      "version": "v1.43.0",
+      "sum": "h1:d7638QeInOnuwOONPp4JAOGfbCEpYb+K6DVWvdxGzgM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/sdk",
+      "version": "v1.43.0",
+      "sum": "h1:pi5mE86i5rTeLXqoF/hhiBtUNcrAGHLKQdhg4h4V9Dg=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/sdk/log",
+      "version": "v0.19.0",
+      "sum": "h1:scYVLqT22D2gqXItnWiocLUKGH9yvkkeql5dBDiXyko=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/sdk/metric",
+      "version": "v1.43.0",
+      "sum": "h1:S88dyqXjJkuBNLeMcVPRFXpRw2fuwdvfCGLEo89fDkw=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/otel/trace",
+      "version": "v1.43.0",
+      "sum": "h1:BkNrHpup+4k4w+ZZ86CZoHHEkohws8AY+WTX09nk+3A=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.opentelemetry.io/proto/otlp",
+      "version": "v1.10.0",
+      "sum": "h1:IQRWgT5srOCYfiWnpqUYz9CVmbO8bFmKcwYxpuCSL2g=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.step.sm/crypto",
+      "version": "v0.81.0",
+      "sum": "h1:e+ouzpNt3Xm4dp7HGXhgYB5y4iFik3vh3phHKWmvugU=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.uber.org/automaxprocs",
+      "version": "v1.6.0",
+      "sum": "h1:O3y2/QNTOdbF+e/dpXNNW7Rx2hZ4sTIPyybbxyNqTUs=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.uber.org/multierr",
+      "version": "v1.11.0",
+      "sum": "h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.uber.org/zap",
+      "version": "v1.28.0",
+      "sum": "h1:IZzaP1Fv73/T/pBMLk4VutPl36uNC+OSUh3JLG3FIjo=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.uber.org/zap/exp",
+      "version": "v0.3.0",
+      "sum": "h1:6JYzdifzYkGmTdRR59oYH+Ng7k49H9qVpWwNSsGJj3U=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.yaml.in/yaml/v2",
+      "version": "v2.4.4",
+      "sum": "h1:tuyd0P+2Ont/d6e2rl3be67goVK4R6deVxCUX5vyPaQ=",
+      "license_reviewed": false
+    },
+    {
+      "module": "go.yaml.in/yaml/v3",
+      "version": "v3.0.4",
+      "sum": "h1:tfq32ie2Jv2UxXFdLJdh3jXuOzWiL1fo0bu/FbuKpbc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/crypto",
+      "version": "v0.52.0",
+      "sum": "h1:RMs7fP2rXdep0CftQlK8Uf+kibLm7qkCcradZWYz988=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/crypto/x509roots/fallback",
+      "version": "v0.0.0-20260213171211-a408498e5541",
+      "sum": "h1:FmKxj9ocLKn45jiR2jQMwCVhDvaK7fKQFzfuT9GvyK8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/exp",
+      "version": "v0.0.0-20251023183803-a4bb9ffd2546",
+      "sum": "h1:mgKeJMpvi0yx/sU5GsxQ7p6s2wtOnGAHZWCHUM4KGzY=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/net",
+      "version": "v0.55.0",
+      "sum": "h1:bcvxaJn3e1U6InsFWt1JUq1aSjnRxLzT2rtD2KfkDF8=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/oauth2",
+      "version": "v0.36.0",
+      "sum": "h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/sync",
+      "version": "v0.20.0",
+      "sum": "h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/sys",
+      "version": "v0.45.0",
+      "sum": "h1:dO4czNzziLiiXplLQgBCEpCvXQ3dnkn0SdaZSYdQ+FY=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/term",
+      "version": "v0.43.0",
+      "sum": "h1:S4RLU2sB31O/NCl+zFN9Aru9A/Cq2aqKpTZJ6B+DwT4=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/text",
+      "version": "v0.37.0",
+      "sum": "h1:Cqjiwd9eSg8e0QAkyCaQTNHFIIzWtidPahFWR83rTrc=",
+      "license_reviewed": false
+    },
+    {
+      "module": "golang.org/x/time",
+      "version": "v0.15.0",
+      "sum": "h1:bbrp8t3bGUeFOx08pvsMYRTCVSMk89u4tKbNOZbp88U=",
+      "license_reviewed": false
+    },
+    {
+      "module": "google.golang.org/api",
+      "version": "v0.277.0",
+      "sum": "h1:HJfyJUiNeBBUMai7ez8u14wkp/gH/I4wpGbbO9o+cSk=",
+      "license_reviewed": false
+    },
+    {
+      "module": "google.golang.org/genproto/googleapis/api",
+      "version": "v0.0.0-20260406210006-6f92a3bedf2d",
+      "sum": "h1:/aDRtSZJjyLQzm75d+a1wOJaqyKBMvIAfeQmoa3ORiI=",
+      "license_reviewed": false
+    },
+    {
+      "module": "google.golang.org/genproto/googleapis/rpc",
+      "version": "v0.0.0-20260427160629-7cedc36a6bc4",
+      "sum": "h1:tEkOQcXgF6dH1G+MVKZrfpYvozGrzb91k6ha7jireSM=",
+      "license_reviewed": false
+    },
+    {
+      "module": "google.golang.org/grpc",
+      "version": "v1.81.0",
+      "sum": "h1:W3G9N3KQf3BU+YuCtGKJk0CmxQNbAISICD/9AORxLIw=",
+      "license_reviewed": false
+    },
+    {
+      "module": "google.golang.org/protobuf",
+      "version": "v1.36.11",
+      "sum": "h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=",
+      "license_reviewed": false
+    },
+    {
+      "module": "gopkg.in/yaml.v3",
+      "version": "v3.0.1",
+      "sum": "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=",
+      "license_reviewed": false
+    }
+  ],
+  "runtime_php85_debian_packages": [
+    {
+      "package": "adduser",
+      "version": "3.152",
+      "source_package": "adduser",
+      "source_version": "3.152"
+    },
+    {
+      "package": "apt",
+      "version": "3.0.3",
+      "source_package": "apt",
+      "source_version": "3.0.3"
+    },
+    {
+      "package": "autoconf",
+      "version": "2.72-3.1",
+      "source_package": "autoconf",
+      "source_version": "2.72-3.1"
+    },
+    {
+      "package": "base-files",
+      "version": "13.8+deb13u6",
+      "source_package": "base-files",
+      "source_version": "13.8+deb13u6"
+    },
+    {
+      "package": "base-passwd",
+      "version": "3.6.7",
+      "source_package": "base-passwd",
+      "source_version": "3.6.7"
+    },
+    {
+      "package": "bash",
+      "version": "5.2.37-2+b9",
+      "source_package": "bash",
+      "source_version": "5.2.37-2"
+    },
+    {
+      "package": "binutils",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "binutils-aarch64-linux-gnu",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "binutils-common",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "bsdutils",
+      "version": "1:2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "bzip2",
+      "version": "1.0.8-6",
+      "source_package": "bzip2",
+      "source_version": "1.0.8-6"
+    },
+    {
+      "package": "ca-certificates",
+      "version": "20250419",
+      "source_package": "ca-certificates",
+      "source_version": "20250419"
+    },
+    {
+      "package": "coreutils",
+      "version": "9.7-3",
+      "source_package": "coreutils",
+      "source_version": "9.7-3"
+    },
+    {
+      "package": "cpp",
+      "version": "4:14.2.0-1",
+      "source_package": "gcc-defaults",
+      "source_version": "1.220"
+    },
+    {
+      "package": "cpp-14",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "cpp-14-aarch64-linux-gnu",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "cpp-aarch64-linux-gnu",
+      "version": "4:14.2.0-1",
+      "source_package": "gcc-defaults",
+      "source_version": "1.220"
+    },
+    {
+      "package": "curl",
+      "version": "8.14.1-2+deb13u4",
+      "source_package": "curl",
+      "source_version": "8.14.1-2+deb13u4"
+    },
+    {
+      "package": "dash",
+      "version": "0.5.12-12",
+      "source_package": "dash",
+      "source_version": "0.5.12-12"
+    },
+    {
+      "package": "debconf",
+      "version": "1.5.91",
+      "source_package": "debconf",
+      "source_version": "1.5.91"
+    },
+    {
+      "package": "debian-archive-keyring",
+      "version": "2025.1",
+      "source_package": "debian-archive-keyring",
+      "source_version": "2025.1"
+    },
+    {
+      "package": "debianutils",
+      "version": "5.23.2",
+      "source_package": "debianutils",
+      "source_version": "5.23.2"
+    },
+    {
+      "package": "diffutils",
+      "version": "1:3.10-4",
+      "source_package": "diffutils",
+      "source_version": "1:3.10-4"
+    },
+    {
+      "package": "dpkg",
+      "version": "1.22.22",
+      "source_package": "dpkg",
+      "source_version": "1.22.22"
+    },
+    {
+      "package": "dpkg-dev",
+      "version": "1.22.22",
+      "source_package": "dpkg",
+      "source_version": "1.22.22"
+    },
+    {
+      "package": "file",
+      "version": "1:5.46-5",
+      "source_package": "file",
+      "source_version": "1:5.46-5"
+    },
+    {
+      "package": "findutils",
+      "version": "4.10.0-3",
+      "source_package": "findutils",
+      "source_version": "4.10.0-3"
+    },
+    {
+      "package": "fontconfig",
+      "version": "2.15.0-2.3",
+      "source_package": "fontconfig",
+      "source_version": "2.15.0-2.3"
+    },
+    {
+      "package": "fontconfig-config",
+      "version": "2.15.0-2.3",
+      "source_package": "fontconfig",
+      "source_version": "2.15.0-2.3"
+    },
+    {
+      "package": "fonts-dejavu-core",
+      "version": "2.37-8",
+      "source_package": "fonts-dejavu",
+      "source_version": "2.37-8"
+    },
+    {
+      "package": "fonts-dejavu-mono",
+      "version": "2.37-8",
+      "source_package": "fonts-dejavu",
+      "source_version": "2.37-8"
+    },
+    {
+      "package": "fonts-urw-base35",
+      "version": "20200910-8",
+      "source_package": "fonts-urw-base35",
+      "source_version": "20200910-8"
+    },
+    {
+      "package": "g++",
+      "version": "4:14.2.0-1",
+      "source_package": "gcc-defaults",
+      "source_version": "1.220"
+    },
+    {
+      "package": "g++-14",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "g++-14-aarch64-linux-gnu",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "g++-aarch64-linux-gnu",
+      "version": "4:14.2.0-1",
+      "source_package": "gcc-defaults",
+      "source_version": "1.220"
+    },
+    {
+      "package": "gcc",
+      "version": "4:14.2.0-1",
+      "source_package": "gcc-defaults",
+      "source_version": "1.220"
+    },
+    {
+      "package": "gcc-14",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "gcc-14-aarch64-linux-gnu",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "gcc-14-base",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "gcc-aarch64-linux-gnu",
+      "version": "4:14.2.0-1",
+      "source_package": "gcc-defaults",
+      "source_version": "1.220"
+    },
+    {
+      "package": "ghostscript",
+      "version": "10.05.1~dfsg-1+deb13u1",
+      "source_package": "ghostscript",
+      "source_version": "10.05.1~dfsg-1+deb13u1"
+    },
+    {
+      "package": "grep",
+      "version": "3.11-4+b1",
+      "source_package": "grep",
+      "source_version": "3.11-4"
+    },
+    {
+      "package": "gzip",
+      "version": "1.13-1",
+      "source_package": "gzip",
+      "source_version": "1.13-1"
+    },
+    {
+      "package": "hostname",
+      "version": "3.25",
+      "source_package": "hostname",
+      "source_version": "3.25"
+    },
+    {
+      "package": "imagemagick-7-common",
+      "version": "8:7.1.1.43+dfsg1-1+deb13u11",
+      "source_package": "imagemagick",
+      "source_version": "8:7.1.1.43+dfsg1-1+deb13u11"
+    },
+    {
+      "package": "init-system-helpers",
+      "version": "1.69~deb13u1",
+      "source_package": "init-system-helpers",
+      "source_version": "1.69~deb13u1"
+    },
+    {
+      "package": "less",
+      "version": "668-1",
+      "source_package": "less",
+      "source_version": "668-1"
+    },
+    {
+      "package": "libabsl20240722",
+      "version": "20240722.0-4",
+      "source_package": "abseil",
+      "source_version": "20240722.0-4"
+    },
+    {
+      "package": "libacl1",
+      "version": "2.3.2-2+b1",
+      "source_package": "acl",
+      "source_version": "2.3.2-2"
+    },
+    {
+      "package": "libaom3",
+      "version": "3.12.1-1+deb13u1",
+      "source_package": "aom",
+      "source_version": "3.12.1-1+deb13u1"
+    },
+    {
+      "package": "libapt-pkg7.0",
+      "version": "3.0.3",
+      "source_package": "apt",
+      "source_version": "3.0.3"
+    },
+    {
+      "package": "libargon2-1",
+      "version": "0~20190702+dfsg-4+b2",
+      "source_package": "argon2",
+      "source_version": "0~20190702+dfsg-4"
+    },
+    {
+      "package": "libasan8",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libatomic1",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libattr1",
+      "version": "1:2.5.2-3",
+      "source_package": "attr",
+      "source_version": "1:2.5.2-3"
+    },
+    {
+      "package": "libaudit-common",
+      "version": "1:4.0.2-2",
+      "source_package": "audit",
+      "source_version": "1:4.0.2-2"
+    },
+    {
+      "package": "libaudit1",
+      "version": "1:4.0.2-2+b2",
+      "source_package": "audit",
+      "source_version": "1:4.0.2-2"
+    },
+    {
+      "package": "libavahi-client3",
+      "version": "0.8-16",
+      "source_package": "avahi",
+      "source_version": "0.8-16"
+    },
+    {
+      "package": "libavahi-common-data",
+      "version": "0.8-16",
+      "source_package": "avahi",
+      "source_version": "0.8-16"
+    },
+    {
+      "package": "libavahi-common3",
+      "version": "0.8-16",
+      "source_package": "avahi",
+      "source_version": "0.8-16"
+    },
+    {
+      "package": "libavif16",
+      "version": "1.2.1-1.2",
+      "source_package": "libavif",
+      "source_version": "1.2.1-1.2"
+    },
+    {
+      "package": "libbinutils",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "libblkid1",
+      "version": "2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "libbrotli1",
+      "version": "1.1.0-2+b7",
+      "source_package": "brotli",
+      "source_version": "1.1.0-2"
+    },
+    {
+      "package": "libbsd0",
+      "version": "0.12.2-2",
+      "source_package": "libbsd",
+      "source_version": "0.12.2-2"
+    },
+    {
+      "package": "libbz2-1.0",
+      "version": "1.0.8-6",
+      "source_package": "bzip2",
+      "source_version": "1.0.8-6"
+    },
+    {
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u3",
+      "source_package": "glibc",
+      "source_version": "2.41-12+deb13u3"
+    },
+    {
+      "package": "libc-dev-bin",
+      "version": "2.41-12+deb13u3",
+      "source_package": "glibc",
+      "source_version": "2.41-12+deb13u3"
+    },
+    {
+      "package": "libc6",
+      "version": "2.41-12+deb13u3",
+      "source_package": "glibc",
+      "source_version": "2.41-12+deb13u3"
+    },
+    {
+      "package": "libc6-dev",
+      "version": "2.41-12+deb13u3",
+      "source_package": "glibc",
+      "source_version": "2.41-12+deb13u3"
+    },
+    {
+      "package": "libcairo2",
+      "version": "1.18.4-1+b1",
+      "source_package": "cairo",
+      "source_version": "1.18.4-1"
+    },
+    {
+      "package": "libcap-ng0",
+      "version": "0.8.5-4+b1",
+      "source_package": "libcap-ng",
+      "source_version": "0.8.5-4"
+    },
+    {
+      "package": "libcap2",
+      "version": "1:2.75-10+deb13u1+b1",
+      "source_package": "libcap2",
+      "source_version": "1:2.75-10+deb13u1"
+    },
+    {
+      "package": "libcap2-bin",
+      "version": "1:2.75-10+deb13u1+b1",
+      "source_package": "libcap2",
+      "source_version": "1:2.75-10+deb13u1"
+    },
+    {
+      "package": "libcc1-0",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libcom-err2",
+      "version": "1.47.2-3+b11",
+      "source_package": "e2fsprogs",
+      "source_version": "1.47.2-3"
+    },
+    {
+      "package": "libconfig-inifiles-perl",
+      "version": "3.000003-3+deb13u1",
+      "source_package": "libconfig-inifiles-perl",
+      "source_version": "3.000003-3+deb13u1"
+    },
+    {
+      "package": "libcrypt-dev",
+      "version": "1:4.4.38-1",
+      "source_package": "libxcrypt",
+      "source_version": "1:4.4.38-1"
+    },
+    {
+      "package": "libcrypt1",
+      "version": "1:4.4.38-1",
+      "source_package": "libxcrypt",
+      "source_version": "1:4.4.38-1"
+    },
+    {
+      "package": "libctf-nobfd0",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "libctf0",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "libcups2t64",
+      "version": "2.4.10-3+deb13u2",
+      "source_package": "cups",
+      "source_version": "2.4.10-3+deb13u2"
+    },
+    {
+      "package": "libcurl4t64",
+      "version": "8.14.1-2+deb13u4",
+      "source_package": "curl",
+      "source_version": "8.14.1-2+deb13u4"
+    },
+    {
+      "package": "libdatrie1",
+      "version": "0.2.13-3+b1",
+      "source_package": "libdatrie",
+      "source_version": "0.2.13-3"
+    },
+    {
+      "package": "libdav1d7",
+      "version": "1.5.1-1",
+      "source_package": "dav1d",
+      "source_version": "1.5.1-1"
+    },
+    {
+      "package": "libdb5.3t64",
+      "version": "5.3.28+dfsg2-9",
+      "source_package": "db5.3",
+      "source_version": "5.3.28+dfsg2-9"
+    },
+    {
+      "package": "libdbus-1-3",
+      "version": "1.16.2-2",
+      "source_package": "dbus",
+      "source_version": "1.16.2-2"
+    },
+    {
+      "package": "libde265-0",
+      "version": "1.0.15-1+deb13u2",
+      "source_package": "libde265",
+      "source_version": "1.0.15-1+deb13u2"
+    },
+    {
+      "package": "libdebconfclient0",
+      "version": "0.280",
+      "source_package": "cdebconf",
+      "source_version": "0.280"
+    },
+    {
+      "package": "libdeflate0",
+      "version": "1.23-2",
+      "source_package": "libdeflate",
+      "source_version": "1.23-2"
+    },
+    {
+      "package": "libdjvulibre-text",
+      "version": "3.5.28-2.2",
+      "source_package": "djvulibre",
+      "source_version": "3.5.28-2.2"
+    },
+    {
+      "package": "libdjvulibre21",
+      "version": "3.5.28-2.2",
+      "source_package": "djvulibre",
+      "source_version": "3.5.28-2.2"
+    },
+    {
+      "package": "libdpkg-perl",
+      "version": "1.22.22",
+      "source_package": "dpkg",
+      "source_version": "1.22.22"
+    },
+    {
+      "package": "libedit2",
+      "version": "3.1-20250104-1",
+      "source_package": "libedit",
+      "source_version": "3.1-20250104-1"
+    },
+    {
+      "package": "libexpat1",
+      "version": "2.8.3-1~deb13u1",
+      "source_package": "expat",
+      "source_version": "2.8.3-1~deb13u1"
+    },
+    {
+      "package": "libffi8",
+      "version": "3.4.8-2",
+      "source_package": "libffi",
+      "source_version": "3.4.8-2"
+    },
+    {
+      "package": "libfftw3-double3",
+      "version": "3.3.10-2+b1",
+      "source_package": "fftw3",
+      "source_version": "3.3.10-2"
+    },
+    {
+      "package": "libfontconfig1",
+      "version": "2.15.0-2.3",
+      "source_package": "fontconfig",
+      "source_version": "2.15.0-2.3"
+    },
+    {
+      "package": "libfontenc1",
+      "version": "1:1.1.8-1+b2",
+      "source_package": "libfontenc",
+      "source_version": "1:1.1.8-1"
+    },
+    {
+      "package": "libfreetype6",
+      "version": "2.13.3+dfsg-1+deb13u1",
+      "source_package": "freetype",
+      "source_version": "2.13.3+dfsg-1+deb13u1"
+    },
+    {
+      "package": "libfribidi0",
+      "version": "1.0.16-1",
+      "source_package": "fribidi",
+      "source_version": "1.0.16-1"
+    },
+    {
+      "package": "libgav1-1",
+      "version": "0.19.0-3+b1",
+      "source_package": "libgav1",
+      "source_version": "0.19.0-3"
+    },
+    {
+      "package": "libgcc-14-dev",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libgcc-s1",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libgdbm-compat4t64",
+      "version": "1.24-2",
+      "source_package": "gdbm",
+      "source_version": "1.24-2"
+    },
+    {
+      "package": "libgdbm6t64",
+      "version": "1.24-2",
+      "source_package": "gdbm",
+      "source_version": "1.24-2"
+    },
+    {
+      "package": "libglib2.0-0t64",
+      "version": "2.84.4-3~deb13u3",
+      "source_package": "glib2.0",
+      "source_version": "2.84.4-3~deb13u3"
+    },
+    {
+      "package": "libgmp10",
+      "version": "2:6.3.0+dfsg-3",
+      "source_package": "gmp",
+      "source_version": "2:6.3.0+dfsg-3"
+    },
+    {
+      "package": "libgnutls30t64",
+      "version": "3.8.9-3+deb13u4",
+      "source_package": "gnutls28",
+      "source_version": "3.8.9-3+deb13u4"
+    },
+    {
+      "package": "libgomp1",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libgprofng0",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "libgraphite2-3",
+      "version": "1.3.14-2+deb13u1",
+      "source_package": "graphite2",
+      "source_version": "1.3.14-2+deb13u1"
+    },
+    {
+      "package": "libgs-common",
+      "version": "10.05.1~dfsg-1+deb13u1",
+      "source_package": "ghostscript",
+      "source_version": "10.05.1~dfsg-1+deb13u1"
+    },
+    {
+      "package": "libgs10",
+      "version": "10.05.1~dfsg-1+deb13u1",
+      "source_package": "ghostscript",
+      "source_version": "10.05.1~dfsg-1+deb13u1"
+    },
+    {
+      "package": "libgs10-common",
+      "version": "10.05.1~dfsg-1+deb13u1",
+      "source_package": "ghostscript",
+      "source_version": "10.05.1~dfsg-1+deb13u1"
+    },
+    {
+      "package": "libgssapi-krb5-2",
+      "version": "1.21.3-5+deb13u1",
+      "source_package": "krb5",
+      "source_version": "1.21.3-5+deb13u1"
+    },
+    {
+      "package": "libharfbuzz0b",
+      "version": "10.2.0-1+deb13u1",
+      "source_package": "harfbuzz",
+      "source_version": "10.2.0-1+deb13u1"
+    },
+    {
+      "package": "libheif-plugin-aomenc",
+      "version": "1.19.8-1+deb13u1",
+      "source_package": "libheif",
+      "source_version": "1.19.8-1+deb13u1"
+    },
+    {
+      "package": "libheif-plugin-dav1d",
+      "version": "1.19.8-1+deb13u1",
+      "source_package": "libheif",
+      "source_version": "1.19.8-1+deb13u1"
+    },
+    {
+      "package": "libheif-plugin-libde265",
+      "version": "1.19.8-1+deb13u1",
+      "source_package": "libheif",
+      "source_version": "1.19.8-1+deb13u1"
+    },
+    {
+      "package": "libheif1",
+      "version": "1.19.8-1+deb13u1",
+      "source_package": "libheif",
+      "source_version": "1.19.8-1+deb13u1"
+    },
+    {
+      "package": "libhogweed6t64",
+      "version": "3.10.1-1",
+      "source_package": "nettle",
+      "source_version": "3.10.1-1"
+    },
+    {
+      "package": "libhwasan0",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libice6",
+      "version": "2:1.1.1-1",
+      "source_package": "libice",
+      "source_version": "2:1.1.1-1"
+    },
+    {
+      "package": "libicu76",
+      "version": "76.1-4",
+      "source_package": "icu",
+      "source_version": "76.1-4"
+    },
+    {
+      "package": "libidn12",
+      "version": "1.43-1",
+      "source_package": "libidn",
+      "source_version": "1.43-1"
+    },
+    {
+      "package": "libidn2-0",
+      "version": "2.3.8-2",
+      "source_package": "libidn2",
+      "source_version": "2.3.8-2"
+    },
+    {
+      "package": "libijs-0.35",
+      "version": "0.35-15.2",
+      "source_package": "ijs",
+      "source_version": "0.35-15.2"
+    },
+    {
+      "package": "libimath-3-1-29t64",
+      "version": "3.1.12-1+b3",
+      "source_package": "imath",
+      "source_version": "3.1.12-1"
+    },
+    {
+      "package": "libisl23",
+      "version": "0.27-1",
+      "source_package": "isl",
+      "source_version": "0.27-1"
+    },
+    {
+      "package": "libitm1",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libjansson4",
+      "version": "2.14-2+b3",
+      "source_package": "jansson",
+      "source_version": "2.14-2"
+    },
+    {
+      "package": "libjbig0",
+      "version": "2.1-6.1+b2",
+      "source_package": "jbigkit",
+      "source_version": "2.1-6.1"
+    },
+    {
+      "package": "libjbig2dec0",
+      "version": "0.20-1+deb13u1",
+      "source_package": "jbig2dec",
+      "source_version": "0.20-1+deb13u1"
+    },
+    {
+      "package": "libjpeg62-turbo",
+      "version": "1:2.1.5-4",
+      "source_package": "libjpeg-turbo",
+      "source_version": "1:2.1.5-4"
+    },
+    {
+      "package": "libk5crypto3",
+      "version": "1.21.3-5+deb13u1",
+      "source_package": "krb5",
+      "source_version": "1.21.3-5+deb13u1"
+    },
+    {
+      "package": "libkeyutils1",
+      "version": "1.6.3-6",
+      "source_package": "keyutils",
+      "source_version": "1.6.3-6"
+    },
+    {
+      "package": "libkrb5-3",
+      "version": "1.21.3-5+deb13u1",
+      "source_package": "krb5",
+      "source_version": "1.21.3-5+deb13u1"
+    },
+    {
+      "package": "libkrb5support0",
+      "version": "1.21.3-5+deb13u1",
+      "source_package": "krb5",
+      "source_version": "1.21.3-5+deb13u1"
+    },
+    {
+      "package": "liblastlog2-2",
+      "version": "2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "liblcms2-2",
+      "version": "2.16-2+deb13u2",
+      "source_package": "lcms2",
+      "source_version": "2.16-2+deb13u2"
+    },
+    {
+      "package": "libldap2",
+      "version": "2.6.10+dfsg-1",
+      "source_package": "openldap",
+      "source_version": "2.6.10+dfsg-1"
+    },
+    {
+      "package": "liblerc4",
+      "version": "4.0.0+ds-5",
+      "source_package": "lerc",
+      "source_version": "4.0.0+ds-5"
+    },
+    {
+      "package": "liblqr-1-0",
+      "version": "0.4.2-2.1+b2",
+      "source_package": "liblqr",
+      "source_version": "0.4.2-2.1"
+    },
+    {
+      "package": "liblsan0",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libltdl7",
+      "version": "2.5.4-4",
+      "source_package": "libtool",
+      "source_version": "2.5.4-4"
+    },
+    {
+      "package": "liblz4-1",
+      "version": "1.10.0-4",
+      "source_package": "lz4",
+      "source_version": "1.10.0-4"
+    },
+    {
+      "package": "liblzma5",
+      "version": "5.8.1-1+deb13u1",
+      "source_package": "xz-utils",
+      "source_version": "5.8.1-1+deb13u1"
+    },
+    {
+      "package": "libmagic-mgc",
+      "version": "1:5.46-5",
+      "source_package": "file",
+      "source_version": "1:5.46-5"
+    },
+    {
+      "package": "libmagic1t64",
+      "version": "1:5.46-5",
+      "source_package": "file",
+      "source_version": "1:5.46-5"
+    },
+    {
+      "package": "libmagickcore-7.q16-10",
+      "version": "8:7.1.1.43+dfsg1-1+deb13u11",
+      "source_package": "imagemagick",
+      "source_version": "8:7.1.1.43+dfsg1-1+deb13u11"
+    },
+    {
+      "package": "libmagickcore-7.q16-10-extra",
+      "version": "8:7.1.1.43+dfsg1-1+deb13u11",
+      "source_package": "imagemagick",
+      "source_version": "8:7.1.1.43+dfsg1-1+deb13u11"
+    },
+    {
+      "package": "libmagickwand-7.q16-10",
+      "version": "8:7.1.1.43+dfsg1-1+deb13u11",
+      "source_package": "imagemagick",
+      "source_version": "8:7.1.1.43+dfsg1-1+deb13u11"
+    },
+    {
+      "package": "libmariadb3",
+      "version": "1:11.8.6-0+deb13u1",
+      "source_package": "mariadb",
+      "source_version": "1:11.8.6-0+deb13u1"
+    },
+    {
+      "package": "libmd0",
+      "version": "1.1.0-2+b1",
+      "source_package": "libmd",
+      "source_version": "1.1.0-2"
+    },
+    {
+      "package": "libmount1",
+      "version": "2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "libmpc3",
+      "version": "1.3.1-1+b3",
+      "source_package": "mpclib3",
+      "source_version": "1.3.1-1"
+    },
+    {
+      "package": "libmpfr6",
+      "version": "4.2.2-1",
+      "source_package": "mpfr4",
+      "source_version": "4.2.2-1"
+    },
+    {
+      "package": "libncurses6",
+      "version": "6.5+20250216-2",
+      "source_package": "ncurses",
+      "source_version": "6.5+20250216-2"
+    },
+    {
+      "package": "libnettle8t64",
+      "version": "3.10.1-1",
+      "source_package": "nettle",
+      "source_version": "3.10.1-1"
+    },
+    {
+      "package": "libnghttp2-14",
+      "version": "1.64.0-1.1+deb13u1",
+      "source_package": "nghttp2",
+      "source_version": "1.64.0-1.1+deb13u1"
+    },
+    {
+      "package": "libnghttp3-9",
+      "version": "1.8.0-1",
+      "source_package": "nghttp3",
+      "source_version": "1.8.0-1"
+    },
+    {
+      "package": "libonig5",
+      "version": "6.9.9-1+b1",
+      "source_package": "libonig",
+      "source_version": "6.9.9-1"
+    },
+    {
+      "package": "libopenexr-3-1-30",
+      "version": "3.1.13-2",
+      "source_package": "openexr",
+      "source_version": "3.1.13-2"
+    },
+    {
+      "package": "libopenjp2-7",
+      "version": "2.5.3-2.1~deb13u2",
+      "source_package": "openjpeg2",
+      "source_version": "2.5.3-2.1~deb13u2"
+    },
+    {
+      "package": "libp11-kit0",
+      "version": "0.25.5-3",
+      "source_package": "p11-kit",
+      "source_version": "0.25.5-3"
+    },
+    {
+      "package": "libpam-modules",
+      "version": "1.7.0-5",
+      "source_package": "pam",
+      "source_version": "1.7.0-5"
+    },
+    {
+      "package": "libpam-modules-bin",
+      "version": "1.7.0-5",
+      "source_package": "pam",
+      "source_version": "1.7.0-5"
+    },
+    {
+      "package": "libpam-runtime",
+      "version": "1.7.0-5",
+      "source_package": "pam",
+      "source_version": "1.7.0-5"
+    },
+    {
+      "package": "libpam0g",
+      "version": "1.7.0-5",
+      "source_package": "pam",
+      "source_version": "1.7.0-5"
+    },
+    {
+      "package": "libpango-1.0-0",
+      "version": "1.56.3-1",
+      "source_package": "pango1.0",
+      "source_version": "1.56.3-1"
+    },
+    {
+      "package": "libpangocairo-1.0-0",
+      "version": "1.56.3-1",
+      "source_package": "pango1.0",
+      "source_version": "1.56.3-1"
+    },
+    {
+      "package": "libpangoft2-1.0-0",
+      "version": "1.56.3-1",
+      "source_package": "pango1.0",
+      "source_version": "1.56.3-1"
+    },
+    {
+      "package": "libpaper2",
+      "version": "2.2.5-0.3+b2",
+      "source_package": "libpaper",
+      "source_version": "2.2.5-0.3"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "version": "10.46-1~deb13u1",
+      "source_package": "pcre2",
+      "source_version": "10.46-1~deb13u1"
+    },
+    {
+      "package": "libpcre2-posix3",
+      "version": "10.46-1~deb13u1",
+      "source_package": "pcre2",
+      "source_version": "10.46-1~deb13u1"
+    },
+    {
+      "package": "libperl5.40",
+      "version": "5.40.1-6",
+      "source_package": "perl",
+      "source_version": "5.40.1-6"
+    },
+    {
+      "package": "libpixman-1-0",
+      "version": "0.44.0-3",
+      "source_package": "pixman",
+      "source_version": "0.44.0-3"
+    },
+    {
+      "package": "libpkgconf3",
+      "version": "1.8.1-4",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-4"
+    },
+    {
+      "package": "libpng16-16t64",
+      "version": "1.6.48-1+deb13u5",
+      "source_package": "libpng1.6",
+      "source_version": "1.6.48-1+deb13u5"
+    },
+    {
+      "package": "libpsl5t64",
+      "version": "0.21.2-1.1+b1",
+      "source_package": "libpsl",
+      "source_version": "0.21.2-1.1"
+    },
+    {
+      "package": "librav1e0.7",
+      "version": "0.7.1-9+b2",
+      "source_package": "rust-rav1e",
+      "source_version": "0.7.1-9"
+    },
+    {
+      "package": "libraw23t64",
+      "version": "0.21.4-2",
+      "source_package": "libraw",
+      "source_version": "0.21.4-2"
+    },
+    {
+      "package": "libreadline8t64",
+      "version": "8.2-6",
+      "source_package": "readline",
+      "source_version": "8.2-6"
+    },
+    {
+      "package": "librtmp1",
+      "version": "2.4+20151223.gitfa8646d.1-2+b5",
+      "source_package": "rtmpdump",
+      "source_version": "2.4+20151223.gitfa8646d.1-2"
+    },
+    {
+      "package": "libsasl2-2",
+      "version": "2.1.28+dfsg1-9",
+      "source_package": "cyrus-sasl2",
+      "source_version": "2.1.28+dfsg1-9"
+    },
+    {
+      "package": "libsasl2-modules-db",
+      "version": "2.1.28+dfsg1-9",
+      "source_package": "cyrus-sasl2",
+      "source_version": "2.1.28+dfsg1-9"
+    },
+    {
+      "package": "libseccomp2",
+      "version": "2.6.0-2",
+      "source_package": "libseccomp",
+      "source_version": "2.6.0-2"
+    },
+    {
+      "package": "libselinux1",
+      "version": "3.8.1-1",
+      "source_package": "libselinux",
+      "source_version": "3.8.1-1"
+    },
+    {
+      "package": "libsemanage-common",
+      "version": "3.8.1-1",
+      "source_package": "libsemanage",
+      "source_version": "3.8.1-1"
+    },
+    {
+      "package": "libsemanage2",
+      "version": "3.8.1-1",
+      "source_package": "libsemanage",
+      "source_version": "3.8.1-1"
+    },
+    {
+      "package": "libsepol2",
+      "version": "3.8.1-1",
+      "source_package": "libsepol",
+      "source_version": "3.8.1-1"
+    },
+    {
+      "package": "libsframe1",
+      "version": "2.44-3",
+      "source_package": "binutils",
+      "source_version": "2.44-3"
+    },
+    {
+      "package": "libsharpyuv0",
+      "version": "1.5.0-0.1",
+      "source_package": "libwebp",
+      "source_version": "1.5.0-0.1"
+    },
+    {
+      "package": "libsm6",
+      "version": "2:1.2.6-1",
+      "source_package": "libsm",
+      "source_version": "2:1.2.6-1"
+    },
+    {
+      "package": "libsmartcols1",
+      "version": "2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "libsodium23",
+      "version": "1.0.18-1+deb13u1",
+      "source_package": "libsodium",
+      "source_version": "1.0.18-1+deb13u1"
+    },
+    {
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u1",
+      "source_package": "sqlite3",
+      "source_version": "3.46.1-7+deb13u1"
+    },
+    {
+      "package": "libssh2-1t64",
+      "version": "1.11.1-1+deb13u1",
+      "source_package": "libssh2",
+      "source_version": "1.11.1-1+deb13u1"
+    },
+    {
+      "package": "libssl3t64",
+      "version": "3.5.7-1~deb13u2",
+      "source_package": "openssl",
+      "source_version": "3.5.7-1~deb13u2"
+    },
+    {
+      "package": "libstdc++-14-dev",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libstdc++6",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libsvtav1enc2",
+      "version": "2.3.0+dfsg-1",
+      "source_package": "svt-av1",
+      "source_version": "2.3.0+dfsg-1"
+    },
+    {
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "source_package": "systemd",
+      "source_version": "257.13-1~deb13u1"
+    },
+    {
+      "package": "libtasn1-6",
+      "version": "4.20.0-2+deb13u1",
+      "source_package": "libtasn1-6",
+      "source_version": "4.20.0-2+deb13u1"
+    },
+    {
+      "package": "libthai-data",
+      "version": "0.1.29-2",
+      "source_package": "libthai",
+      "source_version": "0.1.29-2"
+    },
+    {
+      "package": "libthai0",
+      "version": "0.1.29-2+b1",
+      "source_package": "libthai",
+      "source_version": "0.1.29-2"
+    },
+    {
+      "package": "libtiff6",
+      "version": "4.7.0-3+deb13u3",
+      "source_package": "tiff",
+      "source_version": "4.7.0-3+deb13u3"
+    },
+    {
+      "package": "libtinfo6",
+      "version": "6.5+20250216-2",
+      "source_package": "ncurses",
+      "source_version": "6.5+20250216-2"
+    },
+    {
+      "package": "libtsan2",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libubsan1",
+      "version": "14.2.0-19",
+      "source_package": "gcc-14",
+      "source_version": "14.2.0-19"
+    },
+    {
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "source_package": "systemd",
+      "source_version": "257.13-1~deb13u1"
+    },
+    {
+      "package": "libunistring5",
+      "version": "1.3-2",
+      "source_package": "libunistring",
+      "source_version": "1.3-2"
+    },
+    {
+      "package": "libuuid1",
+      "version": "2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "libwebp7",
+      "version": "1.5.0-0.1",
+      "source_package": "libwebp",
+      "source_version": "1.5.0-0.1"
+    },
+    {
+      "package": "libwebpdemux2",
+      "version": "1.5.0-0.1",
+      "source_package": "libwebp",
+      "source_version": "1.5.0-0.1"
+    },
+    {
+      "package": "libwebpmux3",
+      "version": "1.5.0-0.1",
+      "source_package": "libwebp",
+      "source_version": "1.5.0-0.1"
+    },
+    {
+      "package": "libwmflite-0.2-7",
+      "version": "0.2.13-1.1+b3",
+      "source_package": "libwmf",
+      "source_version": "0.2.13-1.1"
+    },
+    {
+      "package": "libx11-6",
+      "version": "2:1.8.12-1",
+      "source_package": "libx11",
+      "source_version": "2:1.8.12-1"
+    },
+    {
+      "package": "libx11-data",
+      "version": "2:1.8.12-1",
+      "source_package": "libx11",
+      "source_version": "2:1.8.12-1"
+    },
+    {
+      "package": "libxau6",
+      "version": "1:1.0.11-1",
+      "source_package": "libxau",
+      "source_version": "1:1.0.11-1"
+    },
+    {
+      "package": "libxcb-render0",
+      "version": "1.17.0-2+b1",
+      "source_package": "libxcb",
+      "source_version": "1.17.0-2"
+    },
+    {
+      "package": "libxcb-shm0",
+      "version": "1.17.0-2+b1",
+      "source_package": "libxcb",
+      "source_version": "1.17.0-2"
+    },
+    {
+      "package": "libxcb1",
+      "version": "1.17.0-2+b1",
+      "source_package": "libxcb",
+      "source_version": "1.17.0-2"
+    },
+    {
+      "package": "libxdmcp6",
+      "version": "1:1.1.5-1",
+      "source_package": "libxdmcp",
+      "source_version": "1:1.1.5-1"
+    },
+    {
+      "package": "libxext6",
+      "version": "2:1.3.4-1+b3",
+      "source_package": "libxext",
+      "source_version": "2:1.3.4-1"
+    },
+    {
+      "package": "libxml2",
+      "version": "2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "source_package": "libxml2",
+      "source_version": "2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+    },
+    {
+      "package": "libxpm4",
+      "version": "1:3.5.17-1+deb13u1",
+      "source_package": "libxpm",
+      "source_version": "1:3.5.17-1+deb13u1"
+    },
+    {
+      "package": "libxrender1",
+      "version": "1:0.9.12-1",
+      "source_package": "libxrender",
+      "source_version": "1:0.9.12-1"
+    },
+    {
+      "package": "libxt6t64",
+      "version": "1:1.2.1-1.2+b2",
+      "source_package": "libxt",
+      "source_version": "1:1.2.1-1.2"
+    },
+    {
+      "package": "libxxhash0",
+      "version": "0.8.3-2",
+      "source_package": "xxhash",
+      "source_version": "0.8.3-2"
+    },
+    {
+      "package": "libyuv0",
+      "version": "0.0.1904.20250204-1",
+      "source_package": "libyuv",
+      "source_version": "0.0.1904.20250204-1"
+    },
+    {
+      "package": "libzip5",
+      "version": "1.11.3-2",
+      "source_package": "libzip",
+      "source_version": "1.11.3-2"
+    },
+    {
+      "package": "libzstd1",
+      "version": "1.5.7+dfsg-1",
+      "source_package": "libzstd",
+      "source_version": "1.5.7+dfsg-1"
+    },
+    {
+      "package": "linux-libc-dev",
+      "version": "6.12.101-1",
+      "source_package": "linux",
+      "source_version": "6.12.101-1"
+    },
+    {
+      "package": "login",
+      "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "login.defs",
+      "version": "1:4.17.4-2",
+      "source_package": "shadow",
+      "source_version": "1:4.17.4-2"
+    },
+    {
+      "package": "m4",
+      "version": "1.4.19-8",
+      "source_package": "m4",
+      "source_version": "1.4.19-8"
+    },
+    {
+      "package": "mailcap",
+      "version": "3.74",
+      "source_package": "mailcap",
+      "source_version": "3.74"
+    },
+    {
+      "package": "make",
+      "version": "4.4.1-2",
+      "source_package": "make-dfsg",
+      "source_version": "4.4.1-2"
+    },
+    {
+      "package": "mariadb-client",
+      "version": "1:11.8.6-0+deb13u1",
+      "source_package": "mariadb",
+      "source_version": "1:11.8.6-0+deb13u1"
+    },
+    {
+      "package": "mariadb-client-core",
+      "version": "1:11.8.6-0+deb13u1",
+      "source_package": "mariadb",
+      "source_version": "1:11.8.6-0+deb13u1"
+    },
+    {
+      "package": "mariadb-common",
+      "version": "1:11.8.6-0+deb13u1",
+      "source_package": "mariadb",
+      "source_version": "1:11.8.6-0+deb13u1"
+    },
+    {
+      "package": "mawk",
+      "version": "1.3.4.20250131-1",
+      "source_package": "mawk",
+      "source_version": "1.3.4.20250131-1"
+    },
+    {
+      "package": "media-types",
+      "version": "13.0.0",
+      "source_package": "media-types",
+      "source_version": "13.0.0"
+    },
+    {
+      "package": "mount",
+      "version": "2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "mysql-common",
+      "version": "5.8+1.1.1",
+      "source_package": "mysql-defaults",
+      "source_version": "1.1.1"
+    },
+    {
+      "package": "ncurses-base",
+      "version": "6.5+20250216-2",
+      "source_package": "ncurses",
+      "source_version": "6.5+20250216-2"
+    },
+    {
+      "package": "ncurses-bin",
+      "version": "6.5+20250216-2",
+      "source_package": "ncurses",
+      "source_version": "6.5+20250216-2"
+    },
+    {
+      "package": "openssl",
+      "version": "3.5.7-1~deb13u2",
+      "source_package": "openssl",
+      "source_version": "3.5.7-1~deb13u2"
+    },
+    {
+      "package": "openssl-provider-legacy",
+      "version": "3.5.7-1~deb13u2",
+      "source_package": "openssl",
+      "source_version": "3.5.7-1~deb13u2"
+    },
+    {
+      "package": "passwd",
+      "version": "1:4.17.4-2",
+      "source_package": "shadow",
+      "source_version": "1:4.17.4-2"
+    },
+    {
+      "package": "patch",
+      "version": "2.8-2",
+      "source_package": "patch",
+      "source_version": "2.8-2"
+    },
+    {
+      "package": "perl",
+      "version": "5.40.1-6",
+      "source_package": "perl",
+      "source_version": "5.40.1-6"
+    },
+    {
+      "package": "perl-base",
+      "version": "5.40.1-6",
+      "source_package": "perl",
+      "source_version": "5.40.1-6"
+    },
+    {
+      "package": "perl-modules-5.40",
+      "version": "5.40.1-6",
+      "source_package": "perl",
+      "source_version": "5.40.1-6"
+    },
+    {
+      "package": "pkg-config",
+      "version": "1.8.1-4",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-4"
+    },
+    {
+      "package": "pkgconf",
+      "version": "1.8.1-4",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-4"
+    },
+    {
+      "package": "pkgconf-bin",
+      "version": "1.8.1-4",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-4"
+    },
+    {
+      "package": "poppler-data",
+      "version": "0.4.12-1",
+      "source_package": "poppler-data",
+      "source_version": "0.4.12-1"
+    },
+    {
+      "package": "re2c",
+      "version": "4.1-1",
+      "source_package": "re2c",
+      "source_version": "4.1-1"
+    },
+    {
+      "package": "readline-common",
+      "version": "8.2-6",
+      "source_package": "readline",
+      "source_version": "8.2-6"
+    },
+    {
+      "package": "rpcsvc-proto",
+      "version": "1.4.3-1+b1",
+      "source_package": "rpcsvc-proto",
+      "source_version": "1.4.3-1"
+    },
+    {
+      "package": "sed",
+      "version": "4.9-2+deb13u1",
+      "source_package": "sed",
+      "source_version": "4.9-2+deb13u1"
+    },
+    {
+      "package": "sqv",
+      "version": "1.3.0-3+b2",
+      "source_package": "rust-sequoia-sqv",
+      "source_version": "1.3.0-3"
+    },
+    {
+      "package": "sysvinit-utils",
+      "version": "3.14-4",
+      "source_package": "sysvinit",
+      "source_version": "3.14-4"
+    },
+    {
+      "package": "tar",
+      "version": "1.35+dfsg-3.1",
+      "source_package": "tar",
+      "source_version": "1.35+dfsg-3.1"
+    },
+    {
+      "package": "tzdata",
+      "version": "2026b-0+deb13u1",
+      "source_package": "tzdata",
+      "source_version": "2026b-0+deb13u1"
+    },
+    {
+      "package": "unzip",
+      "version": "6.0-29+deb13u1",
+      "source_package": "unzip",
+      "source_version": "6.0-29+deb13u1"
+    },
+    {
+      "package": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "source_package": "util-linux",
+      "source_version": "2.41.5-0+deb13u1"
+    },
+    {
+      "package": "x11-common",
+      "version": "1:7.7+24+deb13u1",
+      "source_package": "xorg",
+      "source_version": "1:7.7+24+deb13u1"
+    },
+    {
+      "package": "xfonts-encodings",
+      "version": "1:1.0.4-2.2",
+      "source_package": "xfonts-encodings",
+      "source_version": "1:1.0.4-2.2"
+    },
+    {
+      "package": "xfonts-utils",
+      "version": "1:7.7+7",
+      "source_package": "xfonts-utils",
+      "source_version": "1:7.7+7"
+    },
+    {
+      "package": "xz-utils",
+      "version": "5.8.1-1+deb13u1",
+      "source_package": "xz-utils",
+      "source_version": "5.8.1-1+deb13u1"
+    },
+    {
+      "package": "zlib1g",
+      "version": "1:1.3.dfsg+really1.3.1-1+b1",
+      "source_package": "zlib",
+      "source_version": "1:1.3.dfsg+really1.3.1-1"
+    }
+  ],
+  "runtime_php81_debian_packages": [
+    {
+      "package": "adduser",
+      "version": "3.134",
+      "source_package": "adduser",
+      "source_version": "3.134"
+    },
+    {
+      "package": "apt",
+      "version": "2.6.1",
+      "source_package": "apt",
+      "source_version": "2.6.1"
+    },
+    {
+      "package": "autoconf",
+      "version": "2.71-3",
+      "source_package": "autoconf",
+      "source_version": "2.71-3"
+    },
+    {
+      "package": "base-files",
+      "version": "12.4+deb12u12",
+      "source_package": "base-files",
+      "source_version": "12.4+deb12u12"
+    },
+    {
+      "package": "base-passwd",
+      "version": "3.6.1",
+      "source_package": "base-passwd",
+      "source_version": "3.6.1"
+    },
+    {
+      "package": "bash",
+      "version": "5.2.15-2+b9",
+      "source_package": "bash",
+      "source_version": "5.2.15-2"
+    },
+    {
+      "package": "binutils",
+      "version": "2.40-2",
+      "source_package": "binutils",
+      "source_version": "2.40-2"
+    },
+    {
+      "package": "binutils-aarch64-linux-gnu",
+      "version": "2.40-2",
+      "source_package": "binutils",
+      "source_version": "2.40-2"
+    },
+    {
+      "package": "binutils-common",
+      "version": "2.40-2",
+      "source_package": "binutils",
+      "source_version": "2.40-2"
+    },
+    {
+      "package": "bsdutils",
+      "version": "1:2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "bzip2",
+      "version": "1.0.8-5+b1",
+      "source_package": "bzip2",
+      "source_version": "1.0.8-5"
+    },
+    {
+      "package": "ca-certificates",
+      "version": "20250419~deb12u1",
+      "source_package": "ca-certificates",
+      "source_version": "20250419~deb12u1"
+    },
+    {
+      "package": "coreutils",
+      "version": "9.1-1",
+      "source_package": "coreutils",
+      "source_version": "9.1-1"
+    },
+    {
+      "package": "cpp",
+      "version": "4:12.2.0-3",
+      "source_package": "gcc-defaults",
+      "source_version": "1.203"
+    },
+    {
+      "package": "cpp-12",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "curl",
+      "version": "7.88.1-10+deb12u15",
+      "source_package": "curl",
+      "source_version": "7.88.1-10+deb12u15"
+    },
+    {
+      "package": "dash",
+      "version": "0.5.12-2",
+      "source_package": "dash",
+      "source_version": "0.5.12-2"
+    },
+    {
+      "package": "debconf",
+      "version": "1.5.82",
+      "source_package": "debconf",
+      "source_version": "1.5.82"
+    },
+    {
+      "package": "debian-archive-keyring",
+      "version": "2023.3+deb12u2",
+      "source_package": "debian-archive-keyring",
+      "source_version": "2023.3+deb12u2"
+    },
+    {
+      "package": "debianutils",
+      "version": "5.7-0.5~deb12u1",
+      "source_package": "debianutils",
+      "source_version": "5.7-0.5~deb12u1"
+    },
+    {
+      "package": "diffutils",
+      "version": "1:3.8-4",
+      "source_package": "diffutils",
+      "source_version": "1:3.8-4"
+    },
+    {
+      "package": "dpkg",
+      "version": "1.21.22",
+      "source_package": "dpkg",
+      "source_version": "1.21.22"
+    },
+    {
+      "package": "dpkg-dev",
+      "version": "1.21.22",
+      "source_package": "dpkg",
+      "source_version": "1.21.22"
+    },
+    {
+      "package": "e2fsprogs",
+      "version": "1.47.0-2+b2",
+      "source_package": "e2fsprogs",
+      "source_version": "1.47.0-2"
+    },
+    {
+      "package": "file",
+      "version": "1:5.44-3",
+      "source_package": "file",
+      "source_version": "1:5.44-3"
+    },
+    {
+      "package": "findutils",
+      "version": "4.9.0-4",
+      "source_package": "findutils",
+      "source_version": "4.9.0-4"
+    },
+    {
+      "package": "fontconfig",
+      "version": "2.14.1-4",
+      "source_package": "fontconfig",
+      "source_version": "2.14.1-4"
+    },
+    {
+      "package": "fontconfig-config",
+      "version": "2.14.1-4",
+      "source_package": "fontconfig",
+      "source_version": "2.14.1-4"
+    },
+    {
+      "package": "fonts-dejavu-core",
+      "version": "2.37-6",
+      "source_package": "fonts-dejavu",
+      "source_version": "2.37-6"
+    },
+    {
+      "package": "fonts-urw-base35",
+      "version": "20200910-7",
+      "source_package": "fonts-urw-base35",
+      "source_version": "20200910-7"
+    },
+    {
+      "package": "g++",
+      "version": "4:12.2.0-3",
+      "source_package": "gcc-defaults",
+      "source_version": "1.203"
+    },
+    {
+      "package": "g++-12",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "gcc",
+      "version": "4:12.2.0-3",
+      "source_package": "gcc-defaults",
+      "source_version": "1.203"
+    },
+    {
+      "package": "gcc-12",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "gcc-12-base",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "gettext-base",
+      "version": "0.21-12",
+      "source_package": "gettext",
+      "source_version": "0.21-12"
+    },
+    {
+      "package": "ghostscript",
+      "version": "10.0.0~dfsg-11+deb12u8",
+      "source_package": "ghostscript",
+      "source_version": "10.0.0~dfsg-11+deb12u8"
+    },
+    {
+      "package": "gpgv",
+      "version": "2.2.40-1.1+deb12u1",
+      "source_package": "gnupg2",
+      "source_version": "2.2.40-1.1+deb12u1"
+    },
+    {
+      "package": "grep",
+      "version": "3.8-5",
+      "source_package": "grep",
+      "source_version": "3.8-5"
+    },
+    {
+      "package": "gzip",
+      "version": "1.12-1",
+      "source_package": "gzip",
+      "source_version": "1.12-1"
+    },
+    {
+      "package": "hostname",
+      "version": "3.23+nmu1",
+      "source_package": "hostname",
+      "source_version": "3.23+nmu1"
+    },
+    {
+      "package": "imagemagick-6-common",
+      "version": "8:6.9.11.60+dfsg-1.6+deb12u13",
+      "source_package": "imagemagick",
+      "source_version": "8:6.9.11.60+dfsg-1.6+deb12u13"
+    },
+    {
+      "package": "init-system-helpers",
+      "version": "1.65.2+deb12u1",
+      "source_package": "init-system-helpers",
+      "source_version": "1.65.2+deb12u1"
+    },
+    {
+      "package": "iproute2",
+      "version": "6.1.0-3",
+      "source_package": "iproute2",
+      "source_version": "6.1.0-3"
+    },
+    {
+      "package": "less",
+      "version": "590-2.1~deb12u2",
+      "source_package": "less",
+      "source_version": "590-2.1~deb12u2"
+    },
+    {
+      "package": "libabsl20220623",
+      "version": "20220623.1-1+deb12u2",
+      "source_package": "abseil",
+      "source_version": "20220623.1-1+deb12u2"
+    },
+    {
+      "package": "libacl1",
+      "version": "2.3.1-3",
+      "source_package": "acl",
+      "source_version": "2.3.1-3"
+    },
+    {
+      "package": "libaom3",
+      "version": "3.6.0-1+deb12u3",
+      "source_package": "aom",
+      "source_version": "3.6.0-1+deb12u3"
+    },
+    {
+      "package": "libapt-pkg6.0",
+      "version": "2.6.1",
+      "source_package": "apt",
+      "source_version": "2.6.1"
+    },
+    {
+      "package": "libargon2-1",
+      "version": "0~20171227-0.3+deb12u1",
+      "source_package": "argon2",
+      "source_version": "0~20171227-0.3+deb12u1"
+    },
+    {
+      "package": "libasan8",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libatomic1",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libattr1",
+      "version": "1:2.5.1-4",
+      "source_package": "attr",
+      "source_version": "1:2.5.1-4"
+    },
+    {
+      "package": "libaudit-common",
+      "version": "1:3.0.9-1",
+      "source_package": "audit",
+      "source_version": "1:3.0.9-1"
+    },
+    {
+      "package": "libaudit1",
+      "version": "1:3.0.9-1",
+      "source_package": "audit",
+      "source_version": "1:3.0.9-1"
+    },
+    {
+      "package": "libavahi-client3",
+      "version": "0.8-10+deb12u1",
+      "source_package": "avahi",
+      "source_version": "0.8-10+deb12u1"
+    },
+    {
+      "package": "libavahi-common-data",
+      "version": "0.8-10+deb12u1",
+      "source_package": "avahi",
+      "source_version": "0.8-10+deb12u1"
+    },
+    {
+      "package": "libavahi-common3",
+      "version": "0.8-10+deb12u1",
+      "source_package": "avahi",
+      "source_version": "0.8-10+deb12u1"
+    },
+    {
+      "package": "libavif15",
+      "version": "0.11.1-1+deb12u1",
+      "source_package": "libavif",
+      "source_version": "0.11.1-1+deb12u1"
+    },
+    {
+      "package": "libbinutils",
+      "version": "2.40-2",
+      "source_package": "binutils",
+      "source_version": "2.40-2"
+    },
+    {
+      "package": "libblkid1",
+      "version": "2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "libbpf1",
+      "version": "1:1.1.2-0+deb12u1",
+      "source_package": "libbpf",
+      "source_version": "1.1.2-0+deb12u1"
+    },
+    {
+      "package": "libbrotli1",
+      "version": "1.0.9-2+b6",
+      "source_package": "brotli",
+      "source_version": "1.0.9-2"
+    },
+    {
+      "package": "libbsd0",
+      "version": "0.11.7-2",
+      "source_package": "libbsd",
+      "source_version": "0.11.7-2"
+    },
+    {
+      "package": "libbz2-1.0",
+      "version": "1.0.8-5+b1",
+      "source_package": "bzip2",
+      "source_version": "1.0.8-5"
+    },
+    {
+      "package": "libc-bin",
+      "version": "2.36-9+deb12u13",
+      "source_package": "glibc",
+      "source_version": "2.36-9+deb12u13"
+    },
+    {
+      "package": "libc-dev-bin",
+      "version": "2.36-9+deb12u13",
+      "source_package": "glibc",
+      "source_version": "2.36-9+deb12u13"
+    },
+    {
+      "package": "libc6",
+      "version": "2.36-9+deb12u13",
+      "source_package": "glibc",
+      "source_version": "2.36-9+deb12u13"
+    },
+    {
+      "package": "libc6-dev",
+      "version": "2.36-9+deb12u13",
+      "source_package": "glibc",
+      "source_version": "2.36-9+deb12u13"
+    },
+    {
+      "package": "libcairo2",
+      "version": "1.16.0-7",
+      "source_package": "cairo",
+      "source_version": "1.16.0-7"
+    },
+    {
+      "package": "libcap-ng0",
+      "version": "0.8.3-1+b3",
+      "source_package": "libcap-ng",
+      "source_version": "0.8.3-1"
+    },
+    {
+      "package": "libcap2",
+      "version": "1:2.66-4+deb12u3+b1",
+      "source_package": "libcap2",
+      "source_version": "1:2.66-4+deb12u3"
+    },
+    {
+      "package": "libcap2-bin",
+      "version": "1:2.66-4+deb12u3+b1",
+      "source_package": "libcap2",
+      "source_version": "1:2.66-4+deb12u3"
+    },
+    {
+      "package": "libcc1-0",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libcom-err2",
+      "version": "1.47.0-2+b2",
+      "source_package": "e2fsprogs",
+      "source_version": "1.47.0-2"
+    },
+    {
+      "package": "libconfig-inifiles-perl",
+      "version": "3.000003-2+deb12u1",
+      "source_package": "libconfig-inifiles-perl",
+      "source_version": "3.000003-2+deb12u1"
+    },
+    {
+      "package": "libcrypt-dev",
+      "version": "1:4.4.33-2",
+      "source_package": "libxcrypt",
+      "source_version": "1:4.4.33-2"
+    },
+    {
+      "package": "libcrypt1",
+      "version": "1:4.4.33-2",
+      "source_package": "libxcrypt",
+      "source_version": "1:4.4.33-2"
+    },
+    {
+      "package": "libctf-nobfd0",
+      "version": "2.40-2",
+      "source_package": "binutils",
+      "source_version": "2.40-2"
+    },
+    {
+      "package": "libctf0",
+      "version": "2.40-2",
+      "source_package": "binutils",
+      "source_version": "2.40-2"
+    },
+    {
+      "package": "libcups2",
+      "version": "2.4.2-3+deb12u9",
+      "source_package": "cups",
+      "source_version": "2.4.2-3+deb12u9"
+    },
+    {
+      "package": "libcurl4",
+      "version": "7.88.1-10+deb12u15",
+      "source_package": "curl",
+      "source_version": "7.88.1-10+deb12u15"
+    },
+    {
+      "package": "libdatrie1",
+      "version": "0.2.13-2+b1",
+      "source_package": "libdatrie",
+      "source_version": "0.2.13-2"
+    },
+    {
+      "package": "libdav1d6",
+      "version": "1.0.0-2+deb12u1",
+      "source_package": "dav1d",
+      "source_version": "1.0.0-2+deb12u1"
+    },
+    {
+      "package": "libdb5.3",
+      "version": "5.3.28+dfsg2-1",
+      "source_package": "db5.3",
+      "source_version": "5.3.28+dfsg2-1"
+    },
+    {
+      "package": "libdbus-1-3",
+      "version": "1.14.10-1~deb12u1",
+      "source_package": "dbus",
+      "source_version": "1.14.10-1~deb12u1"
+    },
+    {
+      "package": "libde265-0",
+      "version": "1.0.11-1+deb12u2",
+      "source_package": "libde265",
+      "source_version": "1.0.11-1+deb12u2"
+    },
+    {
+      "package": "libdebconfclient0",
+      "version": "0.270",
+      "source_package": "cdebconf",
+      "source_version": "0.270"
+    },
+    {
+      "package": "libdeflate0",
+      "version": "1.14-1",
+      "source_package": "libdeflate",
+      "source_version": "1.14-1"
+    },
+    {
+      "package": "libdjvulibre-text",
+      "version": "3.5.28-2.2~deb12u1",
+      "source_package": "djvulibre",
+      "source_version": "3.5.28-2.2~deb12u1"
+    },
+    {
+      "package": "libdjvulibre21",
+      "version": "3.5.28-2.2~deb12u1",
+      "source_package": "djvulibre",
+      "source_version": "3.5.28-2.2~deb12u1"
+    },
+    {
+      "package": "libdpkg-perl",
+      "version": "1.21.22",
+      "source_package": "dpkg",
+      "source_version": "1.21.22"
+    },
+    {
+      "package": "libedit2",
+      "version": "3.1-20221030-2",
+      "source_package": "libedit",
+      "source_version": "3.1-20221030-2"
+    },
+    {
+      "package": "libelf1",
+      "version": "0.188-2.1",
+      "source_package": "elfutils",
+      "source_version": "0.188-2.1"
+    },
+    {
+      "package": "libexpat1",
+      "version": "2.5.0-1+deb12u3",
+      "source_package": "expat",
+      "source_version": "2.5.0-1+deb12u3"
+    },
+    {
+      "package": "libext2fs2",
+      "version": "1.47.0-2+b2",
+      "source_package": "e2fsprogs",
+      "source_version": "1.47.0-2"
+    },
+    {
+      "package": "libffi8",
+      "version": "3.4.4-1",
+      "source_package": "libffi",
+      "source_version": "3.4.4-1"
+    },
+    {
+      "package": "libfftw3-double3",
+      "version": "3.3.10-1",
+      "source_package": "fftw3",
+      "source_version": "3.3.10-1"
+    },
+    {
+      "package": "libfontconfig1",
+      "version": "2.14.1-4",
+      "source_package": "fontconfig",
+      "source_version": "2.14.1-4"
+    },
+    {
+      "package": "libfontenc1",
+      "version": "1:1.1.4-1",
+      "source_package": "libfontenc",
+      "source_version": "1:1.1.4-1"
+    },
+    {
+      "package": "libfreetype6",
+      "version": "2.12.1+dfsg-5+deb12u4",
+      "source_package": "freetype",
+      "source_version": "2.12.1+dfsg-5+deb12u4"
+    },
+    {
+      "package": "libfribidi0",
+      "version": "1.0.8-2.1",
+      "source_package": "fribidi",
+      "source_version": "1.0.8-2.1"
+    },
+    {
+      "package": "libgav1-1",
+      "version": "0.18.0-1+b1",
+      "source_package": "libgav1",
+      "source_version": "0.18.0-1"
+    },
+    {
+      "package": "libgcc-12-dev",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libgcc-s1",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libgcrypt20",
+      "version": "1.10.1-3",
+      "source_package": "libgcrypt20",
+      "source_version": "1.10.1-3"
+    },
+    {
+      "package": "libgdbm-compat4",
+      "version": "1.23-3",
+      "source_package": "gdbm",
+      "source_version": "1.23-3"
+    },
+    {
+      "package": "libgdbm6",
+      "version": "1.23-3",
+      "source_package": "gdbm",
+      "source_version": "1.23-3"
+    },
+    {
+      "package": "libglib2.0-0",
+      "version": "2.74.6-2+deb12u9",
+      "source_package": "glib2.0",
+      "source_version": "2.74.6-2+deb12u9"
+    },
+    {
+      "package": "libgmp10",
+      "version": "2:6.2.1+dfsg1-1.1",
+      "source_package": "gmp",
+      "source_version": "2:6.2.1+dfsg1-1.1"
+    },
+    {
+      "package": "libgnutls30",
+      "version": "3.7.9-2+deb12u5",
+      "source_package": "gnutls28",
+      "source_version": "3.7.9-2+deb12u5"
+    },
+    {
+      "package": "libgomp1",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libgpg-error0",
+      "version": "1.46-1",
+      "source_package": "libgpg-error",
+      "source_version": "1.46-1"
+    },
+    {
+      "package": "libgprofng0",
+      "version": "2.40-2",
+      "source_package": "binutils",
+      "source_version": "2.40-2"
+    },
+    {
+      "package": "libgraphite2-3",
+      "version": "1.3.14-1+deb12u1",
+      "source_package": "graphite2",
+      "source_version": "1.3.14-1+deb12u1"
+    },
+    {
+      "package": "libgs-common",
+      "version": "10.0.0~dfsg-11+deb12u8",
+      "source_package": "ghostscript",
+      "source_version": "10.0.0~dfsg-11+deb12u8"
+    },
+    {
+      "package": "libgs10",
+      "version": "10.0.0~dfsg-11+deb12u8",
+      "source_package": "ghostscript",
+      "source_version": "10.0.0~dfsg-11+deb12u8"
+    },
+    {
+      "package": "libgs10-common",
+      "version": "10.0.0~dfsg-11+deb12u8",
+      "source_package": "ghostscript",
+      "source_version": "10.0.0~dfsg-11+deb12u8"
+    },
+    {
+      "package": "libgssapi-krb5-2",
+      "version": "1.20.1-2+deb12u4",
+      "source_package": "krb5",
+      "source_version": "1.20.1-2+deb12u4"
+    },
+    {
+      "package": "libharfbuzz0b",
+      "version": "6.0.0+dfsg-3",
+      "source_package": "harfbuzz",
+      "source_version": "6.0.0+dfsg-3"
+    },
+    {
+      "package": "libheif1",
+      "version": "1.15.1-1+deb12u1",
+      "source_package": "libheif",
+      "source_version": "1.15.1-1+deb12u1"
+    },
+    {
+      "package": "libhogweed6",
+      "version": "3.8.1-2",
+      "source_package": "nettle",
+      "source_version": "3.8.1-2"
+    },
+    {
+      "package": "libhwasan0",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libice6",
+      "version": "2:1.0.10-1",
+      "source_package": "libice",
+      "source_version": "2:1.0.10-1"
+    },
+    {
+      "package": "libicu72",
+      "version": "72.1-3+deb12u1",
+      "source_package": "icu",
+      "source_version": "72.1-3+deb12u1"
+    },
+    {
+      "package": "libidn12",
+      "version": "1.41-1",
+      "source_package": "libidn",
+      "source_version": "1.41-1"
+    },
+    {
+      "package": "libidn2-0",
+      "version": "2.3.3-1+b1",
+      "source_package": "libidn2",
+      "source_version": "2.3.3-1"
+    },
+    {
+      "package": "libijs-0.35",
+      "version": "0.35-15",
+      "source_package": "ijs",
+      "source_version": "0.35-15"
+    },
+    {
+      "package": "libimath-3-1-29",
+      "version": "3.1.6-1",
+      "source_package": "imath",
+      "source_version": "3.1.6-1"
+    },
+    {
+      "package": "libisl23",
+      "version": "0.25-1.1",
+      "source_package": "isl",
+      "source_version": "0.25-1.1"
+    },
+    {
+      "package": "libitm1",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libjansson4",
+      "version": "2.14-2",
+      "source_package": "jansson",
+      "source_version": "2.14-2"
+    },
+    {
+      "package": "libjbig0",
+      "version": "2.1-6.1",
+      "source_package": "jbigkit",
+      "source_version": "2.1-6.1"
+    },
+    {
+      "package": "libjbig2dec0",
+      "version": "0.19-3",
+      "source_package": "jbig2dec",
+      "source_version": "0.19-3"
+    },
+    {
+      "package": "libjpeg62-turbo",
+      "version": "1:2.1.5-2",
+      "source_package": "libjpeg-turbo",
+      "source_version": "1:2.1.5-2"
+    },
+    {
+      "package": "libk5crypto3",
+      "version": "1.20.1-2+deb12u4",
+      "source_package": "krb5",
+      "source_version": "1.20.1-2+deb12u4"
+    },
+    {
+      "package": "libkeyutils1",
+      "version": "1.6.3-2",
+      "source_package": "keyutils",
+      "source_version": "1.6.3-2"
+    },
+    {
+      "package": "libkrb5-3",
+      "version": "1.20.1-2+deb12u4",
+      "source_package": "krb5",
+      "source_version": "1.20.1-2+deb12u4"
+    },
+    {
+      "package": "libkrb5support0",
+      "version": "1.20.1-2+deb12u4",
+      "source_package": "krb5",
+      "source_version": "1.20.1-2+deb12u4"
+    },
+    {
+      "package": "liblcms2-2",
+      "version": "2.14-2+deb12u1",
+      "source_package": "lcms2",
+      "source_version": "2.14-2+deb12u1"
+    },
+    {
+      "package": "libldap-2.5-0",
+      "version": "2.5.13+dfsg-5",
+      "source_package": "openldap",
+      "source_version": "2.5.13+dfsg-5"
+    },
+    {
+      "package": "liblerc4",
+      "version": "4.0.0+ds-2",
+      "source_package": "lerc",
+      "source_version": "4.0.0+ds-2"
+    },
+    {
+      "package": "liblqr-1-0",
+      "version": "0.4.2-2.1",
+      "source_package": "liblqr",
+      "source_version": "0.4.2-2.1"
+    },
+    {
+      "package": "liblsan0",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libltdl7",
+      "version": "2.4.7-7~deb12u1",
+      "source_package": "libtool",
+      "source_version": "2.4.7-7~deb12u1"
+    },
+    {
+      "package": "liblz4-1",
+      "version": "1.9.4-1",
+      "source_package": "lz4",
+      "source_version": "1.9.4-1"
+    },
+    {
+      "package": "liblzma5",
+      "version": "5.4.1-1+deb12u1",
+      "source_package": "xz-utils",
+      "source_version": "5.4.1-1+deb12u1"
+    },
+    {
+      "package": "libmagic-mgc",
+      "version": "1:5.44-3",
+      "source_package": "file",
+      "source_version": "1:5.44-3"
+    },
+    {
+      "package": "libmagic1",
+      "version": "1:5.44-3",
+      "source_package": "file",
+      "source_version": "1:5.44-3"
+    },
+    {
+      "package": "libmagickcore-6.q16-6",
+      "version": "8:6.9.11.60+dfsg-1.6+deb12u13",
+      "source_package": "imagemagick",
+      "source_version": "8:6.9.11.60+dfsg-1.6+deb12u13"
+    },
+    {
+      "package": "libmagickcore-6.q16-6-extra",
+      "version": "8:6.9.11.60+dfsg-1.6+deb12u13",
+      "source_package": "imagemagick",
+      "source_version": "8:6.9.11.60+dfsg-1.6+deb12u13"
+    },
+    {
+      "package": "libmagickwand-6.q16-6",
+      "version": "8:6.9.11.60+dfsg-1.6+deb12u13",
+      "source_package": "imagemagick",
+      "source_version": "8:6.9.11.60+dfsg-1.6+deb12u13"
+    },
+    {
+      "package": "libmariadb3",
+      "version": "1:10.11.18-0+deb12u1",
+      "source_package": "mariadb",
+      "source_version": "1:10.11.18-0+deb12u1"
+    },
+    {
+      "package": "libmd0",
+      "version": "1.0.4-2",
+      "source_package": "libmd",
+      "source_version": "1.0.4-2"
+    },
+    {
+      "package": "libmnl0",
+      "version": "1.0.4-3",
+      "source_package": "libmnl",
+      "source_version": "1.0.4-3"
+    },
+    {
+      "package": "libmount1",
+      "version": "2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "libmpc3",
+      "version": "1.3.1-1",
+      "source_package": "mpclib3",
+      "source_version": "1.3.1-1"
+    },
+    {
+      "package": "libmpfr6",
+      "version": "4.2.0-1",
+      "source_package": "mpfr4",
+      "source_version": "4.2.0-1"
+    },
+    {
+      "package": "libncurses6",
+      "version": "6.4-4",
+      "source_package": "ncurses",
+      "source_version": "6.4-4"
+    },
+    {
+      "package": "libnettle8",
+      "version": "3.8.1-2",
+      "source_package": "nettle",
+      "source_version": "3.8.1-2"
+    },
+    {
+      "package": "libnghttp2-14",
+      "version": "1.52.0-1+deb12u2",
+      "source_package": "nghttp2",
+      "source_version": "1.52.0-1+deb12u2"
+    },
+    {
+      "package": "libnsl-dev",
+      "version": "1.3.0-2",
+      "source_package": "libnsl",
+      "source_version": "1.3.0-2"
+    },
+    {
+      "package": "libnsl2",
+      "version": "1.3.0-2",
+      "source_package": "libnsl",
+      "source_version": "1.3.0-2"
+    },
+    {
+      "package": "libnuma1",
+      "version": "2.0.16-1",
+      "source_package": "numactl",
+      "source_version": "2.0.16-1"
+    },
+    {
+      "package": "libonig5",
+      "version": "6.9.8-1",
+      "source_package": "libonig",
+      "source_version": "6.9.8-1"
+    },
+    {
+      "package": "libopenexr-3-1-30",
+      "version": "3.1.5-5",
+      "source_package": "openexr",
+      "source_version": "3.1.5-5"
+    },
+    {
+      "package": "libopenjp2-7",
+      "version": "2.5.0-2+deb12u3",
+      "source_package": "openjpeg2",
+      "source_version": "2.5.0-2+deb12u3"
+    },
+    {
+      "package": "libp11-kit0",
+      "version": "0.24.1-2",
+      "source_package": "p11-kit",
+      "source_version": "0.24.1-2"
+    },
+    {
+      "package": "libpam-modules",
+      "version": "1.5.2-6+deb12u1",
+      "source_package": "pam",
+      "source_version": "1.5.2-6+deb12u1"
+    },
+    {
+      "package": "libpam-modules-bin",
+      "version": "1.5.2-6+deb12u1",
+      "source_package": "pam",
+      "source_version": "1.5.2-6+deb12u1"
+    },
+    {
+      "package": "libpam-runtime",
+      "version": "1.5.2-6+deb12u1",
+      "source_package": "pam",
+      "source_version": "1.5.2-6+deb12u1"
+    },
+    {
+      "package": "libpam0g",
+      "version": "1.5.2-6+deb12u1",
+      "source_package": "pam",
+      "source_version": "1.5.2-6+deb12u1"
+    },
+    {
+      "package": "libpango-1.0-0",
+      "version": "1.50.12+ds-1",
+      "source_package": "pango1.0",
+      "source_version": "1.50.12+ds-1"
+    },
+    {
+      "package": "libpangocairo-1.0-0",
+      "version": "1.50.12+ds-1",
+      "source_package": "pango1.0",
+      "source_version": "1.50.12+ds-1"
+    },
+    {
+      "package": "libpangoft2-1.0-0",
+      "version": "1.50.12+ds-1",
+      "source_package": "pango1.0",
+      "source_version": "1.50.12+ds-1"
+    },
+    {
+      "package": "libpaper1",
+      "version": "1.1.29",
+      "source_package": "libpaper",
+      "source_version": "1.1.29"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "version": "10.42-1+deb12u1",
+      "source_package": "pcre2",
+      "source_version": "10.42-1+deb12u1"
+    },
+    {
+      "package": "libperl5.36",
+      "version": "5.36.0-7+deb12u3",
+      "source_package": "perl",
+      "source_version": "5.36.0-7+deb12u3"
+    },
+    {
+      "package": "libpixman-1-0",
+      "version": "0.42.2-1",
+      "source_package": "pixman",
+      "source_version": "0.42.2-1"
+    },
+    {
+      "package": "libpkgconf3",
+      "version": "1.8.1-1",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-1"
+    },
+    {
+      "package": "libpng16-16",
+      "version": "1.6.39-2+deb12u5",
+      "source_package": "libpng1.6",
+      "source_version": "1.6.39-2+deb12u5"
+    },
+    {
+      "package": "libpsl5",
+      "version": "0.21.2-1",
+      "source_package": "libpsl",
+      "source_version": "0.21.2-1"
+    },
+    {
+      "package": "librav1e0",
+      "version": "0.5.1-6",
+      "source_package": "rust-rav1e",
+      "source_version": "0.5.1-6"
+    },
+    {
+      "package": "libreadline8",
+      "version": "8.2-1.3",
+      "source_package": "readline",
+      "source_version": "8.2-1.3"
+    },
+    {
+      "package": "librtmp1",
+      "version": "2.4+20151223.gitfa8646d.1-2+b2",
+      "source_package": "rtmpdump",
+      "source_version": "2.4+20151223.gitfa8646d.1-2"
+    },
+    {
+      "package": "libsasl2-2",
+      "version": "2.1.28+dfsg-10",
+      "source_package": "cyrus-sasl2",
+      "source_version": "2.1.28+dfsg-10"
+    },
+    {
+      "package": "libsasl2-modules-db",
+      "version": "2.1.28+dfsg-10",
+      "source_package": "cyrus-sasl2",
+      "source_version": "2.1.28+dfsg-10"
+    },
+    {
+      "package": "libseccomp2",
+      "version": "2.5.4-1+deb12u1",
+      "source_package": "libseccomp",
+      "source_version": "2.5.4-1+deb12u1"
+    },
+    {
+      "package": "libselinux1",
+      "version": "3.4-1+b6",
+      "source_package": "libselinux",
+      "source_version": "3.4-1"
+    },
+    {
+      "package": "libsemanage-common",
+      "version": "3.4-1",
+      "source_package": "libsemanage",
+      "source_version": "3.4-1"
+    },
+    {
+      "package": "libsemanage2",
+      "version": "3.4-1+b5",
+      "source_package": "libsemanage",
+      "source_version": "3.4-1"
+    },
+    {
+      "package": "libsepol2",
+      "version": "3.4-2.1",
+      "source_package": "libsepol",
+      "source_version": "3.4-2.1"
+    },
+    {
+      "package": "libsm6",
+      "version": "2:1.2.3-1",
+      "source_package": "libsm",
+      "source_version": "2:1.2.3-1"
+    },
+    {
+      "package": "libsmartcols1",
+      "version": "2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "libsodium23",
+      "version": "1.0.18-1",
+      "source_package": "libsodium",
+      "source_version": "1.0.18-1"
+    },
+    {
+      "package": "libsqlite3-0",
+      "version": "3.40.1-2+deb12u2",
+      "source_package": "sqlite3",
+      "source_version": "3.40.1-2+deb12u2"
+    },
+    {
+      "package": "libss2",
+      "version": "1.47.0-2+b2",
+      "source_package": "e2fsprogs",
+      "source_version": "1.47.0-2"
+    },
+    {
+      "package": "libssh2-1",
+      "version": "1.10.0-3+b1",
+      "source_package": "libssh2",
+      "source_version": "1.10.0-3"
+    },
+    {
+      "package": "libssl3",
+      "version": "3.0.20-1~deb12u2",
+      "source_package": "openssl",
+      "source_version": "3.0.20-1~deb12u2"
+    },
+    {
+      "package": "libstdc++-12-dev",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libstdc++6",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libsvtav1enc1",
+      "version": "1.4.1+dfsg-1",
+      "source_package": "svt-av1",
+      "source_version": "1.4.1+dfsg-1"
+    },
+    {
+      "package": "libsystemd0",
+      "version": "252.39-1~deb12u1",
+      "source_package": "systemd",
+      "source_version": "252.39-1~deb12u1"
+    },
+    {
+      "package": "libtasn1-6",
+      "version": "4.19.0-2+deb12u1",
+      "source_package": "libtasn1-6",
+      "source_version": "4.19.0-2+deb12u1"
+    },
+    {
+      "package": "libthai-data",
+      "version": "0.1.29-1",
+      "source_package": "libthai",
+      "source_version": "0.1.29-1"
+    },
+    {
+      "package": "libthai0",
+      "version": "0.1.29-1",
+      "source_package": "libthai",
+      "source_version": "0.1.29-1"
+    },
+    {
+      "package": "libtiff6",
+      "version": "4.5.0-6+deb12u4",
+      "source_package": "tiff",
+      "source_version": "4.5.0-6+deb12u4"
+    },
+    {
+      "package": "libtinfo6",
+      "version": "6.4-4",
+      "source_package": "ncurses",
+      "source_version": "6.4-4"
+    },
+    {
+      "package": "libtirpc-common",
+      "version": "1.3.3+ds-1",
+      "source_package": "libtirpc",
+      "source_version": "1.3.3+ds-1"
+    },
+    {
+      "package": "libtirpc-dev",
+      "version": "1.3.3+ds-1",
+      "source_package": "libtirpc",
+      "source_version": "1.3.3+ds-1"
+    },
+    {
+      "package": "libtirpc3",
+      "version": "1.3.3+ds-1",
+      "source_package": "libtirpc",
+      "source_version": "1.3.3+ds-1"
+    },
+    {
+      "package": "libtsan2",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libubsan1",
+      "version": "12.2.0-14+deb12u1",
+      "source_package": "gcc-12",
+      "source_version": "12.2.0-14+deb12u1"
+    },
+    {
+      "package": "libudev1",
+      "version": "252.39-1~deb12u1",
+      "source_package": "systemd",
+      "source_version": "252.39-1~deb12u1"
+    },
+    {
+      "package": "libunistring2",
+      "version": "1.0-2",
+      "source_package": "libunistring",
+      "source_version": "1.0-2"
+    },
+    {
+      "package": "libuuid1",
+      "version": "2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "libwebp7",
+      "version": "1.2.4-0.2+deb12u1",
+      "source_package": "libwebp",
+      "source_version": "1.2.4-0.2+deb12u1"
+    },
+    {
+      "package": "libwebpdemux2",
+      "version": "1.2.4-0.2+deb12u1",
+      "source_package": "libwebp",
+      "source_version": "1.2.4-0.2+deb12u1"
+    },
+    {
+      "package": "libwebpmux3",
+      "version": "1.2.4-0.2+deb12u1",
+      "source_package": "libwebp",
+      "source_version": "1.2.4-0.2+deb12u1"
+    },
+    {
+      "package": "libwmflite-0.2-7",
+      "version": "0.2.12-5.1",
+      "source_package": "libwmf",
+      "source_version": "0.2.12-5.1"
+    },
+    {
+      "package": "libx11-6",
+      "version": "2:1.8.4-2+deb12u2",
+      "source_package": "libx11",
+      "source_version": "2:1.8.4-2+deb12u2"
+    },
+    {
+      "package": "libx11-data",
+      "version": "2:1.8.4-2+deb12u2",
+      "source_package": "libx11",
+      "source_version": "2:1.8.4-2+deb12u2"
+    },
+    {
+      "package": "libx265-199",
+      "version": "3.5-2+b1",
+      "source_package": "x265",
+      "source_version": "3.5-2"
+    },
+    {
+      "package": "libxau6",
+      "version": "1:1.0.9-1",
+      "source_package": "libxau",
+      "source_version": "1:1.0.9-1"
+    },
+    {
+      "package": "libxcb-render0",
+      "version": "1.15-1",
+      "source_package": "libxcb",
+      "source_version": "1.15-1"
+    },
+    {
+      "package": "libxcb-shm0",
+      "version": "1.15-1",
+      "source_package": "libxcb",
+      "source_version": "1.15-1"
+    },
+    {
+      "package": "libxcb1",
+      "version": "1.15-1",
+      "source_package": "libxcb",
+      "source_version": "1.15-1"
+    },
+    {
+      "package": "libxdmcp6",
+      "version": "1:1.1.2-3",
+      "source_package": "libxdmcp",
+      "source_version": "1:1.1.2-3"
+    },
+    {
+      "package": "libxext6",
+      "version": "2:1.3.4-1+b1",
+      "source_package": "libxext",
+      "source_version": "2:1.3.4-1"
+    },
+    {
+      "package": "libxml2",
+      "version": "2.9.14+dfsg-1.3~deb12u6",
+      "source_package": "libxml2",
+      "source_version": "2.9.14+dfsg-1.3~deb12u6"
+    },
+    {
+      "package": "libxpm4",
+      "version": "1:3.5.12-1.1+deb12u1",
+      "source_package": "libxpm",
+      "source_version": "1:3.5.12-1.1+deb12u1"
+    },
+    {
+      "package": "libxrender1",
+      "version": "1:0.9.10-1.1",
+      "source_package": "libxrender",
+      "source_version": "1:0.9.10-1.1"
+    },
+    {
+      "package": "libxt6",
+      "version": "1:1.2.1-1.1",
+      "source_package": "libxt",
+      "source_version": "1:1.2.1-1.1"
+    },
+    {
+      "package": "libxtables12",
+      "version": "1.8.9-2",
+      "source_package": "iptables",
+      "source_version": "1.8.9-2"
+    },
+    {
+      "package": "libxxhash0",
+      "version": "0.8.1-1",
+      "source_package": "xxhash",
+      "source_version": "0.8.1-1"
+    },
+    {
+      "package": "libyuv0",
+      "version": "0.0~git20230123.b2528b0-1",
+      "source_package": "libyuv",
+      "source_version": "0.0~git20230123.b2528b0-1"
+    },
+    {
+      "package": "libzip4",
+      "version": "1.7.3-1+b1",
+      "source_package": "libzip",
+      "source_version": "1.7.3-1"
+    },
+    {
+      "package": "libzstd1",
+      "version": "1.5.4+dfsg2-5",
+      "source_package": "libzstd",
+      "source_version": "1.5.4+dfsg2-5"
+    },
+    {
+      "package": "linux-libc-dev",
+      "version": "6.1.158-1",
+      "source_package": "linux",
+      "source_version": "6.1.158-1"
+    },
+    {
+      "package": "login",
+      "version": "1:4.13+dfsg1-1+deb12u1",
+      "source_package": "shadow",
+      "source_version": "1:4.13+dfsg1-1+deb12u1"
+    },
+    {
+      "package": "logsave",
+      "version": "1.47.0-2+b2",
+      "source_package": "e2fsprogs",
+      "source_version": "1.47.0-2"
+    },
+    {
+      "package": "m4",
+      "version": "1.4.19-3",
+      "source_package": "m4",
+      "source_version": "1.4.19-3"
+    },
+    {
+      "package": "make",
+      "version": "4.3-4.1",
+      "source_package": "make-dfsg",
+      "source_version": "4.3-4.1"
+    },
+    {
+      "package": "mariadb-client",
+      "version": "1:10.11.18-0+deb12u1",
+      "source_package": "mariadb",
+      "source_version": "1:10.11.18-0+deb12u1"
+    },
+    {
+      "package": "mariadb-client-core",
+      "version": "1:10.11.18-0+deb12u1",
+      "source_package": "mariadb",
+      "source_version": "1:10.11.18-0+deb12u1"
+    },
+    {
+      "package": "mariadb-common",
+      "version": "1:10.11.18-0+deb12u1",
+      "source_package": "mariadb",
+      "source_version": "1:10.11.18-0+deb12u1"
+    },
+    {
+      "package": "mawk",
+      "version": "1.3.4.20200120-3.1",
+      "source_package": "mawk",
+      "source_version": "1.3.4.20200120-3.1"
+    },
+    {
+      "package": "mount",
+      "version": "2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "mysql-common",
+      "version": "5.8+1.1.0",
+      "source_package": "mysql-defaults",
+      "source_version": "1.1.0"
+    },
+    {
+      "package": "ncurses-base",
+      "version": "6.4-4",
+      "source_package": "ncurses",
+      "source_version": "6.4-4"
+    },
+    {
+      "package": "ncurses-bin",
+      "version": "6.4-4",
+      "source_package": "ncurses",
+      "source_version": "6.4-4"
+    },
+    {
+      "package": "nginx",
+      "version": "1.22.1-9+deb12u9",
+      "source_package": "nginx",
+      "source_version": "1.22.1-9+deb12u9"
+    },
+    {
+      "package": "nginx-common",
+      "version": "1.22.1-9+deb12u9",
+      "source_package": "nginx",
+      "source_version": "1.22.1-9+deb12u9"
+    },
+    {
+      "package": "openssl",
+      "version": "3.0.20-1~deb12u2",
+      "source_package": "openssl",
+      "source_version": "3.0.20-1~deb12u2"
+    },
+    {
+      "package": "passwd",
+      "version": "1:4.13+dfsg1-1+deb12u1",
+      "source_package": "shadow",
+      "source_version": "1:4.13+dfsg1-1+deb12u1"
+    },
+    {
+      "package": "patch",
+      "version": "2.7.6-7",
+      "source_package": "patch",
+      "source_version": "2.7.6-7"
+    },
+    {
+      "package": "perl",
+      "version": "5.36.0-7+deb12u3",
+      "source_package": "perl",
+      "source_version": "5.36.0-7+deb12u3"
+    },
+    {
+      "package": "perl-base",
+      "version": "5.36.0-7+deb12u3",
+      "source_package": "perl",
+      "source_version": "5.36.0-7+deb12u3"
+    },
+    {
+      "package": "perl-modules-5.36",
+      "version": "5.36.0-7+deb12u3",
+      "source_package": "perl",
+      "source_version": "5.36.0-7+deb12u3"
+    },
+    {
+      "package": "pkg-config",
+      "version": "1.8.1-1",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-1"
+    },
+    {
+      "package": "pkgconf",
+      "version": "1.8.1-1",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-1"
+    },
+    {
+      "package": "pkgconf-bin",
+      "version": "1.8.1-1",
+      "source_package": "pkgconf",
+      "source_version": "1.8.1-1"
+    },
+    {
+      "package": "poppler-data",
+      "version": "0.4.12-1",
+      "source_package": "poppler-data",
+      "source_version": "0.4.12-1"
+    },
+    {
+      "package": "re2c",
+      "version": "3.0-2",
+      "source_package": "re2c",
+      "source_version": "3.0-2"
+    },
+    {
+      "package": "readline-common",
+      "version": "8.2-1.3",
+      "source_package": "readline",
+      "source_version": "8.2-1.3"
+    },
+    {
+      "package": "rpcsvc-proto",
+      "version": "1.4.3-1",
+      "source_package": "rpcsvc-proto",
+      "source_version": "1.4.3-1"
+    },
+    {
+      "package": "sed",
+      "version": "4.9-1",
+      "source_package": "sed",
+      "source_version": "4.9-1"
+    },
+    {
+      "package": "sensible-utils",
+      "version": "0.0.17+nmu1",
+      "source_package": "sensible-utils",
+      "source_version": "0.0.17+nmu1"
+    },
+    {
+      "package": "sysvinit-utils",
+      "version": "3.06-4",
+      "source_package": "sysvinit",
+      "source_version": "3.06-4"
+    },
+    {
+      "package": "tar",
+      "version": "1.34+dfsg-1.2+deb12u1",
+      "source_package": "tar",
+      "source_version": "1.34+dfsg-1.2+deb12u1"
+    },
+    {
+      "package": "tzdata",
+      "version": "2025b-0+deb12u2",
+      "source_package": "tzdata",
+      "source_version": "2025b-0+deb12u2"
+    },
+    {
+      "package": "ucf",
+      "version": "3.0043+nmu1+deb12u1",
+      "source_package": "ucf",
+      "source_version": "3.0043+nmu1+deb12u1"
+    },
+    {
+      "package": "unzip",
+      "version": "6.0-28+deb12u1",
+      "source_package": "unzip",
+      "source_version": "6.0-28+deb12u1"
+    },
+    {
+      "package": "usr-is-merged",
+      "version": "37~deb12u1",
+      "source_package": "usrmerge",
+      "source_version": "37~deb12u1"
+    },
+    {
+      "package": "util-linux",
+      "version": "2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "util-linux-extra",
+      "version": "2.38.1-5+deb12u3",
+      "source_package": "util-linux",
+      "source_version": "2.38.1-5+deb12u3"
+    },
+    {
+      "package": "x11-common",
+      "version": "1:7.7+23",
+      "source_package": "xorg",
+      "source_version": "1:7.7+23"
+    },
+    {
+      "package": "xfonts-encodings",
+      "version": "1:1.0.4-2.2",
+      "source_package": "xfonts-encodings",
+      "source_version": "1:1.0.4-2.2"
+    },
+    {
+      "package": "xfonts-utils",
+      "version": "1:7.7+6",
+      "source_package": "xfonts-utils",
+      "source_version": "1:7.7+6"
+    },
+    {
+      "package": "xz-utils",
+      "version": "5.4.1-1+deb12u1",
+      "source_package": "xz-utils",
+      "source_version": "5.4.1-1+deb12u1"
+    },
+    {
+      "package": "zlib1g",
+      "version": "1:1.2.13.dfsg-1",
+      "source_package": "zlib",
+      "source_version": "1:1.2.13.dfsg-1"
+    }
+  ],
+  "edge_alpine_inventory": [
+    "NAME=\"Alpine Linux\"",
+    "ID=alpine",
+    "VERSION_ID=3.23.5",
+    "PRETTY_NAME=\"Alpine Linux v3.23\"",
+    "HOME_URL=\"https://alpinelinux.org/\"",
+    "BUG_REPORT_URL=\"https://gitlab.alpinelinux.org/alpine/aports/-/issues\"",
+    "alpine-baselayout-3.7.2-r0",
+    "alpine-baselayout-data-3.7.2-r0",
+    "alpine-keys-2.6-r0",
+    "alpine-release-3.23.5-r0",
+    "apk-tools-3.0.6-r0",
+    "brotli-libs-1.2.0-r0",
+    "busybox-1.37.0-r30",
+    "busybox-binsh-1.37.0-r30",
+    "c-ares-1.34.6-r0",
+    "ca-certificates-20260611-r0",
+    "ca-certificates-bundle-20260611-r0",
+    "curl-8.19.0-r0",
+    "libapk-3.0.6-r0",
+    "libcap-2.78-r0",
+    "libcap-getcap-2.78-r0",
+    "libcap-setcap-2.78-r0",
+    "libcap-utils-2.78-r0",
+    "libcap2-2.78-r0",
+    "libcrypto3-3.5.7-r0",
+    "libcurl-8.19.0-r0",
+    "libidn2-2.3.8-r0",
+    "libncursesw-6.5_p20251123-r0",
+    "libpsl-0.21.5-r3",
+    "libssl3-3.5.7-r0",
+    "libunistring-1.4.1-r0",
+    "mailcap-2.1.54-r0",
+    "musl-1.2.5-r23",
+    "musl-utils-1.2.5-r23",
+    "ncurses-terminfo-base-6.5_p20251123-r0",
+    "nghttp2-libs-1.69.0-r0",
+    "readline-8.3.1-r0",
+    "scanelf-1.3.8-r2",
+    "socat-1.8.1.3-r0",
+    "ssl_client-1.37.0-r30",
+    "zlib-1.3.2-r0",
+    "zstd-libs-1.5.7-r2"
+  ],
+  "image_ids": [
+    "[\"presso-runtime-base:php8.5\"] sha256:daa345e1052636197cfaf38d4aee1953ee9f5522b23d3e12b5ffa2b5ca98afda [\"presso-runtime-base@sha256:daa345e1052636197cfaf38d4aee1953ee9f5522b23d3e12b5ffa2b5ca98afda\"]",
+    "[\"presso-runtime-base:php8.1\"] sha256:52c4560b6857aba2754c706a0b134e6155a3a4aeac8a03fe6b0dd540f9e0f939 [\"presso-runtime-base@sha256:52c4560b6857aba2754c706a0b134e6155a3a4aeac8a03fe6b0dd540f9e0f939\"]",
+    "[\"presso-edge:release-verification\"] sha256:a321b523c82bbe84f5a0e6eb994092f358882cf7c74e4d101904de0ee6216e42 [\"presso-edge@sha256:a321b523c82bbe84f5a0e6eb994092f358882cf7c74e4d101904de0ee6216e42\"]",
+    "[\"redis:7-alpine\"] sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf [\"redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf\"]"
+  ],
+  "redis_server_observed_version": "7.4.11",
+  "redis_dropin_sha256": "713e9a12018e865f7daf71d84e6257b7756251560f04aac6cc6b5b15bf9d0b33",
+  "wpcli_license_filename_scan": [
+    "phar:///tmp/wp-cli.phar/vendor/composer/composer/LICENSE",
+    "phar:///tmp/wp-cli.phar/vendor/composer/composer/src/Composer/Command/LicensesCommand.php",
+    "phar:///tmp/wp-cli.phar/vendor/composer/spdx-licenses/src/SpdxLicenses.php"
+  ],
+  "font_woff_name_table_notices": {
+    "ibm-plex-mono": {
+      "0": [
+        "Copyright 2017 IBM Corp. All rights reserved."
+      ],
+      "14": [
+        "http://scripts.sil.org/OFL"
+      ]
+    },
+    "instrument-serif": {
+      "0": [
+        "Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif)"
+      ],
+      "14": [
+        "https://scripts.sil.org/OFL"
+      ]
+    }
+  }
+}

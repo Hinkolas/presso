@@ -4,6 +4,16 @@ The root [Apache 2.0 license](LICENSE) applies to original presso code and
 documentation unless a file states otherwise. It does not relicense upstream
 software or dependencies bundled in the binaries or container images.
 
+## MySQL driver source notice
+
+The `pressod` binary includes `github.com/go-sql-driver/mysql` v1.10.1 under the
+Mozilla Public License 2.0. Its unmodified source, including the license, is
+available at <https://github.com/go-sql-driver/mysql/tree/v1.10.1>. You can
+download it at <https://github.com/go-sql-driver/mysql/archive/refs/tags/v1.10.1.tar.gz>.
+The MPL-covered files remain available under MPL-2.0; the Apache license for
+presso does not restrict your rights to those files. Keep this notice aligned
+with the driver version in `go.mod` when updating dependencies.
+
 ## Vendored Redis Object Cache drop-in
 
 `runtime/dropins/object-cache.php` is Redis Object Cache 2.8.0 by Till Krüss,
@@ -14,18 +24,41 @@ See [the vendoring record](runtime/dropins/README.md), the
 
 ## Runtime images and dependencies
 
+The web build generates `third-party-licenses.txt` from the installed browser
+runtime and font packages. It is served alongside the panel, embedded with the
+UI, and included at `web/static/third-party-licenses.txt` in binary archives.
+See `web/scripts/licenses.mjs` for the explicit package list. This covers those
+packages, not all transitive code in the engine and container images.
+
 Runtime images include WordPress and upstream components such as PHP,
 FrankenPHP/Caddy or nginx, PHP extensions, and WP-CLI. The downloaded WordPress
 license is retained outside the web root at `/opt/presso/licenses/wordpress.txt`.
 The Redis drop-in's license accompanies it under `/opt/presso/dropins/COPYING`.
+The WP-CLI root license and source reference are retained under
+`/opt/presso/licenses/wp-cli.txt` and `wp-cli-source.txt`. This does not replace
+the separate obligations for packages bundled inside the PHAR.
 The Apache license and presso notice accompany the system plugin under
 `/opt/presso/mu-plugins/` and the engine/edge images under
 `/usr/share/licenses/presso/`. Copies under `build/` and `runtime/mu-plugins/`
 support their separate Docker build contexts; release checks keep them in sync
 with the root `LICENSE` and `NOTICE`.
 
+The runtime-base images also include the original presso license and notice
+under `/usr/share/licenses/presso/`, since they are published independently.
+
+## Redis server is a separate component
+
+The GPLv3 Redis Object Cache PHP drop-in is not the Redis server. The current
+`REDIS_IMAGE=redis:7-alpine` default was observed resolving to Redis 7.4.11 in
+the 2026-09-08 review. Redis 7.4 uses RSALv2/SSPLv1, not BSD or the drop-in's GPLv3.
+See [Redis's version-specific license terms](https://redis.io/legal/licenses/)
+before choosing a server version and deployment model.
+
 Go and frontend dependencies, fonts, operating-system packages, and shared
 service images retain their respective licenses and notices. Dependency versions
 are recorded in `go.mod`/`go.sum`, `web/package-lock.json`, Dockerfiles, and the
 runtime matrix. This file identifies the directly vendored code; it is not a
 complete inventory of every transitive dependency or base-image package.
+The findings and outstanding release work are recorded in
+[LICENSE_REVIEW.md](LICENSE_REVIEW.md). These notices are not a statement that
+all release artifacts have completed license compliance review.

@@ -82,3 +82,6 @@ ENV PRESSO_FLAVOR=fpm
 STOPSIGNAL SIGTERM
 EXPOSE 8080
 WORKDIR /var/www/html
+
+# This base is published independently of the site image.
+COPY mu-plugins/LICENSE mu-plugins/NOTICE /usr/share/licenses/presso/
