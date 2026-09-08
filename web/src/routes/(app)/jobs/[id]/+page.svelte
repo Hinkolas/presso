@@ -95,13 +95,17 @@
 </svelte:head>
 
 {#if error && !job}
-	<PageHeader title="Job" back={{ href: resolve('/jobs'), label: 'Jobs' }} />
+	<PageHeader title="Job" back={{ href: resolve('/jobs'), label: 'Activity' }} />
 	<Alert>{error}</Alert>
 {:else if !job}
-	<PageHeader title="Job" subtitle="Loading." back={{ href: resolve('/jobs'), label: 'Jobs' }} />
+	<PageHeader
+		title="Job"
+		subtitle="Loading."
+		back={{ href: resolve('/jobs'), label: 'Activity' }}
+	/>
 	<div aria-busy="true"><Skeleton plate class="h-40" /></div>
 {:else}
-	<PageHeader {title} subtitle={timing} back={{ href: resolve('/jobs'), label: 'Jobs' }}>
+	<PageHeader {title} subtitle={timing} back={{ href: resolve('/jobs'), label: 'Activity' }}>
 		<div class="flex flex-wrap items-center gap-3">
 			<StatusPill status={job.status} soft />
 			{#if job.site_id}

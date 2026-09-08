@@ -48,7 +48,7 @@
 
 	const sections: Entry[] = [
 		{ id: 'nav-sites', title: 'Sites', icon: 'sites', href: resolve('/') },
-		{ id: 'nav-jobs', title: 'Jobs', icon: 'jobs', href: resolve('/jobs') },
+		{ id: 'nav-jobs', title: 'Activity', icon: 'jobs', href: resolve('/jobs') },
 		{ id: 'nav-system', title: 'System', icon: 'system', href: resolve('/system') },
 		{ id: 'nav-account', title: 'Account security', icon: 'user', href: resolve('/account') }
 	];

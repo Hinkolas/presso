@@ -1,7 +1,7 @@
-<!-- App shell: a sidebar for navigation (with a Platform section that has
-     room to grow) and platform health, a topbar for search and the account,
-     and the page below. One event stream is opened here and shared by every
-     page. -->
+<!-- App shell: a sidebar with the three places to go (Sites, Activity,
+     System; platform health sits on the System row), a topbar for search and
+     the account, and the page below. One event stream is opened here and
+     shared by every page. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -31,24 +31,19 @@
 	const user = $derived(session.user ?? data.user);
 
 	type NavItem = { href: string; label: string; icon: IconName; match: (p: string) => boolean };
-	const primary: NavItem[] = [
+	const nav: NavItem[] = [
 		{
 			href: resolve('/'),
 			label: 'Sites',
 			icon: 'sites',
 			match: (p) => p === '/' || p.startsWith('/sites')
 		},
-		{ href: resolve('/jobs'), label: 'Jobs', icon: 'jobs', match: (p) => p.startsWith('/jobs') }
-	];
-	const platform: NavItem[] = [
-		{ href: resolve('/system') + '#edge', label: 'Edge', icon: 'edge', match: () => false },
 		{
-			href: resolve('/system') + '#database',
-			label: 'Database',
-			icon: 'database',
-			match: () => false
+			href: resolve('/jobs'),
+			label: 'Activity',
+			icon: 'jobs',
+			match: (p) => p.startsWith('/jobs')
 		},
-		{ href: resolve('/system') + '#cache', label: 'Cache', icon: 'cache', match: () => false },
 		{
 			href: resolve('/system'),
 			label: 'System',
@@ -68,9 +63,9 @@
 		return n;
 	});
 
-	// Platform health for the sidebar chip: every component reported ok. A
-	// dropped event stream is surfaced here too, since the data on screen may
-	// be stale until it reconnects.
+	// Platform health for the dot on the System row: every component reported
+	// ok. A dropped event stream is surfaced here too, since the data on screen
+	// may be stale until it reconnects.
 	const platformState = $derived.by(() => {
 		if (!live.connected && live.generation > 0) return 'offline';
 		const comps = live.platform;
@@ -80,13 +75,20 @@
 		);
 		return bad ? 'error' : 'ok';
 	});
+	const platformTitle = $derived(
+		platformState === 'error'
+			? 'A component needs attention'
+			: platformState === 'offline'
+				? 'Reconnecting live updates'
+				: 'All components healthy'
+	);
 
 	// Topbar context: the section, then the page within it.
 	const crumbs = $derived.by(() => {
 		const p = page.url.pathname;
 		if (p.startsWith('/sites/')) return ['Sites', sites.get(page.params.id ?? '')?.name ?? 'Site'];
-		if (p.startsWith('/jobs/')) return ['Jobs', 'Job'];
-		if (p.startsWith('/jobs')) return ['Jobs'];
+		if (p.startsWith('/jobs/')) return ['Activity', 'Job'];
+		if (p.startsWith('/jobs')) return ['Activity'];
 		if (p.startsWith('/system')) return ['System'];
 		if (p.startsWith('/account')) return ['Account security'];
 		return ['Sites'];
@@ -165,8 +167,13 @@
 		<span class="flex-1">{item.label}</span>
 		{#if item.label === 'Sites' && siteCount}
 			<span class="text-sm text-ink-3 num">{siteCount}</span>
-		{:else if item.label === 'Jobs' && runningJobs}
+		{:else if item.label === 'Activity' && runningJobs}
 			<span class="size-2 breathe rounded-full bg-busy" title="{runningJobs} running"></span>
+		{:else if item.label === 'System' && platformState && platformState !== 'ok'}
+			<span
+				class="size-2 rounded-full {platformState === 'error' ? 'bg-danger' : 'breathe bg-busy'}"
+				title={platformTitle}
+			></span>
 		{/if}
 	</a>
 	<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -202,45 +209,10 @@
 		</div>
 
 		<nav class="flex flex-col gap-1" aria-label="Sections">
-			{#each primary as item (item.label)}
+			{#each nav as item (item.label)}
 				{@render navLink(item)}
 			{/each}
 		</nav>
-
-		<div class="flex flex-col gap-1">
-			<p class="px-3 pb-2 text-xs text-ink-3">Platform</p>
-			{#each platform as item (item.label)}
-				{@render navLink(item)}
-			{/each}
-		</div>
-
-		<div class="mt-auto">
-			<a
-				href={resolve('/system')}
-				class="flex items-center gap-2.5 rounded-control bg-sunken px-3.5 py-3 text-sm text-ink-2 transition-colors hover:bg-rule/70 hover:text-ink"
-			>
-				<span
-					class="size-2 rounded-full {platformState === 'ok'
-						? 'bg-ok'
-						: platformState === 'error'
-							? 'bg-danger'
-							: platformState === 'offline'
-								? 'breathe bg-busy'
-								: 'bg-rule-strong'}"
-				></span>
-				<span>
-					{#if platformState === 'ok'}
-						All systems healthy
-					{:else if platformState === 'error'}
-						A component needs attention
-					{:else if platformState === 'offline'}
-						Reconnecting live updates
-					{:else}
-						Checking the platform
-					{/if}
-				</span>
-			</a>
-		</div>
 	</aside>
 
 	<div class="flex h-full min-w-0 flex-1 flex-col">

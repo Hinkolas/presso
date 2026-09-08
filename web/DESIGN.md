@@ -8,13 +8,13 @@ sidebar that has room to grow.
 
 ## Shell
 
-- A 260px sidebar carries navigation only: Sites, Jobs, then a Platform
-  section (Edge, Database, Cache, System). Edge, Database and Cache link to
-  anchors on the System page until they earn pages of their own. The
-  bottom holds the platform health chip and the connection state.
+- A 260px sidebar carries navigation only: Sites, Activity (the job
+  history, at `/jobs`) and System. Platform health is a dot on the System
+  row, shown only when something is wrong or the event stream dropped; the
+  verdict itself is the System page subtitle. Nothing else is padded in:
+  new sections (domains, backups, hosts) get a row when they get a page.
 - A 64px topbar carries the breadcrumb, the global search (⌘K opens the
-  command palette), the Live indicator, running jobs and the account menu.
-  The Live pill is the one place connection state is shown.
+  command palette) and the account menu.
 - Pages live in a 1400px column with 48px side padding and 36px above.
 
 ## Tokens
@@ -120,8 +120,8 @@ shows a job reads that model, never the raw events:
   happened" link that opens the same Sheet.
 - `JobTimeline` is the spine of steps (ticked, breathing, hollow, dashed
   for skipped), each with the handler's wording and its log lines, the
-  failure under the step that hit it, and per-step durations. The Jobs
-  detail page uses it too. There is no "Last operation" panel on Overview.
+  failure under the step that hit it, and per-step durations. The job
+  detail page under Activity uses it too. There is no "Last operation" panel on Overview.
 - Creating a site closes the wizard and shows the new card (scrolled into
   view) rather than opening the site; deleting one returns to the Sites
   page, where the card shows the teardown and then disappears.

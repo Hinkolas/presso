@@ -33,6 +33,14 @@
 	});
 
 	const components = $derived(live.platform ?? status?.components ?? []);
+	// The one-line verdict the sidebar used to carry; it belongs under the title.
+	const health = $derived.by(() => {
+		if (components.length === 0) return '';
+		const bad = components.some(
+			(c) => c.error || c.state === 'error' || c.state === 'missing' || c.health === 'unhealthy'
+		);
+		return bad ? 'A component needs attention' : 'All components healthy';
+	});
 	const siteCounts = $derived(Object.entries(status?.sites ?? {}).sort());
 
 	const names: Record<string, string> = {
@@ -76,7 +84,9 @@
 <PageHeader
 	title="System"
 	subtitle={status
-		? `presso ${status.version}, up ${formatUptime(status.uptime_seconds)}`
+		? [health, `presso ${status.version}, up ${formatUptime(status.uptime_seconds)}`]
+				.filter(Boolean)
+				.join(' · ')
 		: 'Loading the host status.'}
 />
 
@@ -96,10 +106,7 @@
 	<div class="flex flex-col gap-5">
 		<section aria-label="Platform components" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 			{#each components as c (c.name)}
-				<div
-					id={c.name === 'mariadb' ? 'database' : c.name === 'redis' ? 'cache' : undefined}
-					class="flex scroll-mt-6 flex-col gap-2 frame px-5 py-4"
-				>
+				<div class="flex flex-col gap-2 frame px-5 py-4">
 					<div class="flex items-center gap-2">
 						<Lamp status={lampStatus(c)} />
 						<span class="text-sm font-medium text-ink">{nameOf(c)}</span>
@@ -142,7 +149,7 @@
 				{/if}
 			</Panel>
 
-			<Panel title="Edge" id="edge" class="scroll-mt-6">
+			<Panel title="Edge">
 				<dl class="grid grid-cols-[8rem_minmax(0,1fr)] gap-y-2 text-sm">
 					<dt class="text-ink-2">Routes applied</dt>
 					<dd class="text-ink" title={formatDateTime(status.edge.last_applied_at)}>

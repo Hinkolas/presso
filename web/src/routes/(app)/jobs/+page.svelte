@@ -1,4 +1,4 @@
-<!-- Jobs: recent operations from the API merged with live job.updated events. -->
+<!-- Activity: recent operations from the API merged with live job.updated events. -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { api, errorText } from '$lib/api/client';
@@ -92,10 +92,10 @@
 </script>
 
 <svelte:head>
-	<title>Jobs · presso</title>
+	<title>Activity · presso</title>
 </svelte:head>
 
-<PageHeader title="Jobs" subtitle={loaded === null ? 'Loading recent operations.' : summary}>
+<PageHeader title="Activity" subtitle={loaded === null ? 'Loading recent operations.' : summary}>
 	{#snippet actions()}
 		{#if all.length > 0}
 			<Segmented
