@@ -85,6 +85,7 @@ func (s *Service) containerSpec(row store.Site, d decrypted) docker.Spec {
 		"PRESSO_REDIS_PASSWORD=" + d.redisPassword,
 		"PRESSO_REDIS_PREFIX=" + platform.RedisKeyPrefix(id),
 		"PRESSO_ENGINE_URL=" + s.cfg.EngineInternalURL,
+		"PRESSO_EDGE_HOST=" + platform.NameEdge, // Loopback requests are pinned to the edge (system plugin).
 		"PRESSO_PURGE_TOKEN=" + purgeTokenFor(d.loginSecret),
 		"PRESSO_LOGIN_SECRET=" + d.loginSecret,
 		"PRESSO_CACHE=" + onOff(row.PageCache),

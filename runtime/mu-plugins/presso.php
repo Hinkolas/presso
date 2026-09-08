@@ -23,9 +23,11 @@ require_once __DIR__ . '/presso/helpers.php';
 require_once __DIR__ . '/presso/modules/cache.php';
 require_once __DIR__ . '/presso/modules/enforce.php';
 require_once __DIR__ . '/presso/modules/login.php';
+require_once __DIR__ . '/presso/modules/loopback.php';
 require_once __DIR__ . '/presso/modules/telemetry.php';
 
 Cache\boot();
 Enforce\boot();
 Login\boot();
+Loopback\boot();
 Telemetry\boot();

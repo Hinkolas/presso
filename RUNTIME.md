@@ -166,6 +166,14 @@ and no WordPress query pattern benefits from MySQL-8-only features.
 - Bundled plugins (Akismet, Hello Dolly) and the two inactive default themes
   are not seeded; a new site starts with the one theme core activates.
 - "WordPress Events and News" dashboard widget removed.
+- Loopback requests (Site Health, REST self-calls, plugins calling their own
+  API) are pinned to the edge container: the site's own hostname does not
+  resolve inside the container (`.localhost`) or depends on hairpin NAT (a
+  public domain). The system plugin sets CURLOPT_RESOLVE on WP HTTP API
+  requests to the site's host (section 14, loopback), so they take the
+  visitor path through the page cache.
+- Site Health tests the platform decides are removed: background updates
+  (always), HTTPS (on `.localhost` hosts only).
 - Outbound HTTP: block or allowlist during front-end requests; run update
   checks from cron only.
 - Performant translations (core 6.5+) on.
@@ -260,6 +268,9 @@ orchestrator; no site-owner toggles):
   script and the Events and News dashboard widget, block outbound HTTP during front-end requests (pre_http_request
   allowlist), move update checks to cron, disable cart fragments when empty.
 - mail: route wp_mail via SMTP relay from env (phpmailer_init).
+- loopback: pin the site's own hostname to the edge container
+  (PRESSO_EDGE_HOST, default presso-edge) for WP HTTP API requests, via
+  CURLOPT_RESOLVE; same idea as the browser container's host resolver rule.
 - login: one-click login for engine and harness. Engine mints a short-lived
   signed token; plugin validates and creates the session. Application
   passwords cover REST.

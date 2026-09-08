@@ -179,7 +179,7 @@ func TestCreateProvisionAndDelete(t *testing.T) {
 		t.Fatalf("spec: %+v", spec)
 	}
 	env := strings.Join(spec.Env, "\n")
-	for _, want := range []string{"PRESSO_SITE_URL=http://demo-shop.localhost", "PRESSO_DB_HOST=presso-mariadb", "PRESSO_REDIS_PREFIX=site-" + site.ID.String() + ":", "PRESSO_CACHE=on", "PHP_MEMORY_LIMIT=256M", "PRESSO_SALT_NONCE_SALT="} {
+	for _, want := range []string{"PRESSO_SITE_URL=http://demo-shop.localhost", "PRESSO_DB_HOST=presso-mariadb", "PRESSO_EDGE_HOST=presso-edge", "PRESSO_REDIS_PREFIX=site-" + site.ID.String() + ":", "PRESSO_CACHE=on", "PHP_MEMORY_LIMIT=256M", "PRESSO_SALT_NONCE_SALT="} {
 		if !strings.Contains(env, want) {
 			t.Errorf("env missing %s", want)
 		}

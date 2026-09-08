@@ -4,7 +4,8 @@
  * hook inside the request (RUNTIME.md section 7 / 14): XML-RPC and pingbacks
  * off, heartbeat throttled, emoji script gone, generator/RSD/WLW links gone,
  * automatic updates off (the image owns core; the engine runs updates),
- * the "WordPress Events and News" dashboard widget gone.
+ * the "WordPress Events and News" dashboard widget gone, Site Health tests
+ * that can only ever fail on this platform removed.
  * Everything here is additive: a site exported without the plugin still works.
  */
 
@@ -33,6 +34,31 @@ function boot(): void {
 
 	add_action( 'init', __NAMESPACE__ . '\\remove_head_cruft' );
 	add_action( 'wp_dashboard_setup', __NAMESPACE__ . '\\remove_dashboard_feed' );
+	add_filter( 'site_status_tests', __NAMESPACE__ . '\\drop_site_health_tests' );
+}
+
+/**
+ * Site Health tests whose outcome is decided by the platform, not the site
+ * owner, so their red X would only ever be noise:
+ * - background_updates: core is read-only in the image and updated by the
+ *   engine, so "automatic updates are disabled" and "files are not writable
+ *   by WordPress" are the design.
+ * - https_status, on .localhost hosts only: browsers treat loopback as a
+ *   secure context and the edge never issues certificates for it (site.go,
+ *   siteURL). Real domains keep the test.
+ */
+function drop_site_health_tests( array $tests ): array {
+	$drop = array( 'background_updates' );
+	$host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+	if ( $host === 'localhost' || substr( $host, -10 ) === '.localhost' ) {
+		$drop[] = 'https_status';
+	}
+	foreach ( array( 'direct', 'async' ) as $group ) {
+		foreach ( $drop as $name ) {
+			unset( $tests[ $group ][ $name ] );
+		}
+	}
+	return $tests;
 }
 
 /**
