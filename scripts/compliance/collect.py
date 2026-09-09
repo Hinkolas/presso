@@ -25,6 +25,30 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 NOTICE = re.compile(r"(^|/)(licen[cs]es?|copying|copyright|notice|authors|patents)([._/-]|$)", re.I)
 
+# Install tools in the disposable container as root, then drop to the caller's
+# numeric UID/GID before touching its bind mount. Native Linux preserves these
+# owners; Docker Desktop's sharing layer can hide root-owned-file mistakes.
+ALPINE_BOOTSTRAP = '''set -eu
+apk add --no-cache abuild curl su-exec >/dev/null
+export HOME=/tmp
+exec su-exec "$1:$2" sh -ec "$3"
+'''
+
+ALPINE_FETCH = '''set -eu
+mkdir -p /work/distfiles
+export SRCDEST=/work/distfiles
+export DISTFILES_MIRROR="https://distfiles.alpinelinux.org/distfiles/v$(cut -d. -f1,2 /etc/alpine-release)"
+for recipe in /work/packages/*; do
+  cd "$recipe"
+  actual=$(sh -c '. ./APKBUILD; printf "%s-r%s" "$pkgver" "$pkgrel"')
+  grep -Fxq "$actual" expected-version
+  abuild -F fetch verify
+  # abuild creates absolute container-local links here. The original recipes
+  # and actual distfiles are archived separately; do not archive these links.
+  rm -rf src
+done
+'''
+
 
 def run(*args, **kwargs):
     p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
@@ -466,22 +490,9 @@ def alpine(bundle, image):
         # It has no Docker socket, credentials, repository or host-state mount.
         version = image.read('etc/alpine-release').decode().strip()
         minor = '.'.join(version.split('.')[:2])
-        helper = '''set -eu
-apk add --no-cache abuild curl >/dev/null
-mkdir -p /work/distfiles
-export SRCDEST=/work/distfiles
-export DISTFILES_MIRROR="https://distfiles.alpinelinux.org/distfiles/v$(cut -d. -f1,2 /etc/alpine-release)"
-for recipe in /work/packages/*; do
-  cd "$recipe"
-  actual=$(sh -c '. ./APKBUILD; printf "%s-r%s" "$pkgver" "$pkgrel"')
-  grep -Fxq "$actual" expected-version
-  abuild -F fetch verify
-  # abuild creates absolute container-local links here. The original recipes
-  # and actual distfiles are archived separately; do not archive these links.
-  rm -rf src
-done
-'''
-        run('docker', 'run', '--rm', '--mount', f'type=bind,src={work},dst=/work', '--entrypoint', 'sh', f'alpine:{minor}', '-ec', helper)
+        run('docker', 'run', '--rm', '--mount', f'type=bind,src={work},dst=/work',
+            '--entrypoint', 'sh', f'alpine:{minor}', '-ec', ALPINE_BOOTSTRAP,
+            'presso-source-helper', str(os.getuid()), str(os.getgid()), ALPINE_FETCH)
         with tempfile.NamedTemporaryFile(suffix='.tar.gz') as f:
             with tarfile.open(f.name, 'w:gz', dereference=True) as t:
                 t.add(packages, arcname='aports')
