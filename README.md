@@ -203,7 +203,7 @@ Each site receives a separate ACL user and key prefix. The WordPress client is
 still the GPLv3 **Redis Object Cache** plugin using phpredis. Its upstream name,
 `WP_REDIS_*` constants, and the runtime's `PRESSO_REDIS_*` protocol settings stay
 unchanged; they connect to Valkey. This does not require a Redis server or
-relicense the plugin. See [third-party notices](THIRD_PARTY_NOTICES.md) and
+relicense the plugin. See [third-party notices](docs/licensing.md) and
 [the Valkey verification record](docs/license-review/valkey.md).
 
 Valkey is a disposable object cache: RDB snapshots and AOF persistence are
@@ -250,7 +250,7 @@ For pushes and pull requests that change only the root user guides or Markdown
 under `docs/`, a small change-detection job runs and skips the expensive checks.
 Code/configuration, license/source-access files, and runtime vendoring records
 still require full CI. Manual CI runs and release tags always verify everything.
-See [RELEASE_VERIFICATION.md](RELEASE_VERIFICATION.md) for release test evidence.
+See [release verification](docs/release-verification.md) for release test evidence.
 
 To prepare a release, make the repository public and wait for CI on the
 committed changes to pass, then run
@@ -273,7 +273,7 @@ never `-rc1`), no leading zeros in numeric components, and no build metadata
 
 Source collection requires Python 3.12+, Go, Docker (for image bundles),
 network access to upstream source archives, and several GB of temporary disk
-space. See [SOURCE_ACCESS.md](SOURCE_ACCESS.md) for downloads and retention.
+space. See [licensing and source access](docs/licensing.md) for downloads and retention.
 
 ## Project documentation
 
@@ -291,9 +291,9 @@ Copyright 2026 Hinkolas and contributors.
 Unless otherwise noted, presso's original code and documentation are licensed
 under the [Apache License, Version 2.0](LICENSE). Third-party components retain
 their own licenses, including the vendored GPLv3 Redis Object Cache drop-in.
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-Release archives and images also carry generated `THIRD_PARTY_LICENSES.txt`
-and matching [source-access instructions](SOURCE_ACCESS.md).
+Release archives and images carry generated `THIRD_PARTY_LICENSES.txt`.
+See [licensing and source access](docs/licensing.md) for third-party notices
+and matching source downloads.
 
 External pull requests and patches are not being accepted at this time.
 Bug reports and feedback are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).

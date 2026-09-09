@@ -100,4 +100,4 @@ python3 scripts/compliance/release.py image --image presso-edge:source-test \
 The last command collects sources and creates a local documented image. It
 does not publish without `--push`. Run against unused test tags and directories.
 The collector never invokes the engine or modifies existing site volumes.
-Keep published materials available according to [SOURCE_ACCESS.md](../../SOURCE_ACCESS.md).
+Keep published materials available according to [licensing and source access](../licensing.md).

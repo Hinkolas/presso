@@ -235,9 +235,10 @@ class Bundle:
         self.repository()
         for n in ('LICENSE', 'NOTICE'):
             self.notice('presso', n, (ROOT / n).read_bytes())
+            self.add_file(ROOT / n, n)
         # A single readable file travels inside the binary archive/image; the
         # original unmodified files and source archives accompany the bundle.
-        text = ['Third-party licenses and copyright notices\n', 'Source access: see SOURCE_ACCESS.md shipped alongside this file.\n']
+        text = ['Third-party licenses and copyright notices\n', 'Source access: see docs/licensing.md shipped with this distribution.\n']
         unique = {}
         for component, name, data in self.notices:
             unique[(component, name)] = data
@@ -245,7 +246,7 @@ class Bundle:
             text.append(f'\n{"=" * 72}\n{component}: {name}\n{"=" * 72}\n')
             text.append(data.decode('utf-8', errors='replace') + '\n')
         (self.out / 'THIRD_PARTY_LICENSES.txt').write_text(''.join(text))
-        (self.out / 'SOURCE_ACCESS.md').write_text((ROOT / 'SOURCE_ACCESS.md').read_text())
+        self.add_file(ROOT / 'docs/licensing.md', 'docs/licensing.md')
         manifest = {'schema': 1, 'subject': subject, 'components': self.components,
                     'files': {str(p.relative_to(self.out)): {'sha256': digest(p), 'size': p.stat().st_size}
                               for p in self.out.rglob('*') if p.is_file()}, 'downloads': self.records}
@@ -267,7 +268,7 @@ def verify(directory):
     for c in m['components']:
         if c.get('source') and c['source'] not in m['files']:
             raise ValueError(f"missing component source: {c['name']}")
-    for required in ('THIRD_PARTY_LICENSES.txt', 'SOURCE_ACCESS.md', 'sources/presso/source.tar.gz'):
+    for required in ('THIRD_PARTY_LICENSES.txt', 'docs/licensing.md', 'sources/presso/source.tar.gz'):
         if required not in m['files']:
             raise ValueError(f"missing required material: {required}")
     return m

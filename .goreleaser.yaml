@@ -38,13 +38,12 @@ archives:
       - README.md
       - LICENSE
       - NOTICE
-      - THIRD_PARTY_NOTICES.md
-      - SOURCE_ACCESS.md
+      - docs/licensing.md
       - src: compliance-output/binary_{{ .Arch }}/THIRD_PARTY_LICENSES.txt
         dst: THIRD_PARTY_LICENSES.txt
       - src: compliance-output/binary_{{ .Arch }}/SOURCE_BUNDLE
         dst: SOURCE_BUNDLE
-      - LICENSE_REVIEW.md
+      - docs/license-review/review.md
       - docs/license-review/inventory.json
       - docs/license-review/valkey.md
       - docs/license-review/source-delivery.md
@@ -56,7 +55,7 @@ archives:
       - ORCHESTRATION.md
       - RUNTIME.md
       - HARNESS.md
-      - RELEASE_VERIFICATION.md
+      - docs/release-verification.md
       - runtime/dropins/COPYING
       - runtime/dropins/README.md
 

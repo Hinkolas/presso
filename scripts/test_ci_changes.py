@@ -7,9 +7,13 @@ from ci_changes import documentation, needs_verification
 
 
 class ChangeScopeTests(unittest.TestCase):
+    def test_moved_review_records_are_documentation(self):
+        for path in ('docs/release-verification.md', 'docs/license-review/review.md'):
+            self.assertTrue(documentation(path))
+
     def test_license_build_and_unknown_paths_keep_verification(self):
-        for path in ('LICENSE', 'SOURCE_ACCESS.md', 'THIRD_PARTY_NOTICES.md',
-                     'LICENSE_REVIEW.md', 'docs/license-review/inventory.json',
+        for path in ('LICENSE', 'NOTICE', 'docs/licensing.md',
+                     'docs/license-review/inventory.json',
                      'runtime/dropins/README.md', 'web/DESIGN.md',
                      '.github/workflows/ci.yml', 'scripts/ci_changes.py', 'new-file'):
             with self.subTest(path=path):

@@ -1,16 +1,65 @@
-# Third-party notices
+# Licensing and source access
 
-The root [Apache 2.0 license](LICENSE) applies to original presso code and
+The root [Apache 2.0 license](../LICENSE) applies to original presso code and
 documentation unless a file states otherwise. It does not relicense upstream
 software or dependencies bundled in the binaries or container images.
 
 Released binary archives and presso-published images additionally include
 `THIRD_PARTY_LICENSES.txt`, collected from the actual compiled dependencies and
 image contents. In images it is under `/usr/share/licenses/presso/`, beside
-`SOURCE_BUNDLE`, the inventory, and [source-access instructions](SOURCE_ACCESS.md).
-The version's separate `sources-<version>` prerelease retains matching source
-archives, patches, build recipes, and the original notice files. Publication
-requires successful collection and verified anonymous source downloads.
+`SOURCE_BUNDLE` and the inventory. This guide is included at
+`docs/licensing.md` in release archives and source bundles, and at
+`/usr/share/licenses/presso/docs/licensing.md` in documented images.
+
+## Source access
+
+For a released version `<version>`, the matching source-only GitHub prerelease
+is **sources-<version>**, at:
+
+https://github.com/Hinkolas/presso/releases
+
+Each binary/image has a source bundle containing a manifest of exact versions,
+checksums, original source archives, distribution patches/build recipes,
+applicable notices, and presso's build files. Container labels and the
+`SOURCE_BUNDLE` file at the root of the archive or image license directory
+identify its bundle. Source bundles are published and their anonymous download
+verified before the corresponding
+container image is pushed. They are not temporary GitHub Actions artifacts.
+
+Large bundles are split into numbered parts smaller than GitHub's 2 GiB asset
+limit. Download the matching manifest, checksum file, and **all** numbered parts.
+Verify the part checksums, concatenate parts in name order, then extract:
+
+```sh
+sha256sum -c <bundle>.sha256
+cat <bundle>.tar.gz.part-* > source.tar.gz
+tar -xzf source.tar.gz
+tar -xzf <extracted-bundle-directory>/sources/presso/source.tar.gz
+python3 presso/scripts/compliance/collect.py verify <extracted-bundle-directory>
+```
+
+The downloaded repository source includes the verification script. Debian
+sources include the exact `.dsc`, upstream archives and Debian patches; use
+`dpkg-source -x package.dsc` to reconstruct a package's preferred source form.
+Alpine sources include the recorded aports recipes and checksum-verified
+upstream distfiles. Go sources include module archives and the matching Go
+source distribution; PHP sources include the source archive, configure options,
+extension sources and build helpers. WP-CLI's source includes its matching
+Composer references and upstream package archives.
+
+For local/development builds, source materials are generated locally and are
+not automatically uploaded. Publishing custom builds means preserving and
+making their own matching materials available; the upstream release's bundles
+must not be used to describe a different build.
+
+### Retention
+
+Do not delete or replace published source assets while their associated
+binaries/images remain available. Preserve them longer if a component's license
+or a distribution commitment requires it. Keep an independent backup of release
+materials. Moving downloads requires maintaining equivalent source access and
+updating the directions beside the binary/image downloads. A release marked
+experimental has the same third-party distribution obligations.
 
 ## MySQL driver source notice
 
@@ -26,8 +75,8 @@ with the driver version in `go.mod` when updating dependencies.
 
 `runtime/dropins/object-cache.php` is Redis Object Cache 2.8.0 by Till Krüss,
 licensed under GPLv3. Its upstream source and license headers are preserved.
-See [the vendoring record](runtime/dropins/README.md), the
-[GPLv3 license text](runtime/dropins/COPYING), and
+See [the vendoring record](../runtime/dropins/README.md), the
+[GPLv3 license text](../runtime/dropins/COPYING), and
 [upstream source](https://github.com/rhubarbgroup/redis-cache/tree/2.8.0).
 
 ## Runtime images and dependencies
@@ -73,7 +122,7 @@ It does not change the GPLv3 license of Redis Object Cache, the BSD license of
 `github.com/redis/go-redis/v9`, or the PHP license of phpredis. Those clients
 speak the protocol Valkey supports and do not require the Redis server.
 `WP_REDIS_*` / `PRESSO_REDIS_*` remain protocol configuration names.
-See [the Valkey verification record](docs/license-review/valkey.md).
+See [the Valkey verification record](license-review/valkey.md).
 
 Go and frontend dependencies, fonts, operating-system packages, and shared
 service images retain their respective licenses and notices. Dependency versions
@@ -81,5 +130,5 @@ are recorded in `go.mod`/`go.sum`, `web/package-lock.json`, Dockerfiles, and the
 runtime matrix. This file identifies the directly vendored code; it is not a
 complete inventory of every transitive dependency or base-image package.
 The original findings and subsequent implementation are recorded in
-[LICENSE_REVIEW.md](LICENSE_REVIEW.md). These notices are not a statement that
+[license review](license-review/review.md). These notices are not a statement that
 all release artifacts have completed license compliance review.

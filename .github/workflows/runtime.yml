@@ -27,7 +27,7 @@ on:
     paths:
       - runtime/**
       - scripts/compliance/**
-      - SOURCE_ACCESS.md
+      - docs/licensing.md
       - internal/compat/matrix.json
       - .github/workflows/runtime.yml
   workflow_dispatch:

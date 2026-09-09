@@ -69,7 +69,7 @@ def prepare(release):
         body.write(f'Source code and third-party notices for presso {release}.\n\n'
                    'These are distribution materials, not an installable presso release. '
                    'Each bundle is uploaded and its anonymous download checked before the corresponding image is published. '
-                   'Keep all parts and use the included checksums. See SOURCE_ACCESS.md in each bundle.\n')
+                   'Keep all parts and use the included checksums. See docs/licensing.md in each bundle.\n')
         body.flush()
         run('gh', 'release', 'create', tag, '--repo', repo(), '--target', os.environ['GITHUB_SHA'],
             '--title', f'Source materials for {release}', '--prerelease', '--latest=false', '--notes-file', body.name)
@@ -104,8 +104,7 @@ def binary(args):
         shutil.rmtree(out)
     run('python3', str(ROOT / 'scripts/compliance/collect.py'), 'binary', str(Path(args.binary).resolve()), '--out', str(out / 'bundle'))
     name, files = pack(out / 'bundle', out / 'assets', f'pressod-{args.release}-{args.arch}-sources')
-    for n in ('THIRD_PARTY_LICENSES.txt', 'SOURCE_ACCESS.md'):
-        shutil.copyfile(out / 'bundle' / n, out / n)
+    shutil.copyfile(out / 'bundle/THIRD_PARTY_LICENSES.txt', out / 'THIRD_PARTY_LICENSES.txt')
     (out / 'SOURCE_BUNDLE').write_text(f'{name}\nhttps://github.com/{repo()}/releases/tag/sources-{args.release}\n')
     if os.environ.get('PRESSO_PUBLISH_SOURCES') == '1':
         publish_sources(args.release, files)
@@ -127,7 +126,8 @@ def image(args):
         # The base image ID in the manifest identifies the exact collected root.
         ctx = directory / 'context'
         ctx.mkdir()
-        for n in ('THIRD_PARTY_LICENSES.txt', 'SOURCE_ACCESS.md', 'manifest.json'):
+        for n in ('THIRD_PARTY_LICENSES.txt', 'docs/licensing.md', 'manifest.json'):
+            (ctx / n).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(bundle / n, ctx / n)
         (ctx / 'SOURCE_BUNDLE').write_text(f'{name}\nhttps://github.com/{repo()}/releases/tag/sources-{args.release}\n')
         (ctx / 'Dockerfile').write_text('ARG BASE=scratch\nFROM ${BASE}\nCOPY . /usr/share/licenses/presso/\n'

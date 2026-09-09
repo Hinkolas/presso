@@ -91,5 +91,5 @@ go test -tags integration -count=1 -timeout 10m ./internal/integration ./interna
 ```
 
 The backend policy finding is resolved. The separate notice and corresponding-
-source work in [LICENSE_REVIEW.md](../../LICENSE_REVIEW.md) is still required
+source work in [license review](review.md) is still required
 before publication.

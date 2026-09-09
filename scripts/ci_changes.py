@@ -13,12 +13,14 @@ import subprocess
 
 GUIDES = {
     'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'ROADMAP.md',
-    'ORCHESTRATION.md', 'RUNTIME.md', 'HARNESS.md', 'RELEASE_VERIFICATION.md',
+    'ORCHESTRATION.md', 'RUNTIME.md', 'HARNESS.md',
 }
 
 
 def documentation(path):
     p = PurePosixPath(path)
+    if path == 'docs/licensing.md':
+        return False
     # License/source-access files, runtime vendoring records, frontend files,
     # and non-Markdown inventory files deliberately still run full CI.
     return path in GUIDES or (path.startswith('docs/') and p.suffix == '.md')

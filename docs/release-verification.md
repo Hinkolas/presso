@@ -52,7 +52,7 @@ also requires those host-gateway connections to fail.
 
 The subsequent Valkey change also passed the production cache spec/ACL/restart
 test and the WordPress lifecycle test with real object-cache persistence and
-selective flushing. See [the Valkey record](docs/license-review/valkey.md).
+selective flushing. See [the Valkey record](license-review/valkey.md).
 
 The integration tests require a Docker daemon and these locally built tags:
 `presso-edge:release-verification` and `presso-runtime:release-verification`.
@@ -74,6 +74,6 @@ Use `task release:snapshot` for a local binary packaging rehearsal. Snapshot
 artifacts are test artifacts, not a published release. The tag workflow keeps
 publication dependent on verification, source/notice collection and public
 availability, binary packaging, edge builds/smoke checks, and runtime
-builds/smoke checks. See [the source-delivery rehearsal](docs/license-review/source-delivery.md)
+builds/smoke checks. See [the source-delivery rehearsal](license-review/source-delivery.md)
 for coverage, commands, and the distinction between local checks and actual
 anonymous downloads during a publishing run.

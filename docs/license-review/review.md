@@ -7,7 +7,7 @@ certification of every file in the distribution.
 **Current status:** Apache 2.0 remains the license for original presso code.
 The source-delivery and notice work identified in findings 1–2 is now implemented
 in the release pipeline, with local rehearsals recorded in
-[source-delivery.md](docs/license-review/source-delivery.md). Each final artifact
+[source-delivery.md](source-delivery.md). Each final artifact
 must pass those checks again; source materials must be anonymously downloadable
 before its image can be pushed. The Valkey change resolves finding 3.
 
@@ -38,7 +38,7 @@ remove redistribution obligations.
   server version selected by the local default tag.
 
 Exact versions, inspected image IDs, and notice hashes are in
-[the inventory](docs/license-review/inventory.json). These local images predate
+[the inventory](inventory.json). These local images predate
 some notice changes. Their package inventories demonstrate the distribution
 scope; they are not evidence that final tag images contain the latest notices.
 Final amd64 and arm64 release digests still need their own inventory and checks.
@@ -98,7 +98,7 @@ Before publication:
    image pushed to a public GHCR package.
 
 See GPLv3's definition of Corresponding Source and section 6 in the
-[included license](runtime/dropins/COPYING), and GPLv2 section 3 for components
+[included license](../../runtime/dropins/COPYING), and GPLv2 section 3 for components
 using that version. Obligations differ between source and non-source forms.
 The source-form Redis PHP file is not equivalent to distributing a stripped
 native binary. Docker's own [PHP image documentation](https://raw.githubusercontent.com/docker-library/docs/master/php/README.md#license)
@@ -120,7 +120,7 @@ and embedded frontend. The 49 linked Go modules have these root license types:
 The MPL module is `github.com/go-sql-driver/mysql` v1.10.1. It can be used in an
 Apache-licensed larger work, but executable recipients must be told how to get
 its MPL-covered source. That explicit versioned notice has now been added to
-`THIRD_PARTY_NOTICES.md`, which is already included in binary archives and the
+`docs/licensing.md`, which is already included in binary archives and the
 engine image. The upstream tagged source was reachable during this review.
 Future driver changes must update the notice and keep source access working.
 See [Mozilla's MPL FAQ, questions 8 and 11](https://www.mozilla.org/en-US/MPL/2.0/FAQ/).
@@ -161,7 +161,7 @@ The pre-release backend change selects **Valkey 8.1.10** with BSD-3-Clause
 server licensing, using `valkey/valkey:8.1.10-alpine`. The engine pulls this
 upstream image directly; the release does not republish it as a presso image.
 Its dependencies still retain their respective licenses. See the
-[separate verification record](docs/license-review/valkey.md) for the inspected
+[separate verification record](valkey.md) for the inspected
 image index, platform digests, compatibility coverage, and boundaries.
 
 The unchanged GPLv3 PHP drop-in, PHP-licensed phpredis extension, and
@@ -193,7 +193,7 @@ This does not satisfy or replace licenses for the upstream base contents.
   license files fail that generation step. The explicit package list must be
   maintained when runtime dependencies change.
 - Clarified the server/drop-in distinction and remaining scope in
-  `THIRD_PARTY_NOTICES.md`.
+  `docs/licensing.md`.
 - Added this report to the binary archive's document list and saved the review
   inventory. That initial review made no backend substitution; the subsequent
   Valkey change is documented in finding 3 and its separate verification record.
@@ -213,7 +213,7 @@ This does not satisfy or replace licenses for the upstream base contents.
   images. A new/missing dependency, failed download, or failed required job
   blocks publication; no earlier inventory substitutes for this run.
 - Operators publishing their own modified builds must retain corresponding
-  materials for those builds. See [SOURCE_ACCESS.md](SOURCE_ACCESS.md), including
+  materials for those builds. See [licensing and source access](../licensing.md), including
   retention and access after moving downloads.
 
 No license conflict found here requires abandoning Apache 2.0 for original

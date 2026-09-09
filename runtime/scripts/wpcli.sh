@@ -5,7 +5,7 @@ curl -fsSL -o /usr/local/bin/wp \
 	"https://github.com/wp-cli/wp-cli/releases/download/v$1/wp-cli-$1.phar"
 # The release PHAR does not retain the root WP-CLI license. Preserve the
 # matching upstream notice separately; bundled dependencies need their own
-# inventory as documented in LICENSE_REVIEW.md.
+# inventory as documented in docs/license-review/review.md.
 mkdir -p /opt/presso/licenses
 curl -fsSL -o /opt/presso/licenses/wp-cli.txt \
 	"https://raw.githubusercontent.com/wp-cli/wp-cli/v$1/LICENSE"

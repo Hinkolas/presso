@@ -17,7 +17,7 @@ def fixture(directory):
     directory.mkdir(parents=True, exist_ok=True)
     files = {
         'THIRD_PARTY_LICENSES.txt': b'An upstream license and copyright notice\n',
-        'SOURCE_ACCESS.md': b'Matching retained source directions\n',
+        'docs/licensing.md': b'Matching retained source directions\n',
         'sources/presso/source.tar.gz': b'fixture source',
         'sources/dependency/source.tar.gz': b'preferred source, patches and recipes',
     }
