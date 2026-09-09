@@ -5,11 +5,20 @@
 require 'yaml'
 require 'open3'
 require 'tmpdir'
+root = File.expand_path('..', __dir__)
 release = YAML.load_file(File.join(__dir__, '../.github/workflows/release.yml'))['jobs']
 verify = YAML.load_file(File.join(__dir__, '../.github/workflows/verify.yml'))['jobs']
 runtime = YAML.load_file(File.join(__dir__, '../.github/workflows/runtime.yml'))['jobs']
-required = %w[verify source-release binary edge edge-merge runtime]
+required = %w[validate-tag verify source-release binary edge edge-merge runtime]
 raise 'publish must require all artifacts and verification' unless (required - release.fetch('publish').fetch('needs')).empty?
+raise 'verification must require tag validation' unless Array(release.fetch('verify')['needs']).include?('validate-tag')
+raise 'tag workflow must use the engine version validator' unless release.fetch('validate-tag').fetch('steps').any? { |s| s.fetch('run', '').include?('go run ./cmd/release-version') }
+# Older Psych versions cannot parse go-task's colon-bearing flow scalars in
+# unrelated tasks (for example [build:web]); inspect the release block alone.
+task_block = File.read(File.join(root, 'Taskfile.yml'))[/^  release:tag:\n.*?(?=^  [^ \n]|\z)/m]
+task = YAML.load(task_block).fetch('release:tag')
+raise 'tag task must use the engine version validator' unless task.fetch('preconditions').any? { |s| s.fetch('sh').include?('go run ./cmd/release-version') }
+raise 'runtime publishing must validate its version' unless runtime.fetch('matrix').fetch('steps').any? { |s| s.fetch('run', '').include?('if [ "$push" = true ]; then go run ./cmd/release-version "$RELEASE"') }
 %w[binary edge runtime].each do |name|
   raise "#{name} can publish before verification" unless Array(release.fetch(name)['needs']).include?('verify')
   raise "#{name} can publish before source preparation" unless Array(release.fetch(name)['needs']).include?('source-release')
@@ -42,25 +51,39 @@ end
 puts 'Release gates: passing case and all failure/cancellation/skip cases verified.'
 
 # Exercise the actual publication shell with a recording gh stub: this cannot
-# publish anything. v0 tags must be prereleases even without a SemVer suffix.
+# publish anything. The actual shared validator supplies the classification;
+# normal v0 releases must be eligible for latest, just like normal v1 releases.
 publish = release.fetch('publish').fetch('steps').find { |step| step['run'] }.fetch('run')
 Dir.mktmpdir('presso-release-policy-') do |dir|
+  validator = File.join(dir, 'release-version')
+  out, err, status = Open3.capture3('go', 'build', '-o', validator, './cmd/release-version', chdir: root)
+  raise "cannot build tag validator: #{out}#{err}" unless status.success?
+  go_pattern = File.read(File.join(root, 'internal/version/version.go'))[/const ReleasePattern = `([^`]+)`/, 1]
+  installer_pattern = File.read(File.join(root, 'install.sh'))[/^release_pattern='([^']+)'$/, 1]
+  raise 'installer version policy differs from the engine' unless go_pattern && go_pattern == installer_pattern
   stub = File.join(dir, 'gh')
   File.write(stub, "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$PRESSO_TEST_GH_LOG\"\n")
   File.chmod(0755, stub)
   {
+    'v0.1.0-alpha.1' => '--prerelease --latest=false',
+    'v0.1.0-beta.0' => '--prerelease --latest=false',
     'v0.1.0-rc.1' => '--prerelease --latest=false',
-    'v0.1.0' => '--prerelease --latest=false',
-    'v0.99.0' => '--prerelease --latest=false',
+    'v0.1.0' => '--prerelease=false --latest',
+    'v0.99.0' => '--prerelease=false --latest',
     'v1.0.0-rc.1' => '--prerelease --latest=false',
-    'v1.0.0' => '--latest',
-    'v2.1.0' => '--latest'
+    'v1.0.0' => '--prerelease=false --latest',
+    'v2.1.0' => '--prerelease=false --latest'
   }.each do |tag, flags|
+    classification, err, status = Open3.capture3(validator, tag)
+    raise "valid tag rejected: #{tag}: #{err}" unless status.success?
+    _, _, status = Open3.capture3({'TAG' => tag, 'PATTERN' => installer_pattern}, 'bash', '-c', '[[ "$TAG" =~ $PATTERN ]]')
+    raise "installer rejects valid tag #{tag}" unless status.success?
     log = File.join(dir, 'calls')
     File.write(log, '')
     env = {
       'PATH' => "#{dir}:#{ENV.fetch('PATH')}",
       'TAG' => tag,
+      'PRERELEASE' => classification.strip,
       'GITHUB_REPOSITORY' => 'test/presso',
       'GH_TOKEN' => 'not-a-real-token',
       'PRESSO_TEST_GH_LOG' => log
@@ -70,12 +93,24 @@ Dir.mktmpdir('presso-release-policy-') do |dir|
     expected = "release edit #{tag} --repo test/presso --draft=false #{flags}"
     raise "wrong publication flags for #{tag}: #{File.read(log)}" unless File.readlines(log).first&.strip == expected
   end
+  ['', '0.1.0', 'v0.1', 'v0.1.0-rc1', 'v0.1.0-alpha', 'v0.1.0-preview.1',
+   'v00.1.0', 'v0.01.0', 'v0.1.00', 'v0.1.0-rc.01', 'v0.1.0+build.1',
+   'v0.1.0-3-gabc1234', 'v0.0.0-dev', "v0.1.0\n"].each do |tag|
+    _, _, status = Open3.capture3(validator, tag)
+    raise "invalid tag accepted: #{tag.inspect}" if status.success?
+    _, _, status = Open3.capture3({'TAG' => tag, 'PATTERN' => installer_pattern}, 'bash', '-c', '[[ "$TAG" =~ $PATTERN ]]')
+    raise "installer accepts invalid tag: #{tag.inspect}" if status.success?
+  end
+  log = File.join(dir, 'calls')
+  File.write(log, '')
+  env = {'PATH' => "#{dir}:#{ENV.fetch('PATH')}", 'PRERELEASE' => '', 'PRESSO_TEST_GH_LOG' => log}
+  _, _, status = Open3.capture3(env, 'bash', '-c', publish)
+  raise 'missing classification can publish' if status.success? || !File.read(log).empty?
 end
-puts 'Release policy: all v0 and suffixed tags are prereleases; v1+ stable tags are latest.'
+puts 'Release policy: canonical dotted tags enforced; plain v0+ releases are latest, alpha/beta/rc are prereleases.'
 
 # Docker builds use separate contexts, so their license/notice copies must
 # remain identical to the root originals.
-root = File.expand_path('..', __dir__)
 %w[LICENSE NOTICE].each do |name|
   %w[build runtime/mu-plugins].each do |dir|
     raise "#{dir}/#{name} differs from root #{name}" unless File.binread(File.join(root, dir, name)) == File.binread(File.join(root, name))

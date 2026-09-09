@@ -3,17 +3,23 @@
 // main package.
 package version
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // Version is overridden by the release build:
 //
 //	go build -ldflags "-X github.com/Hinkolas/presso/internal/version.Version=v0.1.0"
 var Version = "v0.0.0-dev"
 
-// releaseRe accepts clean release tags (v1.2.3, v1.2.3-rc.1) and rejects
-// what `git describe` produces between tags (v1.2.3-4-gabc1234, -dirty) and
-// the dev default.
-var releaseRe = regexp.MustCompile(`^v\d+\.\d+\.\d+(-(rc|beta|alpha)\.?\d+)?$`)
+// ReleasePattern is the publication policy, shared by the engine, tag task,
+// and release workflow through cmd/release-version. The standalone installer's
+// copy is checked by scripts/check-release-gates.rb. Only dotted alpha/beta/rc
+// suffixes are published; no leading zeros, build metadata or git-describe tags.
+const ReleasePattern = `^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$`
+
+var releaseRe = regexp.MustCompile(ReleasePattern)
 
 // Release returns Version when this binary is a release build, "" otherwise.
 // Release builds resolve {release} in image templates and may self-update;
@@ -27,4 +33,10 @@ func ReleaseOf(v string) string {
 		return v
 	}
 	return ""
+}
+
+// IsPrerelease distinguishes suffix releases from normal releases, including
+// normal 0.x releases during initial development. Invalid versions return false.
+func IsPrerelease(v string) bool {
+	return ReleaseOf(v) != "" && strings.Contains(v, "-")
 }

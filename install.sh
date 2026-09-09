@@ -12,7 +12,7 @@
 # (System → Updates); this script is the way back when that is not possible.
 #
 # Options (after `bash -s --`):
-#   --version vX.Y.Z      explicit release (required for pre-1.0/prereleases)
+#   --version vX.Y.Z      explicit release (required to select a prerelease)
 #   --panel-domain HOST   serve the panel at https://HOST through the edge
 #   --acme-email EMAIL    contact e-mail for Let's Encrypt
 #   --email EMAIL         first admin's e-mail (asked interactively otherwise)
@@ -161,9 +161,18 @@ if [ -z "$VERSION" ]; then
   VERSION=$(printf '%s' "$latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)
   [ -n "$VERSION" ] || die "no published release found for $REPO (a release is published only once all of its images are built; try again in a few minutes or pass --version)"
 fi
-[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]] || die "not a release tag: $VERSION"
+# Kept identical to internal/version.ReleasePattern by the release checks.
+release_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$'
+[[ "$VERSION" =~ $release_pattern ]] || die "not a release tag: $VERSION (use vX.Y.Z or vX.Y.Z-{alpha,beta,rc}.N)"
+if [[ "$VERSION" == v0.* ]]; then
+  say "Initial development (0.x): not recommended for production workloads."
+elif [[ "$VERSION" == *-* ]]; then
+  say "Prerelease: not recommended for production workloads."
+fi
+if [[ "$VERSION" == *-* ]]; then
+  say "This is a prerelease of ${VERSION%%-*}."
+fi
 if [[ "$VERSION" == v0.* || "$VERSION" == *-* ]]; then
-  say "Experimental prerelease: not recommended for production workloads."
   say "Breaking changes and data loss are possible. No automated backups or rollback."
   say "Managed WordPress/plugin security updates are planned, not available yet."
 fi

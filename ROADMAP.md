@@ -1,7 +1,7 @@
 # Roadmap
 
-presso is in experimental development. Every release before `v1.0.0` is a
-prerelease and is not recommended for production workloads. The
+presso is in initial development (0.x). Releases before `v1.0.0` are
+experimental and are not recommended for production workloads. The
 [README](README.md) describes what works today; this document describes work
 that is **not yet available** unless explicitly stated otherwise.
 

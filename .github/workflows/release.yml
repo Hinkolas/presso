@@ -11,7 +11,7 @@ name: release
 
 on:
   push:
-    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+    tags: ["v*"] # Broad trigger; validate-tag enforces the exact version syntax.
 
 permissions:
   contents: write
@@ -25,7 +25,25 @@ env:
   EDGE_IMAGE: ghcr.io/hinkolas/presso-edge
 
 jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          prerelease=$(go run ./cmd/release-version "$TAG")
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
   verify:
+    needs: validate-tag
     uses: ./.github/workflows/verify.yml
 
   source-release:
@@ -127,20 +145,21 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [verify, source-release, binary, edge, edge-merge, runtime]
+    needs: [validate-tag, verify, source-release, binary, edge, edge-merge, runtime]
     runs-on: ubuntu-latest
     steps:
       - name: Publish the draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.validate-tag.outputs.prerelease }}
         run: |
           set -euo pipefail
-          # Every pre-1.0 release is experimental, even without a suffix.
-          # Explicitly exclude prereleases from "latest" as well.
-          if [[ "$TAG" == v0.* || "$TAG" == *-* ]]; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
-          else
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
-          fi
+          # Plain v0.x.y versions are releases during initial development.
+          # Only validated alpha/beta/rc suffixes are GitHub prereleases.
+          case "$PRERELEASE" in
+            true) gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false ;;
+            false) gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest ;;
+            *) echo "Invalid or missing prerelease classification" >&2; exit 1 ;;
+          esac
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets --jq '{isDraft,isPrerelease,assets:[.assets[].name]}'

@@ -33,9 +33,9 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: Tag prefix to publish under (a release tag, or e.g. "dev")
+        description: Release tag (v0.1.0 or v0.1.0-rc.1); dev is allowed only with push=false
         type: string
-        default: dev
+        required: true
       legacy:
         description: Include the nginx + PHP-FPM versions (7.4, 8.0, 8.1)
         type: boolean
@@ -101,6 +101,7 @@ jobs:
             echo "::error::a release tag prefix is required to publish" >&2
             exit 1
           fi
+          if [ "$push" = true ]; then go run ./cmd/release-version "$RELEASE" >/dev/null; fi
           echo "push=$push" >> "$GITHUB_OUTPUT"
 
   # --- Publishing path -------------------------------------------------------

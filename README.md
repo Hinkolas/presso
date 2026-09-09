@@ -7,14 +7,18 @@ containers with shared routing, caching, databases, and a management UI. It
 handles provisioning and routine operations so you can manage sites without
 maintaining a separate Docker setup for each one.
 
-> **Experimental — not recommended for production workloads.**
-> Every version before `v1.0.0` is a prerelease, including versions without an
-> `-rc` suffix. Expect bugs, breaking changes, downtime, and possible data loss.
+> **Initial development (0.x) — not recommended for production workloads.**
+> Before `v1.0.0`, expect bugs, breaking changes, downtime, and possible data loss.
 > APIs, configuration, storage formats, and upgrade paths may change without
 > backward compatibility. Automated backups, restore, and rollback are not
 > available yet. Use disposable test sites and keep independent copies of any
 > data you need. The software is provided as-is, without warranties, subject to
 > the terms of the [Apache 2.0 license](LICENSE).
+
+Following [Semantic Versioning](https://semver.org/spec/v2.0.0.html), `0.x.y`
+is the initial-development phase. A tag such as `v0.1.0` is a normal release;
+`v0.1.0-alpha.1`, `v0.1.0-beta.1`, and `v0.1.0-rc.1` are prereleases of
+`v0.1.0`. A normal 0.x release does not imply production readiness or a stable API.
 
 [Getting started](#getting-started) · [Configuration](#configuration) ·
 [Roadmap](ROADMAP.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
@@ -92,8 +96,9 @@ The installer writes:
 | `/var/lib/presso` | Engine database, management certificates, and screenshots |
 | Docker named volumes | Site content, MariaDB data, and shared service data |
 
-An unversioned installation and the panel's update checker use GitHub's stable
-release feed. Prereleases are excluded, so **use `--version` for pre-1.0 testing**.
+An unversioned installation and the panel's update checker use GitHub's latest
+non-prerelease feed, which includes normal `v0.x.y` releases. Prereleases are
+excluded, so **use `--version` to select an alpha, beta, or release candidate**.
 The GitHub release assets and GHCR images must be public for installation
 without registry credentials.
 
@@ -149,9 +154,9 @@ security updates, are planned for a later release.** Engine updates are not a
 guarantee that every site's WordPress, plugins, or themes are current. Testers
 are responsible for their installed software; see [SECURITY.md](SECURITY.md).
 
-For another prerelease, read its release notes and rerun that release's
-installer with an explicit `--version`. Compatibility with older development
-installations is not guaranteed. Keeping `pressod.previous` is not a backup:
+Read the release notes before every upgrade. To select a specific release or
+prerelease, rerun its installer with an explicit `--version`. Compatibility with
+older development installations is not guaranteed. Keeping `pressod.previous` is not a backup:
 reverting a binary cannot undo database or site-content changes.
 
 Backups, scheduled snapshots, restore tooling, and automatic rollback are
@@ -256,9 +261,16 @@ source downloads before pushing each corresponding image. Source preparation
 fails if the repository is private; it does not change visibility for you.
 The release workflow requires verification before publishing images
 and keeps the GitHub release in draft until binary, edge, runtime, and smoke
-jobs succeed. All `v0.x` tags and tags with a prerelease suffix are published as
-prereleases and excluded from the stable feed. `task release:snapshot` rehearses
-the binary packaging locally without publishing.
+jobs succeed. Plain `vX.Y.Z` tags, including `v0.x.y`, are normal releases and
+update GitHub's `latest` feed. Tags with an `-alpha.N`, `-beta.N`, or `-rc.N`
+suffix are prereleases and do not update that feed. `task release:snapshot`
+rehearses the binary packaging locally without publishing.
+
+The tag task and publishing workflows enforce the same version format as the
+engine: `vX.Y.Z` or `vX.Y.Z-{alpha,beta,rc}.N`. Use dotted suffixes (`-rc.1`,
+never `-rc1`), no leading zeros in numeric components, and no build metadata
+(`+build.1`). Invalid tags fail validation before any release artifacts publish.
+
 Source collection requires Python 3.12+, Go, Docker (for image bundles),
 network access to upstream source archives, and several GB of temporary disk
 space. See [SOURCE_ACCESS.md](SOURCE_ACCESS.md) for downloads and retention.

@@ -64,14 +64,18 @@ tasks:
 
   release:tag:
     desc: "Tag and push a release: task release:tag V=v0.1.0"
+    env:
+      PRESSO_RELEASE_VERSION: '{{.V | default ""}}'
     preconditions:
-      - sh: test -n "{{.V}}"
+      - sh: test -n "$PRESSO_RELEASE_VERSION"
         msg: "pass the version: task release:tag V=v0.1.0"
+      - sh: go run ./cmd/release-version "$PRESSO_RELEASE_VERSION" >/dev/null
+        msg: "use vX.Y.Z or vX.Y.Z-{alpha,beta,rc}.N (for example v0.1.0-rc.1); no leading zeros or build metadata"
       - sh: git diff --quiet && git diff --cached --quiet
         msg: "commit or stash your changes first"
     cmds:
-      - git tag -a "{{.V}}" -m "{{.V}}"
-      - git push origin "{{.V}}"
+      - git tag -a "$PRESSO_RELEASE_VERSION" -m "$PRESSO_RELEASE_VERSION"
+      - git push origin "refs/tags/$PRESSO_RELEASE_VERSION"
 
   # Runtime images are two-stage: one base per PHP version (FrankenPHP for
   # >= 8.2, nginx + PHP-FPM below) and a thin WordPress layer per tag. CI

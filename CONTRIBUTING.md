@@ -31,7 +31,7 @@ first, and include:
 - Relevant error messages or job logs, with credentials and private data removed.
 
 Please use disposable sites for reproductions. All versions before v1.0.0 are
-experimental prereleases, and production workloads are not recommended.
+part of initial development, and production workloads are not recommended.
 Reports do not carry a response-time or implementation commitment.
 
 For feature ideas, check [ROADMAP.md](ROADMAP.md) first. A suggestion is welcome,

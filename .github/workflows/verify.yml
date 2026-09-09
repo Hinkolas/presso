@@ -23,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - run: ruby scripts/check-release-gates.rb
       - run: python3 -m unittest discover -s scripts -p 'test_ci_changes.py' -v
       - run: bash -n install.sh

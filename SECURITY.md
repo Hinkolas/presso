@@ -2,14 +2,15 @@
 
 ## Project status and supported versions
 
-presso is experimental. All versions before `v1.0.0` are prereleases and are
+presso is in initial development (0.x). Versions before `v1.0.0` are
 not recommended for production workloads. There is no production support
 commitment, guaranteed response time, or guaranteed security-fix schedule.
 
 Security reports are welcome for any version. Investigation and fixes focus on
-the latest published test release and the current development branch. Older
-prereleases do not have a maintained backport policy. A fix may require an
-upgrade with breaking changes; compatibility is not guaranteed before v1.0.0.
+the latest published release and the current development branch. Older
+releases and prereleases do not have a maintained backport policy. A fix may
+require an upgrade with breaking changes; compatibility is not guaranteed
+before v1.0.0.
 
 ## Reporting a vulnerability
 

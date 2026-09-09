@@ -88,13 +88,13 @@ release:
     owner: Hinkolas
     name: presso
   draft: true
-  # Suffixes mark the initial draft as a prerelease. The final publish job
-  # additionally marks every v0.x release as a prerelease, even without a suffix.
+  # Only alpha/beta/rc suffixes mark drafts as prereleases. Plain v0.x.y tags
+  # are normal releases during initial development, eligible for latest.
   prerelease: auto
   extra_files:
     - glob: ./install.sh
   header: |
-    **Experimental before v1.0.0 — not recommended for production workloads.**
+    **Before v1.0.0: initial development, not recommended for production workloads.**
     Pre-1.0 releases may introduce breaking changes, downtime, and data loss.
     Automated backups, restore, rollback, and managed WordPress/plugin security
     updates are not available yet. Original presso code is provided as-is under
