@@ -13,7 +13,6 @@ import subprocess
 
 GUIDES = {
     'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'ROADMAP.md',
-    'ORCHESTRATION.md', 'RUNTIME.md', 'HARNESS.md',
 }
 
 

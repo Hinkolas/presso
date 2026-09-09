@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # presso-runtime-base, FPM flavor (PHP 7.4 / 8.0 / 8.1, which FrankenPHP does
 # not support): nginx + php-fpm under a small bash supervisor, same users,
-# same paths, same env contract as the FrankenPHP base. See RUNTIME.md
+# same paths, same env contract as the FrankenPHP base. See docs/runtime.md
 # "Container structure".
 #
 #   docker build -f runtime/base-legacy.Dockerfile \

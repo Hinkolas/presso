@@ -1,7 +1,7 @@
 # RUNTIME — The optimized per-site WordPress runtime
 
 Status: technical design notes, including historical proposals. See
-[README.md](README.md) for shipped features and [ROADMAP.md](ROADMAP.md) for
+[README.md](../README.md) for shipped features and [ROADMAP.md](../ROADMAP.md) for
 planned work. Unimplemented optimizations and update/recovery ideas below are
 not release promises. All pre-1.0 releases are experimental and are not
 recommended for production workloads.
@@ -44,7 +44,7 @@ Options:
 Decision: FrankenPHP classic mode, one instance per site (see "Container
 structure" below) for PHP >= 8.2. nginx + PHP-FPM is a first-class second
 build of the same image layout for PHP 7.4 / 8.0 / 8.1, because FrankenPHP
-does not support those and legacy sites must run (ORCHESTRATION.md,
+does not support those and legacy sites must run (orchestration.md,
 "Compatibility and migration"). Same volume layout, same env contract, same
 system plugin; only the execution layer differs. Worker mode is a research
 track, not a dependency.
@@ -114,7 +114,7 @@ Correctness details the plugin owns:
 - Vary key for themes that branch on wp_is_mobile.
 - Search results and 404s cacheable with a short TTL.
 
-Edge cache implementation and policy are owned by ORCHESTRATION.md ("Edge
+Edge cache implementation and policy are owned by orchestration.md ("Edge
 page cache"). Summary of what the runtime relies on: tag purge with a
 site-prefixed tag namespace, stale-while-revalidate and stale-if-error,
 persistent store, cache status header on every response. Implementation:
@@ -155,7 +155,7 @@ and no WordPress query pattern benefits from MySQL-8-only features.
 
 ### 7. WordPress configuration baked into the runtime
 - WP_HOME / WP_SITEURL from env. The engine's primary domain is authoritative;
-  the database values are not used for routing (ORCHESTRATION.md, "Domains").
+  the database values are not used for routing (orchestration.md, "Domains").
 - DB_CHARSET / DB_COLLATE / table prefix from env, preserved from the source
   site on migration; never silently converted.
 - DISABLE_WP_CRON = true; real cron via WP-CLI.

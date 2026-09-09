@@ -72,7 +72,7 @@ and upgrade validation, tested backup/restore procedures, a defined security
 maintenance policy, and documented compatibility expectations. Publishing
 `v1.0.0` will not change the license's warranty disclaimer.
 
-The older [runtime](RUNTIME.md), [orchestration](ORCHESTRATION.md), and
-[harness](HARNESS.md) notes contain implementation ideas and tradeoffs. This
+The older [runtime](docs/runtime.md), [orchestration](docs/orchestration.md), and
+[harness](docs/harness.md) notes contain implementation ideas and tradeoffs. This
 roadmap is the current feature-planning reference; those notes do not establish
 release commitments.

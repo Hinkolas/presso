@@ -1,7 +1,7 @@
 # Cuts a release from a version tag (v0.1.0, v0.2.0-rc.1, ...). One tag names
 # everything: the pressod binary on the GitHub release, the edge image and the
 # runtime images on ghcr.io all carry it, and the engine derives its image
-# references from its own version (see ORCHESTRATION.md "Release and update").
+# references from its own version (see docs/orchestration.md "Release and update").
 #
 # The GitHub release is created as a draft by goreleaser and published by the
 # last job, after every image has been pushed and smoke-tested. Hosts poll

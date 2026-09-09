@@ -1,6 +1,6 @@
 # nginx for the presso-runtime FPM flavor. Rendered from env by render.sh
 # into /run/presso/nginx.conf at boot; mirrors runtime/Caddyfile block by
-# block (RUNTIME.md "Container structure"). Only ${NGINX_*} placeholders are
+# block (docs/runtime.md "Container structure"). Only ${NGINX_*} placeholders are
 # substituted; every other $var is nginx's own. Runs as `web`, so pid, temp
 # paths and the socket live under /tmp/presso (the engine's tmpfs).
 pid /tmp/presso/nginx.pid;
@@ -82,7 +82,7 @@ http {
 		location = /wp-content/debug.log { return 404; }
 		location ~ /\. { return 404; }
 
-		# Never execute PHP under uploads (RUNTIME.md section 8): a compromised
+		# Never execute PHP under uploads (docs/runtime.md section 8): a compromised
 		# request that manages to drop a .php file there gains nothing.
 		# Case-insensitive, with path-info (x.php/foo) covered.
 		location ^~ /wp-content/uploads/ {

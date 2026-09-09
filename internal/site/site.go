@@ -57,7 +57,7 @@ const (
 	containerPort = 8080
 	// wpPath is the WordPress root inside the runtime image.
 	wpPath = "/var/www/html"
-	// opsUser runs WP-CLI (RUNTIME.md section 8).
+	// opsUser runs WP-CLI (docs/runtime.md section 8).
 	opsUser = "ops"
 )
 

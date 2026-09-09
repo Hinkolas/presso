@@ -1,7 +1,7 @@
 # HARNESS — Local development harness for AI-driven WordPress work
 
 Status: unimplemented design proposal. Current planning lives in
-[ROADMAP.md](ROADMAP.md); the CLI and workflows described here have not shipped.
+[ROADMAP.md](../ROADMAP.md); the CLI and workflows described here have not shipped.
 Designed to fall out of the runtime image with a dev profile rather than be
 built separately.
 
@@ -69,12 +69,12 @@ the edge proxy entirely:
 ```
 
 Because the site container is self-contained (see "Container structure" in
-RUNTIME.md), removing the edge changes nothing inside it. The only differences
+runtime.md), removing the edge changes nothing inside it. The only differences
 from production are the dev profile flags and that FrankenPHP's port is
 published to the host. There is no page cache in the harness, which is also
 what you want when editing.
 
-The harness is a thin client of the same Go engine code (ORCHESTRATION.md,
+The harness is a thin client of the same Go engine code (orchestration.md,
 "Substrate and stack"), either linking the packages directly as a CLI or
 talking to a locally running engine. It is the same provisioning code with
 different flags: "create site" with `edge=false`, `profile=dev`,
@@ -102,7 +102,7 @@ on different ports.
 - File access to wp-content (and read access to core for reference).
 - WP-CLI with full permissions (users, options, plugins, cache flush, cron run,
   search-replace, db query), exec'ed as the `ops` user so plugin/theme installs
-  work while the web process stays unable to write code (RUNTIME.md section 8).
+  work while the web process stays unable to write code (runtime.md section 8).
   In dev the editable code directory is owned by the host user via the bind
   mount; the two-user split applies to volume content only.
 - Direct SQL access (read and write) to the site database.
@@ -115,7 +115,7 @@ on different ports.
 - Snapshot/restore of database and uploads so the agent can experiment and reset.
 - Import of a production site via the engine's migration path (migration
   plugin push, SSH pull, or archive), landing at `<slug>.localhost` through the
-  same domain operation production uses (ORCHESTRATION.md, "Domains").
+  same domain operation production uses (orchestration.md, "Domains").
 - Legacy PHP sites (7.4-8.1) run locally on the FPM build of the runtime
   image, exactly as in production.
 
@@ -136,5 +136,5 @@ Same image as production, different profile:
 - Whether to run a Linux VM with the agent inside it as the primary mode and
   treat host-side editing as secondary.
 - Browser session for the agent: use the system plugin's one-click login
-  (RUNTIME.md section 14); the harness mints the token locally. Application
+  (runtime.md section 14); the harness mints the token locally. Application
   passwords + REST for non-browser tasks.

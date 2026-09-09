@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: presso platform
- * Description: Wires a site into the presso platform: edge cache headers and purges, hardening defaults, one-click login, request telemetry. Shipped read-only in the runtime image (RUNTIME.md section 14).
+ * Description: Wires a site into the presso platform: edge cache headers and purges, hardening defaults, one-click login, request telemetry. Shipped read-only in the runtime image (docs/runtime.md section 14).
  * Version: 0.1.0
  * Author: presso
  * License: Apache-2.0

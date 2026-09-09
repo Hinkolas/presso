@@ -1,6 +1,6 @@
 # Caddyfile for the presso-runtime container. Identical for every site: the
 # per-site PHP limits arrive as environment variables (defaults inline), TLS
-# and compression happen at the shared edge (ORCHESTRATION.md), so this only
+# and compression happen at the shared edge (docs/orchestration.md), so this only
 # serves plain HTTP on :8080 inside the container network.
 {
 	# No admin API socket, no ACME: nothing here is reachable from outside.
@@ -8,7 +8,7 @@
 	auto_https off
 
 	frankenphp {
-		# Values the engine's settings UI exposes (RUNTIME.md, "Container
+		# Values the engine's settings UI exposes (docs/runtime.md, "Container
 		# structure"). They apply to web requests only; WP-CLI gets php.ini.
 		php_ini {
 			memory_limit {$PHP_MEMORY_LIMIT:256M}
@@ -42,7 +42,7 @@
 	# Liveness probe used by health.php; never reaches PHP.
 	respond /-/ping "ok" 200
 
-	# Caddy refuses to execute PHP under uploads (RUNTIME.md section 8): a
+	# Caddy refuses to execute PHP under uploads (docs/runtime.md section 8): a
 	# compromised request that manages to drop a .php file there gains nothing.
 	# Case-insensitive because php_server's .php split is, and with path-info
 	# (x.php/foo) covered.

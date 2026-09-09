@@ -8,7 +8,8 @@ from ci_changes import documentation, needs_verification
 
 class ChangeScopeTests(unittest.TestCase):
     def test_moved_review_records_are_documentation(self):
-        for path in ('docs/release-verification.md', 'docs/license-review/review.md'):
+        for path in ('docs/release-verification.md', 'docs/license-review/review.md',
+                     'docs/orchestration.md', 'docs/harness.md', 'docs/runtime.md'):
             self.assertTrue(documentation(path))
 
     def test_license_build_and_unknown_paths_keep_verification(self):
@@ -39,7 +40,8 @@ class ChangeScopeTests(unittest.TestCase):
             (root / 'README.md').write_text('updated')
             docs = commit()
             check(initial, docs, False)
-            (root / 'code.go').rename(root / 'RUNTIME.md')
+            (root / 'docs').mkdir()
+            (root / 'code.go').rename(root / 'docs/runtime.md')
             renamed = commit()
             check(docs, renamed, True)  # Code deletion cannot hide as a guide.
             check(initial, renamed, True)  # Mixed code/documentation push.

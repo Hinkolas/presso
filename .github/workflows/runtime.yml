@@ -1,4 +1,4 @@
-# Builds and publishes the runtime images (RUNTIME.md "Container structure").
+# Builds and publishes the runtime images (docs/runtime.md "Container structure").
 # Two stages: one base per PHP version (FrankenPHP >= 8.2, nginx + PHP-FPM
 # below), built natively per architecture and merged into a multi-arch tag,
 # then one thin WordPress layer per php/wp pair. The pair list is the compat

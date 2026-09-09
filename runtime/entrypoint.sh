@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Container entrypoint, runs as root. Prepares the wp-content volume (seed on
-# first boot, drop-in refresh, ownership per the two-user model in RUNTIME.md
+# first boot, drop-in refresh, ownership per the two-user model in docs/runtime.md
 # section 8), runs the flavor's hooks, then drops privileges and exec's
 # presso-serve (FrankenPHP, or the nginx + PHP-FPM supervisor) as `web`.
 #

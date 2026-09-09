@@ -52,9 +52,9 @@ archives:
       - CONTRIBUTING.md
       - ROADMAP.md
       - .env.example
-      - ORCHESTRATION.md
-      - RUNTIME.md
-      - HARNESS.md
+      - docs/orchestration.md
+      - docs/runtime.md
+      - docs/harness.md
       - docs/release-verification.md
       - runtime/dropins/COPYING
       - runtime/dropins/README.md

@@ -2,7 +2,7 @@
 # presso-runtime-base, FrankenPHP flavor (PHP >= 8.2): everything a site
 # image needs except WordPress core and the runtime files, so the 72 per-tag
 # images (runtime/Dockerfile) are thin layers on top. Classic mode, plain HTTP
-# on :8080. See RUNTIME.md "Container structure".
+# on :8080. See docs/runtime.md "Container structure".
 #
 #   docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION=8.4 \
 #     -t presso-runtime-base:php8.4 runtime

@@ -1,7 +1,7 @@
 <?php
 /**
  * Module: enforce. Platform-wide hardening and de-bloat defaults that need a
- * hook inside the request (RUNTIME.md section 7 / 14): XML-RPC and pingbacks
+ * hook inside the request (docs/runtime.md section 7 / 14): XML-RPC and pingbacks
  * off, heartbeat throttled, emoji script gone, generator/RSD/WLW links gone,
  * automatic updates off (the image owns core; the engine runs updates),
  * the "WordPress Events and News" dashboard widget gone, Site Health tests

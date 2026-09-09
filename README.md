@@ -280,8 +280,8 @@ space. See [licensing and source access](docs/licensing.md) for downloads and re
 - [ROADMAP.md](ROADMAP.md): planned work, deferred features, and longer-term ideas.
 - [SECURITY.md](SECURITY.md): security scope, updates, and private reporting.
 - [CONTRIBUTING.md](CONTRIBUTING.md): the current contribution policy.
-- [ORCHESTRATION.md](ORCHESTRATION.md), [RUNTIME.md](RUNTIME.md), and
-  [HARNESS.md](HARNESS.md): technical design notes, including historical proposals;
+- [docs/orchestration.md](docs/orchestration.md), [docs/runtime.md](docs/runtime.md), and
+  [docs/harness.md](docs/harness.md): technical design notes, including historical proposals;
   these are not a list of shipped features.
 
 ## License

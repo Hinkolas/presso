@@ -11,7 +11,7 @@
  * WP HTTP API request (CURLOPT_RESOLVE, before curl connects). The URL, Host
  * header and SNI stay intact, so the edge routes and caches the request
  * exactly like a visitor's. Same idea as the browser container's
- * --host-resolver-rules (ORCHESTRATION.md, "Page previews").
+ * --host-resolver-rules (docs/orchestration.md, "Page previews").
  *
  * PRESSO_EDGE_HOST names the edge on the presso network; the engine sets it
  * to the edge container's name, which is also the default.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# The two-user model (RUNTIME.md section 8), identical in every base image.
+# The two-user model (docs/runtime.md section 8), identical in every base image.
 # web (1000) runs the web server and may only write uploads/, cache/ and tmp.
 # ops (1001) owns plugins/, themes/, languages/ and runs WP-CLI. ops is a
 # member of web so it can read (and, via group-writable dirs, write) what web

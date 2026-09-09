@@ -1,8 +1,8 @@
 # ORCHESTRATION — Running many WordPress sites on shared infrastructure
 
 Status: technical design notes, including historical proposals. Shipped features
-are listed in [README.md](README.md); current planned work is in
-[ROADMAP.md](ROADMAP.md). Backups, managed site-software updates, snapshots,
+are listed in [README.md](../README.md); current planned work is in
+[ROADMAP.md](../ROADMAP.md). Backups, managed site-software updates, snapshots,
 and automatic rollback described below are not implemented. All pre-1.0
 releases are experimental and are not recommended for production workloads.
 
@@ -17,7 +17,7 @@ are isolated from each other. Operators get the diagnostics that predict trouble
 
 Docker Engine on Linux. The engine talks to the Docker API directly, not Compose
 files. Containers on Linux are native processes, so there is no file system
-penalty (that is a macOS-only problem, see HARNESS.md).
+penalty (that is a macOS-only problem, see harness.md).
 
 Engine: Go. Single binary, uses the official Docker Go client against the
 daemon socket, exposes an HTTP/JSON API consumed by the UI and by the harness
@@ -30,7 +30,7 @@ cron runner and the update/snapshot/rollback jobs as internal workers.
 UI: SvelteKit, talking only to the engine's API. No direct Docker or
 database access from the UI.
 
-Harness CLI (HARNESS.md) is a thin client of the same engine API / the same
+Harness CLI (harness.md) is a thin client of the same engine API / the same
 Go packages, so local and production provisioning share code.
 
 ## Topology (single host)
@@ -38,7 +38,7 @@ Go packages, so local and production provisioning share code.
 | Component            | Cardinality  | Notes                                             |
 |----------------------|--------------|---------------------------------------------------|
 | Edge proxy           | 1 per host   | TLS, hostname routing, full-page cache, rate limit|
-| Site container       | 1 per site   | Runtime image (FrankenPHP), see RUNTIME.md        |
+| Site container       | 1 per site   | Runtime image (FrankenPHP), see runtime.md        |
 | Valkey                | shared       | One container, one ACL user per site              |
 | MariaDB              | shared       | One container, one database + user per site       |
 | Cron runner          | 1 per host   | Invokes WP-CLI cron in each site container        |
@@ -104,7 +104,7 @@ Trade-off accepted: a compromise of the shared database server itself affects
 all sites; per-site PHP containers cannot reach other sites' data through
 WordPress-level exploits.
 
-Shared services (decided, details in RUNTIME.md sections 4-6, 14):
+Shared services (decided, details in runtime.md sections 4-6, 14):
 - MariaDB: one instance, utf8mb4, per-site db + user, slow query log on,
   buffer pool sized for the host.
 - Valkey: one instance, ACL user per site (`~site-<id>:*`), maxmemory with
@@ -146,7 +146,7 @@ Implemented in this repo (see README.md for the dev loop):
   runtime rollout; see "Release and update" below. Rollback of the engine is
   manual (`pressod.previous`, `install.sh --version`).
 
-Deferred features and current priorities are tracked in [ROADMAP.md](ROADMAP.md).
+Deferred features and current priorities are tracked in [ROADMAP.md](../ROADMAP.md).
 
 Edge cache notes learned while building (Souin `cache-handler`):
 
@@ -285,7 +285,7 @@ small sites.
   back on failure. Plugin/theme/language updates via WP-CLI as `ops` user, on
   a schedule or on demand, always as snapshot -> update -> smoke test ->
   auto-rollback. Sites are LOCKED (no admin file mods) by default; per-site
-  flag opens them (RUNTIME.md section 8).
+  flag opens them (runtime.md section 8).
 - Install: plugin/theme search + install and zip upload in the UI, executed
   via WP-CLI in the site container.
 - Backup: db dump + wp-content volume snapshot, per site, retained per policy.
@@ -387,7 +387,7 @@ WordPress and PHP versions (implemented, September 2026):
 - FrankenPHP requires PHP >= 8.2, which WordPress 6.1 introduced support for.
   Older releases (5.6-6.0) and any site an operator pins to PHP 7.4 / 8.0 /
   8.1 run on the **legacy** runtime: the nginx + PHP-FPM build of the same
-  image layout (RUNTIME.md). Same volume layout, same env contract, same
+  image layout (runtime.md). Same volume layout, same env contract, same
   system plugin; only the execution layer differs. Sites on it are marked
   "Legacy" everywhere in the UI. `RUNTIME_LEGACY_ENABLED=false` removes the
   legacy PHP versions and the WordPress releases that need them from the

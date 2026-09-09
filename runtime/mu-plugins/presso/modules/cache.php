@@ -1,6 +1,6 @@
 <?php
 /**
- * Module: cache. The WordPress half of the edge page cache (RUNTIME.md
+ * Module: cache. The WordPress half of the edge page cache (docs/runtime.md
  * section 4). Per response it tells the edge whether the page may be cached
  * and for how long (Cache-Control: s-maxage from PRESSO_CACHE_TTL, always
  * stale-if-error so an erroring site keeps serving cached pages, and

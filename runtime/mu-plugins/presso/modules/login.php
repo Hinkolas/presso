@@ -1,6 +1,6 @@
 <?php
 /**
- * Module: login. One-click login for the engine and the harness (RUNTIME.md
+ * Module: login. One-click login for the engine and the harness (docs/runtime.md
  * section 14). The engine mints a short-lived token signed with the per-site
  * PRESSO_LOGIN_SECRET; wp-login.php?presso_login=<token> validates it and
  * creates a normal session. The secret is read with getenv() only, never

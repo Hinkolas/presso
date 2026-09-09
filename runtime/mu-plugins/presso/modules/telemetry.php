@@ -1,7 +1,7 @@
 <?php
 /**
  * Module: telemetry. Sampled per-request timing, query count and peak memory
- * as one JSON line on stderr (RUNTIME.md section 10), so the engine can show
+ * as one JSON line on stderr (docs/runtime.md section 10), so the engine can show
  * latency and slow requests per site without a profiler. PRESSO_TELEMETRY_SAMPLE
  * (0..1, default 0.1) is the sampling rate; WP-CLI runs are never sampled.
  */

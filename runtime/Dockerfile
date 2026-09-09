@@ -4,7 +4,7 @@
 # nginx + PHP-FPM) plus one WordPress core version and the runtime files.
 # Core is baked in and read-only; wp-content is a volume seeded on first
 # boot; everything per-site arrives as environment variables read by the
-# static wp-config.php. See RUNTIME.md.
+# static wp-config.php. See docs/runtime.md.
 #
 #   docker build --build-arg BASE_IMAGE=presso-runtime-base:php8.4 \
 #     --build-arg WP_VERSION=6.8.8 -t presso-runtime:php8.4-wp6.8.8 runtime

@@ -5,7 +5,7 @@
  *
  * It is baked into the image, root-owned and read-only. The PRESSO_* variable
  * names below are the env contract between the engine and every runtime
- * flavor (FrankenPHP and nginx + PHP-FPM). RUNTIME.md sections 7 and 8
+ * flavor (FrankenPHP and nginx + PHP-FPM). docs/runtime.md sections 7 and 8
  * explain the individual constants.
  */
 
@@ -72,7 +72,7 @@ if ( $presso_site_url !== null ) {
 unset( $presso_site_url );
 
 // --- Profile -----------------------------------------------------------------
-// prod (default) or dev; the same image serves both (RUNTIME.md, "Goal").
+// prod (default) or dev; the same image serves both (docs/runtime.md, "Goal").
 $presso_profile = presso_env( 'PRESSO_PROFILE', 'prod' );
 define( 'WP_ENVIRONMENT_TYPE', $presso_profile === 'dev' ? 'development' : 'production' );
 
@@ -93,7 +93,7 @@ if ( $presso_profile === 'dev' ) {
 ini_set( 'display_errors', '0' );
 unset( $presso_profile );
 
-// --- Runtime policy (RUNTIME.md section 7) -----------------------------------
+// --- Runtime policy (docs/runtime.md section 7) -----------------------------------
 define( 'DISABLE_WP_CRON', true ); // Real cron runs WP-CLI from the engine.
 define( 'WP_POST_REVISIONS', (int) presso_env( 'PRESSO_WP_POST_REVISIONS', '10' ) );
 define( 'AUTOSAVE_INTERVAL', (int) presso_env( 'PRESSO_WP_AUTOSAVE_INTERVAL', '120' ) );
@@ -104,7 +104,7 @@ define( 'WP_MEMORY_LIMIT', presso_env( 'PRESSO_WP_MEMORY_LIMIT', '256M' ) );
 define( 'WP_MAX_MEMORY_LIMIT', presso_env( 'PRESSO_WP_MAX_MEMORY_LIMIT', '512M' ) );
 define( 'FS_METHOD', 'direct' );
 
-// File modification policy (RUNTIME.md section 8): LOCKED by default, OPEN
+// File modification policy (docs/runtime.md section 8): LOCKED by default, OPEN
 // per site. Locked applies to web requests only; WP-CLI (driven by the
 // engine) must still be able to install and update plugins and themes.
 if ( presso_env( 'PRESSO_FILE_MODS', 'locked' ) === 'locked' && PHP_SAPI !== 'cli' ) {
@@ -116,7 +116,7 @@ if ( presso_env( 'PRESSO_FILE_MODS', 'locked' ) === 'locked' && PHP_SAPI !== 'cl
 define( 'WPMU_PLUGIN_DIR', '/opt/presso/mu-plugins' );
 define( 'WPMU_PLUGIN_URL', ( defined( 'WP_SITEURL' ) ? WP_SITEURL : '' ) . '/-/mu-plugins' );
 
-// --- Object cache (RUNTIME.md section 5) -------------------------------------
+// --- Object cache (docs/runtime.md section 5) -------------------------------------
 // The Redis Object Cache drop-in is copied into wp-content by the entrypoint
 // when PRESSO_REDIS_HOST is set. The server is Valkey; WP_REDIS_* and
 // PRESSO_REDIS_* name the compatible Redis protocol. One ACL user per site.
@@ -149,7 +149,7 @@ if ( $presso_redis_host !== null ) {
 }
 unset( $presso_redis_host );
 
-// --- System plugin passthrough (RUNTIME.md section 14) -----------------------
+// --- System plugin passthrough (docs/runtime.md section 14) -----------------------
 // Convenience constants for non-secret values. PRESSO_PURGE_TOKEN and
 // PRESSO_LOGIN_SECRET are deliberately NOT defined: the plugin reads them
 // with getenv() so they never show up in `wp config list`.

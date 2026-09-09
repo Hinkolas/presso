@@ -2,7 +2,7 @@
 /**
  * Shared helpers for the presso system plugin: environment access and a
  * structured logger. Everything the plugin needs from the platform arrives as
- * PRESSO_* environment variables (the env contract in RUNTIME.md); secrets
+ * PRESSO_* environment variables (the env contract in docs/runtime.md); secrets
  * are read here with getenv() and never defined as constants.
  */
 
