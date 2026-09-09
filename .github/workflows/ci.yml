@@ -7,5 +7,20 @@ on:
 permissions:
   contents: read
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run_verify: ${{ steps.scope.outputs.run_verify }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: scope
+        run: python3 scripts/ci_changes.py
+
   verify:
+    needs: changes
+    # A broken detector must never silently suppress verification. Only a
+    # successful, explicit docs-only result may skip this reusable workflow.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.run_verify != 'false') }}
     uses: ./.github/workflows/verify.yml

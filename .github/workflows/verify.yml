@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ruby scripts/check-release-gates.rb
+      - run: python3 -m unittest discover -s scripts -p 'test_ci_changes.py' -v
       - run: bash -n install.sh
       - run: shellcheck --severity=warning install.sh
 

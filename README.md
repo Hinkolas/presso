@@ -241,6 +241,10 @@ listener on 7080; `task nuke` deletes presso-managed containers and volumes.
 `task check` runs Go vet/tests and frontend checks/lint. `task build` builds the
 UI and embeds it in `bin/pressod`. CI additionally runs Linux race tests,
 installer checks, a clean frontend build, and Docker integration tests.
+For pushes and pull requests that change only the root user guides or Markdown
+under `docs/`, a small change-detection job runs and skips the expensive checks.
+Code/configuration, license/source-access files, and runtime vendoring records
+still require full CI. Manual CI runs and release tags always verify everything.
 See [RELEASE_VERIFICATION.md](RELEASE_VERIFICATION.md) for release test evidence.
 
 To prepare a release, make the repository public and wait for CI on the
