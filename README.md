@@ -173,6 +173,15 @@ copy of important data.
 
 ## How it fits together
 
+Every container image comes from presso's registry and carries the release tag:
+the edge, `presso-mariadb` (MariaDB 11.8 on Alpine, with jemalloc),
+`presso-valkey` (Valkey 9.0 on Alpine), `presso-browser` (Chromium's headless
+shell on Debian stable) and the runtimes. They are built from distribution
+packages in `build/` and `runtime/`, and each release publishes their sources
+first. `MARIADB_IMAGE`, `VALKEY_IMAGE`, `EDGE_IMAGE` and `SHOTS_IMAGE` can point
+elsewhere; [.env.example](.env.example) documents what each replacement must
+provide.
+
 ```text
 Linux host: pressod + embedded panel + SQLite + Docker API
   └─ shared Docker network
@@ -200,8 +209,9 @@ for scope and reporting.
 
 ## Object cache
 
-Fresh installations use `valkey/valkey:8.1.10-alpine`, the BSD-3-Clause licensed
-Valkey server, in `presso-valkey`. Presso pulls the upstream image directly.
+Fresh installations run the BSD-3-Clause licensed Valkey server (9.0, from
+Alpine's package) in the `presso-valkey` container, from the
+`ghcr.io/hinkolas/presso-valkey` image published with each release.
 The host settings are `VALKEY_IMAGE`, `VALKEY_LISTEN` (default
 `127.0.0.1:6379`), and `VALKEY_MAXMEMORY` (default `256mb`). Image overrides must
 provide `valkey-server` and `valkey-cli`; operators maintain their chosen image.
@@ -237,6 +247,7 @@ queries or the schema.
 cp .env.example .env
 # Set AUTH_SECRET in .env, e.g. using: openssl rand -base64 32
 task build:edge
+task build:services
 task build:runtime PHP=8.5 WP=7.1
 task user -- create --email you@example.com --role admin
 task dev
@@ -245,6 +256,7 @@ task dev
 In another terminal, run `cd web && npm ci`, then `task dev:web` from the repository
 root. Open <http://localhost:5173>. Local `.env` image templates use the images
 you build; build any additional WordPress/PHP pair before selecting it.
+`task smoke:services` checks the locally built platform images.
 
 Use a Docker environment without an existing presso installation. Ports
 80/443, 3306/6379/7080, and 7081 must be available. `task dev` stops an existing

@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -20,6 +19,7 @@ import (
 	"github.com/Hinkolas/presso/internal/docker"
 	"github.com/Hinkolas/presso/internal/edge"
 	"github.com/Hinkolas/presso/internal/shots"
+	"github.com/Hinkolas/presso/internal/testimages"
 	"github.com/google/uuid"
 )
 
@@ -67,10 +67,7 @@ func TestManagementIsolation(t *testing.T) {
 	})}
 	go server.Serve(tls.NewListener(listener, trust.ServerTLS()))
 	defer server.Close()
-	image := os.Getenv("PRESSO_TEST_EDGE_IMAGE")
-	if image == "" {
-		image = "presso-edge:release-verification"
-	}
+	image := testimages.Edge()
 	create := func(spec docker.Spec) string {
 		t.Helper()
 		cid, err := dk.CreateContainer(ctx, spec)
@@ -174,7 +171,7 @@ func TestManagementIsolation(t *testing.T) {
 	if err := cli.Load(ctx, render); err != nil {
 		t.Fatal(err)
 	}
-	browser := create(docker.Spec{Name: name + "-browser", Image: "chromedp/headless-shell:stable", Network: network, Entrypoint: []string{"/headless-shell/headless-shell"}, Cmd: []string{"--no-sandbox", "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=9223", "--disable-dev-shm-usage"}})
+	browser := create(docker.Spec{Name: name + "-browser", Image: testimages.Browser(), Network: network, Cmd: []string{"--no-sandbox", "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=9223", "--disable-dev-shm-usage"}})
 	for _, port := range []int{9222, 9223} {
 		result := run("socat", "-T1", "-", fmt.Sprintf("TCP:%s:%d,connect-timeout=1", name+"-browser", port))
 		if result.ExitCode == 0 {

@@ -310,8 +310,8 @@ func (s *Service) prepull(ctx context.Context, tag string, r *jobs.Reporter) {
 			r.Info(ctx, "Image ready: "+ref)
 		}
 	}
-	if strings.Contains(s.cfg.Edge.RawImage, "{release}") {
-		pull(strings.ReplaceAll(s.cfg.Edge.RawImage, "{release}", tag))
+	for _, ref := range s.cfg.ReleaseImages(tag) {
+		pull(ref)
 	}
 	if !strings.Contains(s.cfg.ImageTemplate, "{release}") || s.sites == nil {
 		r.Info(ctx, "Runtime images are not versioned by release on this host; nothing to pre-pull")

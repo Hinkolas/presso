@@ -77,12 +77,26 @@ jobs:
           go-version-file: go.mod
       - name: Verify source helper ownership on Linux
         run: PRESSO_TEST_DOCKER=1 python3 -m unittest discover -s scripts/compliance -p 'test_alpine_helper.py' -v
-      - name: Build verification edge
-        run: docker build -f build/edge.Dockerfile -t presso-edge:release-verification build
-      - name: Verify real edge source and notice collection
+      - name: Build verification platform images
         run: |
-          python3 scripts/compliance/collect.py image presso-edge:release-verification --out /tmp/edge-compliance
-          python3 scripts/compliance/collect.py verify /tmp/edge-compliance
+          set -euo pipefail
+          for image in edge mariadb valkey browser; do
+            docker build -f "build/$image.Dockerfile" -t "presso-$image:release-verification" build
+          done
+      - name: Verify real platform image source and notice collection
+        run: |
+          set -euo pipefail
+          for image in edge mariadb valkey browser; do
+            python3 scripts/compliance/collect.py image "presso-$image:release-verification" --out "/tmp/$image-compliance"
+            python3 scripts/compliance/collect.py verify "/tmp/$image-compliance"
+            rm -rf "/tmp/$image-compliance"
+          done
+      - name: Smoke-test the platform images
+        run: |
+          set -euo pipefail
+          for image in edge mariadb valkey browser; do
+            build/smoke.sh "$image" "presso-$image:release-verification"
+          done
       - name: Build the default published runtime
         run: |
           go run ./cmd/pressod runtime-matrix > /tmp/presso-matrix.json
@@ -96,6 +110,5 @@ jobs:
         run: |
           python3 scripts/compliance/collect.py image presso-runtime:release-verification --out /tmp/runtime-compliance
           python3 scripts/compliance/collect.py verify /tmp/runtime-compliance
-      - run: docker pull chromedp/headless-shell:stable
       - run: docker pull curlimages/curl:latest
       - run: go test -tags integration -count=1 -timeout 10m ./internal/integration ./internal/platform

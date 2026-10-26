@@ -29,6 +29,7 @@ import (
 	"github.com/Hinkolas/presso/internal/site"
 	"github.com/Hinkolas/presso/internal/store"
 	"github.com/Hinkolas/presso/internal/testdb"
+	"github.com/Hinkolas/presso/internal/testimages"
 	"github.com/google/uuid"
 )
 
@@ -52,7 +53,7 @@ func (p *lifecyclePlatform) ApplyEdge(ctx context.Context) error {
 	return p.edge.Load(ctx, s)
 }
 func (p *lifecyclePlatform) sql(ctx context.Context, sql string) error {
-	r, err := p.dk.Exec(ctx, p.db, docker.ExecOptions{Cmd: []string{"mariadb", "--protocol=tcp", "-h127.0.0.1", "-uroot"}, Stdin: strings.NewReader(sql)})
+	r, err := p.dk.Exec(ctx, p.db, docker.ExecOptions{Cmd: []string{"mariadb", "--protocol=tcp", "-h127.0.0.1", "-uroot", "-pisolated-db-password"}, Stdin: strings.NewReader(sql)})
 	if err != nil {
 		return err
 	}
@@ -132,9 +133,9 @@ func TestFreshSiteLifecycleAndHTTPSCallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	database := create(docker.Spec{Name: name + "-db", Image: "mariadb:11.4", Network: network, NetworkAliases: []string{platform.NameMariaDB}, Env: []string{"MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1"}, Mounts: []docker.Mount{{Type: docker.MountTmpfs, Target: "/var/lib/mysql"}}})
-	valkey := create(docker.Spec{Name: name + "-valkey", Image: config.DefaultValkeyImage, Network: network, NetworkAliases: []string{platform.NameValkey}, Cmd: []string{"valkey-server", "--requirepass", "isolated-cache-password", "--save", "", "--appendonly", "no"}, Ports: []docker.PortBinding{{HostIP: "127.0.0.1", HostPort: 0, ContainerPort: 6379}}})
-	edgeID := create(docker.Spec{Name: name + "-edge", Image: "presso-edge:release-verification", Network: network, NetworkAliases: []string{platform.NameEdge}, Mounts: []docker.Mount{{Type: docker.MountBind, Source: filepath.Join(dir, "control/edge"), Target: "/etc/presso/control", ReadOnly: true}}, Ports: []docker.PortBinding{{HostIP: "127.0.0.1", HostPort: 0, ContainerPort: 80}}})
+	database := create(docker.Spec{Name: name + "-db", Image: testimages.MariaDB(), Network: network, NetworkAliases: []string{platform.NameMariaDB}, Env: []string{"MARIADB_ROOT_PASSWORD=isolated-db-password"}, Mounts: []docker.Mount{{Type: docker.MountTmpfs, Target: "/var/lib/mysql"}}})
+	valkey := create(docker.Spec{Name: name + "-valkey", Image: testimages.Valkey(), Network: network, NetworkAliases: []string{platform.NameValkey}, Cmd: []string{"valkey-server", "--requirepass", "isolated-cache-password", "--save", "", "--appendonly", "no"}, Ports: []docker.PortBinding{{HostIP: "127.0.0.1", HostPort: 0, ContainerPort: 6379}}})
+	edgeID := create(docker.Spec{Name: name + "-edge", Image: testimages.Edge(), Network: network, NetworkAliases: []string{platform.NameEdge}, Mounts: []docker.Mount{{Type: docker.MountBind, Source: filepath.Join(dir, "control/edge"), Target: "/etc/presso/control", ReadOnly: true}}, Ports: []docker.PortBinding{{HostIP: "127.0.0.1", HostPort: 0, ContainerPort: 80}}})
 	portBytes, err := exec.Command("docker", "port", edgeID, "80/tcp").Output()
 	if err != nil {
 		t.Fatal(err)

@@ -22,10 +22,6 @@ import (
 	"github.com/Hinkolas/presso/internal/version"
 )
 
-// DefaultValkeyImage is the supported cache server used by fresh installations
-// and integration checks. Keep the Platform env default aligned with this pin.
-const DefaultValkeyImage = "valkey/valkey:8.1.10-alpine"
-
 // Logging is shared by every binary.
 type Logging struct {
 	LogLevel  string `env:"LOG_LEVEL,default=info"`
@@ -102,6 +98,10 @@ type API struct {
 // Platform configures the shared containers pressod reconciles on the host
 // (network, MariaDB, Valkey). Database and Valkey ports publish on host loopback;
 // edge and browser management use Docker exec, including on Docker Desktop.
+//
+// Like the edge, the MariaDB, Valkey and browser images ship with every
+// release (build/*.Dockerfile): {release} is replaced by the engine's release
+// tag at load time, and a dev build must name locally built images.
 type Platform struct {
 	// Managed=false skips the reconciler entirely (tests, or an operator
 	// running the shared services themselves).
@@ -109,10 +109,14 @@ type Platform struct {
 	// Network is the docker bridge network every presso container joins.
 	Network string `env:"PLATFORM_NETWORK,default=presso"`
 
-	MariaDBImage  string `env:"MARIADB_IMAGE,default=mariadb:11.4"`
+	MariaDBImage  string `env:"MARIADB_IMAGE,default=ghcr.io/hinkolas/presso-mariadb:{release}"`
 	MariaDBListen string `env:"MARIADB_LISTEN,default=127.0.0.1:3306"`
+	// MariaDBRawImage keeps the unresolved MARIADB_IMAGE. Set by Validate.
+	MariaDBRawImage string
 
-	ValkeyImage     string `env:"VALKEY_IMAGE,default=valkey/valkey:8.1.10-alpine"`
+	ValkeyImage string `env:"VALKEY_IMAGE,default=ghcr.io/hinkolas/presso-valkey:{release}"`
+	// ValkeyRawImage keeps the unresolved VALKEY_IMAGE. Set by Validate.
+	ValkeyRawImage  string
 	ValkeyListen    string `env:"VALKEY_LISTEN,default=127.0.0.1:6379"`
 	ValkeyMaxMemory string `env:"VALKEY_MAXMEMORY,default=256mb"`
 
@@ -196,8 +200,12 @@ type Observe struct {
 // visitor sees (page cache, TLS and all). The engine reaches container-loopback
 // DevTools through Docker exec, without publishing a debugging port.
 type Shots struct {
-	Enabled bool   `env:"SHOTS_ENABLED,default=true"`
-	Image   string `env:"SHOTS_IMAGE,default=chromedp/headless-shell:stable"`
+	Enabled bool `env:"SHOTS_ENABLED,default=true"`
+	// Image may contain {release}, like EDGE_IMAGE. It must provide
+	// presso-browser (Chromium's headless shell) and socat.
+	Image string `env:"SHOTS_IMAGE,default=ghcr.io/hinkolas/presso-browser:{release}"`
+	// RawImage keeps the unresolved SHOTS_IMAGE. Set by Validate.
+	RawImage string
 	// Interval is how often running sites are re-captured in the background.
 	Interval time.Duration `env:"SHOTS_INTERVAL,default=6h"`
 	// Timeout bounds one capture (navigation + render).
@@ -218,6 +226,35 @@ type Warm struct {
 }
 
 // Validate shadows Base.Validate, so it must chain to it explicitly.
+// releaseImage is a shared-container image setting that may name the release.
+type releaseImage struct {
+	key, dev, task string
+	ref, raw       *string
+	enabled        bool
+}
+
+func (a *API) releaseImages() []releaseImage {
+	return []releaseImage{
+		{"MARIADB_IMAGE", "presso-mariadb:dev", "task build:services", &a.MariaDBImage, &a.MariaDBRawImage, true},
+		{"VALKEY_IMAGE", "presso-valkey:dev", "task build:services", &a.ValkeyImage, &a.ValkeyRawImage, true},
+		{"EDGE_IMAGE", "presso-edge:dev", "task build:edge", &a.Edge.Image, &a.Edge.RawImage, true},
+		{"SHOTS_IMAGE", "presso-browser:dev", "task build:services", &a.Shots.Image, &a.Shots.RawImage, a.Shots.Enabled},
+	}
+}
+
+// ReleaseImages names the shared-container images of another release: every
+// enabled setting that uses {release}, filled with tag. Settings pinned to a
+// fixed image do not change with releases and are omitted.
+func (a *API) ReleaseImages(tag string) []string {
+	var out []string
+	for _, img := range a.releaseImages() {
+		if img.enabled && strings.Contains(*img.raw, "{release}") {
+			out = append(out, strings.ReplaceAll(*img.raw, "{release}", tag))
+		}
+	}
+	return out
+}
+
 func (a *API) Validate() error {
 	if err := a.Base.Validate(); err != nil {
 		return err
@@ -271,12 +308,14 @@ func (a *API) Validate() error {
 	if release == "" && strings.Contains(a.ImageTemplate, "{release}") {
 		return fmt.Errorf("RUNTIME_IMAGE_TEMPLATE: uses {release} but %s is not a release build; set RUNTIME_IMAGE_TEMPLATE=presso-runtime:php{php}-wp{wp} (locally built images, see .env.example)", version.Version)
 	}
-	a.Edge.RawImage = a.Edge.Image
-	if strings.Contains(a.Edge.Image, "{release}") {
-		if release == "" {
-			return fmt.Errorf("EDGE_IMAGE: uses {release} but %s is not a release build; set EDGE_IMAGE=presso-edge:dev (task build:edge, see .env.example)", version.Version)
+	for _, img := range a.releaseImages() {
+		*img.raw = *img.ref
+		if strings.Contains(*img.ref, "{release}") {
+			if release == "" {
+				return fmt.Errorf("%s: uses {release} but %s is not a release build; set %s=%s (%s, see .env.example)", img.key, version.Version, img.key, img.dev, img.task)
+			}
+			*img.ref = strings.ReplaceAll(*img.ref, "{release}", release)
 		}
-		a.Edge.Image = strings.ReplaceAll(a.Edge.Image, "{release}", release)
 	}
 	if a.Panel.Domain != "" {
 		a.Panel.Domain = strings.ToLower(strings.TrimSpace(a.Panel.Domain))

@@ -14,6 +14,7 @@ import (
 	"github.com/Hinkolas/presso/internal/secrets"
 	"github.com/Hinkolas/presso/internal/store"
 	"github.com/Hinkolas/presso/internal/testdb"
+	"github.com/Hinkolas/presso/internal/testimages"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -31,6 +32,7 @@ func TestValkeyCacheIsolationAndRecovery(t *testing.T) {
 	st := testdb.New(t)
 	box, _ := secrets.New(strings.Repeat("v", 32))
 	cfg := testConfig()
+	cfg.ValkeyImage = testimages.Valkey()
 	cfg.Network = "" // Only a random host-loopback test port is needed.
 	svc := New(cfg, dk, st, box, nil, nil)
 	defer svc.Close()
@@ -77,7 +79,7 @@ func TestValkeyCacheIsolationAndRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	info, err := admin.Info(ctx, "server").Result()
-	if err != nil || !strings.Contains(info, "valkey_version:8.1.10") {
+	if err != nil || !strings.Contains(info, "valkey_version:9.0.") {
 		t.Fatalf("unexpected cache server: %s %v", info, err)
 	}
 	for key, want := range map[string]string{"maxmemory": "67108864", "maxmemory-policy": "volatile-lru", "save": "", "appendonly": "no"} {

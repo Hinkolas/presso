@@ -15,8 +15,8 @@ import (
 
 func testConfig() *config.API {
 	return &config.API{
-		Platform: config.Platform{Managed: true, Network: "presso-test", MariaDBImage: "mariadb:11.4", MariaDBListen: "127.0.0.1:3306",
-			ValkeyImage: config.DefaultValkeyImage, ValkeyListen: "127.0.0.1:6379", ValkeyMaxMemory: "64mb"},
+		Platform: config.Platform{Managed: true, Network: "presso-test", MariaDBImage: "presso-mariadb:test", MariaDBListen: "127.0.0.1:3306",
+			ValkeyImage: "presso-valkey:test", ValkeyListen: "127.0.0.1:6379", ValkeyMaxMemory: "64mb"},
 		Edge: config.Edge{Image: "presso-edge:test", HTTPListen: "0.0.0.0:80", HTTPSListen: "0.0.0.0:443"},
 	}
 }
@@ -168,5 +168,20 @@ func TestEdgeRecreatePullsBeforeRemove(t *testing.T) {
 	}
 	if len(dk.Removed) != 1 || len(dk.Created) != 4 || dk.Created[3].Image != "presso-edge:v2" {
 		t.Fatalf("expected one recreate: removed=%d created=%d", len(dk.Removed), len(dk.Created))
+	}
+}
+
+func TestBrowserSpecKeepsDevToolsOnLoopback(t *testing.T) {
+	cfg := testConfig()
+	cfg.Shots.Image = "presso-browser:test"
+	spec := New(cfg, fake.New(), testdb.New(t), nil, events.New(), nil).browserSpec()
+	if spec.Image != "presso-browser:test" || strings.Join(spec.Entrypoint, " ") != "presso-browser" || len(spec.Ports) != 0 {
+		t.Fatalf("browser spec: %+v", spec)
+	}
+	args := strings.Join(spec.Cmd, " ")
+	for _, want := range []string{"--remote-debugging-address=127.0.0.1", "--remote-debugging-port=9223", "--host-resolver-rules=MAP * presso-edge, EXCLUDE presso-edge"} {
+		if !strings.Contains(args, want) {
+			t.Fatalf("browser args lack %q: %s", want, args)
+		}
 	}
 }

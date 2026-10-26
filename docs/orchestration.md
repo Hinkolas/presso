@@ -166,14 +166,24 @@ Edge cache notes learned while building (Souin `cache-handler`):
 ## Release and update
 
 One version string names everything. A tag `vX.Y.Z` produces the `pressod`
-binary (GitHub release), `ghcr.io/hinkolas/presso-edge:vX.Y.Z` and
+binary (GitHub release), the platform images
+`ghcr.io/hinkolas/presso-{edge,mariadb,valkey,browser}:vX.Y.Z` (`build/`) and
 `ghcr.io/hinkolas/presso-runtime:vX.Y.Z-php<php>-wp<wp>` for every pair in
 the compat build policy; the release is a draft until all images exist. The
-engine renders `{release}` in `EDGE_IMAGE` and `RUNTIME_IMAGE_TEMPLATE` from
-its own `version.Version`, so there are no moving tags, no digests to track
-and no force-pulls: a host on v0.1.0 runs v0.1.0 images, and only that.
-Dev builds (`v0.0.0-dev`) have no release and must point both settings at
-locally built images; the config refuses to start otherwise.
+engine renders `{release}` in `EDGE_IMAGE`, `MARIADB_IMAGE`, `VALKEY_IMAGE`,
+`SHOTS_IMAGE` and `RUNTIME_IMAGE_TEMPLATE` from its own `version.Version`, so
+there are no moving tags, no digests to track and no force-pulls: a host on
+v0.1.0 runs v0.1.0 images, and only that. Dev builds (`v0.0.0-dev`) have no
+release and must point these settings at locally built images; the config
+refuses to start otherwise.
+
+The platform images are built from Alpine (MariaDB, Valkey) and Debian stable
+(Chromium's headless shell) packages rather than mirrored, so presso decides
+when a fix ships and the source pipeline covers them. Each new release
+therefore recreates the shared containers once: MariaDB restarts (a few
+seconds of database downtime, with `MARIADB_AUTO_UPGRADE` handling a server
+version change), Valkey starts empty and gets its ACLs back on the next
+reconcile, and the browser restarts.
 
 Install (`install.sh`): host binary under systemd, `/etc/presso/presso.env`
 with a generated `AUTH_SECRET`, `/var/lib/presso` for state, Docker via
@@ -192,7 +202,7 @@ publishes `system.update`. `POST /v1/system/actions/update` enqueues the
 global `engine.update` job: check → drain (the runner stops accepting site
 jobs and waits for running ones, since a restart fails unfinished jobs) →
 download + SHA-256 verify + `pressod version` probe → best-effort pre-pull of
-the new edge and runtime images → atomic swap next to the current binary
+the new platform and runtime images → atomic swap next to the current binary
 (`pressod.previous` kept) → restart. Once the job row is final the process
 shuts down gracefully and `syscall.Exec`s the new binary (same PID; systemd
 `Restart=always` is the safety net). On boot the new binary compares

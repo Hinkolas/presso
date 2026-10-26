@@ -362,16 +362,20 @@ func (s *Service) edgeSpec() docker.Spec {
 }
 
 // browserSpec keeps DevTools on container loopback. The engine discovers and
-// attaches through Docker exec; no debugging listener is published.
+// attaches through Docker exec; no debugging listener is published. The
+// entrypoint is set explicitly so an image whose own entrypoint publishes
+// DevTools (as chromedp/headless-shell does) cannot override these flags.
 func (s *Service) browserSpec() docker.Spec {
-	const launch = `exec /headless-shell/headless-shell --no-sandbox --use-gl=angle --use-angle=swiftshader ` +
-		`--remote-debugging-address=127.0.0.1 --remote-debugging-port=9223 "$@"`
-
 	spec := docker.Spec{
 		Name:       NameBrowser,
 		Image:      s.cfg.Shots.Image,
-		Entrypoint: []string{"/bin/bash", "-c", launch, "headless-shell"},
+		Entrypoint: []string{"presso-browser"},
 		Cmd: []string{
+			"--no-sandbox",
+			"--use-gl=angle",
+			"--use-angle=swiftshader",
+			"--remote-debugging-address=127.0.0.1",
+			"--remote-debugging-port=9223",
 			"--host-resolver-rules=MAP * " + NameEdge + ", EXCLUDE " + NameEdge,
 			"--ignore-certificate-errors",
 			"--window-size=1280,800",
