@@ -222,8 +222,8 @@ must not be mounted into Valkey; [upstream documents the incompatibility](https:
 
 ## Local development
 
-Requirements: Go 1.26, Node.js 22, Docker Engine or Docker Desktop, and
-[Task](https://taskfile.dev). [sqlc](https://sqlc.dev) is needed when changing SQL
+Requirements: Go 1.26, Node.js 22, Docker Engine or Docker Desktop,
+[Task](https://taskfile.dev), and [jq](https://jqlang.org). [sqlc](https://sqlc.dev) is needed when changing SQL
 queries or the schema.
 
 ```sh

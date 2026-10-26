@@ -8,9 +8,11 @@
 #
 # Images are published per engine release and carry the release tag:
 # <IMAGE>:<release>-php8.5-wp7.1. The release workflow calls this one with the
-# tag; every release rebuilds the bases, which is how OS and PHP security
-# updates reach sites (no more moving tags, so an existing host is never
-# surprised by an image that changed under the same name).
+# tag; every release rebuilds the bases, which is how OS security updates
+# reach sites (no more moving tags, so an existing host is never surprised by
+# an image that changed under the same name). PHP itself is pinned to an exact
+# patch release per branch in matrix.json ("patch"); a PHP security release
+# means bumping that pin, and the base build fails if the image disagrees.
 #
 # Pull requests (and dispatches with push=false) build two sample pairs, one
 # per flavor, on amd64 only and smoke-test them without pushing.
@@ -89,7 +91,7 @@ jobs:
           # Samples: one pair per flavor, joined with its base for a one-runner build.
           echo "samples=$(jq -c --argjson bases "$bases" --arg tags "$SAMPLE_TAGS" '
             .include |= map(select(.tag as $t | ($tags | split(" ")) | index($t)))
-            | .include |= map(. as $p | $p + ($bases.include[] | select(.php == $p.php) | {debian, dockerfile}))
+            | .include |= map(. as $p | $p + ($bases.include[] | select(.php == $p.php) | {patch, debian, dockerfile}))
           ' <<<"$pairs")" >> "$GITHUB_OUTPUT"
           push=false
           case "$EVENT" in
@@ -142,6 +144,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           build-args: |
             PHP_VERSION=${{ matrix.php }}
+            PHP_PATCH=${{ matrix.patch }}
             ${{ matrix.debian && format('DEBIAN={0}', matrix.debian) || '' }}
           tags: presso-runtime-base:built
           load: true
@@ -281,6 +284,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           build-args: |
             PHP_VERSION=${{ matrix.php }}
+            PHP_PATCH=${{ matrix.patch }}
             ${{ matrix.debian && format('DEBIAN={0}', matrix.debian) || '' }}
           tags: presso-runtime-base:php${{ matrix.php }}
           load: true

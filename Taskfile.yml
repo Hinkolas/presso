@@ -87,10 +87,13 @@ tasks:
       PHP: '{{.PHP | default "8.5"}}'
     cmds:
       - |
+        # The exact PHP release comes from the compat matrix, like in CI.
+        patch=$(jq -er --arg php "{{.PHP}}" '.php[] | select(.version == $php) | .patch' internal/compat/matrix.json) \
+          || { echo "PHP {{.PHP}} is not in internal/compat/matrix.json" >&2; exit 1; }
         case "{{.PHP}}" in
-          7.4|8.0) docker build -f runtime/base-legacy.Dockerfile --build-arg PHP_VERSION={{.PHP}} --build-arg DEBIAN=bullseye -t presso-runtime-base:php{{.PHP}} runtime ;;
-          8.1)     docker build -f runtime/base-legacy.Dockerfile --build-arg PHP_VERSION={{.PHP}} --build-arg DEBIAN=bookworm -t presso-runtime-base:php{{.PHP}} runtime ;;
-          *)       docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION={{.PHP}} -t presso-runtime-base:php{{.PHP}} runtime ;;
+          7.4|8.0) docker build -f runtime/base-legacy.Dockerfile --build-arg PHP_VERSION={{.PHP}} --build-arg PHP_PATCH="$patch" --build-arg DEBIAN=bullseye -t presso-runtime-base:php{{.PHP}} runtime ;;
+          8.1)     docker build -f runtime/base-legacy.Dockerfile --build-arg PHP_VERSION={{.PHP}} --build-arg PHP_PATCH="$patch" --build-arg DEBIAN=bookworm -t presso-runtime-base:php{{.PHP}} runtime ;;
+          *)       docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION={{.PHP}} --build-arg PHP_PATCH="$patch" -t presso-runtime-base:php{{.PHP}} runtime ;;
         esac
 
   build:runtime:

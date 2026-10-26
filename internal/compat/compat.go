@@ -31,10 +31,13 @@ var (
 	ErrLegacyDisabled  = errors.New("the legacy runtime (nginx + PHP-FPM) is disabled on this server")
 )
 
-// PHP is one shipped PHP version. Debian is the base distribution of the
-// legacy (php-fpm) image; empty for FrankenPHP, whose base image decides.
+// PHP is one shipped PHP version. Patch is the exact upstream release the
+// base image is pinned to; bump it when PHP publishes a security release.
+// Debian is the base distribution of the legacy (php-fpm) image; empty for
+// FrankenPHP, whose base image decides.
 type PHP struct {
 	Version string `json:"version"`
+	Patch   string `json:"patch"`
 	Runtime string `json:"runtime"`
 	Debian  string `json:"debian,omitempty"`
 }
@@ -98,6 +101,9 @@ func (m *Matrix) Validate() error {
 		}
 		if p.Runtime == RuntimeLegacy && p.Debian == "" {
 			return fmt.Errorf("php %s: legacy entries need a debian release", p.Version)
+		}
+		if !patchOf(p.Version, p.Patch) {
+			return fmt.Errorf("php %s: patch %q must be a %s.N release", p.Version, p.Patch, p.Version)
 		}
 		if seen[p.Version] {
 			return fmt.Errorf("php %s: listed twice", p.Version)
@@ -242,4 +248,19 @@ func compareVersions(a, b string) int {
 		}
 	}
 	return 0
+}
+
+// patchOf reports whether patch is a plain version.N release ("8.5.12" of
+// "8.5"). The value ends up in image tags, so nothing else is accepted.
+func patchOf(version, patch string) bool {
+	n, ok := strings.CutPrefix(patch, version+".")
+	if !ok || n == "" {
+		return false
+	}
+	for _, c := range n {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

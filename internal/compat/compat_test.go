@@ -63,6 +63,25 @@ func TestMatrixShape(t *testing.T) {
 	}
 }
 
+func TestPatchPins(t *testing.T) {
+	// Lowest releases that fix CVE-2026-109618 and CVE-2026-109619. A pin may
+	// move forward, never back below these.
+	floor := map[string]string{"8.5": "8.5.12", "8.4": "8.4.27", "8.3": "8.3.36", "8.2": "8.2.35"}
+	for _, p := range Default.PHP {
+		if min, ok := floor[p.Version]; ok && compareVersions(p.Patch, min) < 0 {
+			t.Errorf("php %s pinned to %s, below the security floor %s", p.Version, p.Patch, min)
+		}
+	}
+	for _, patch := range []string{"", "8.5", "8.5.", "8.4.27", "8.5.12-rc1", "8.5.x"} {
+		bad := *Default
+		bad.PHP = append([]PHP(nil), Default.PHP...)
+		bad.PHP[0].Patch = patch
+		if err := bad.Validate(); err == nil {
+			t.Errorf("patch %q accepted for php %s", patch, bad.PHP[0].Version)
+		}
+	}
+}
+
 func TestNewestPHP(t *testing.T) {
 	cases := map[string]string{"7.1": "8.5", "6.9": "8.5", "6.8": "8.4", "6.6": "8.3", "6.3": "8.2", "6.1": "8.2", "6.0": "8.1", "5.9": "8.1", "5.6": "8.0"}
 	for wp, want := range cases {

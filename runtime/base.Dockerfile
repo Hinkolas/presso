@@ -5,19 +5,28 @@
 # on :8080. See docs/runtime.md "Container structure".
 #
 #   docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION=8.4 \
-#     -t presso-runtime-base:php8.4 runtime
+#     --build-arg PHP_PATCH=8.4.27 -t presso-runtime-base:php8.4 runtime
+# PHP_PATCH is the exact release from internal/compat/matrix.json; CI and
+# the Taskfile pass it, the defaults below only serve a bare docker build.
 ARG PHP_VERSION=8.4
+ARG PHP_PATCH=8.4.27
 ARG WPCLI_VERSION=2.12.0
 
-FROM dunglas/frankenphp:1-php${PHP_VERSION}
+FROM dunglas/frankenphp:1-php${PHP_PATCH}
 
 # Re-declare after FROM so the values are visible in this stage.
 ARG PHP_VERSION
+ARG PHP_PATCH
 ARG WPCLI_VERSION
 
 LABEL org.opencontainers.image.title="presso-runtime-base" \
       presso.runtime.php="${PHP_VERSION}" \
+      presso.runtime.php.patch="${PHP_PATCH}" \
       presso.runtime.flavor="frankenphp"
+
+# The pin is the security boundary: refuse to build on any other PHP release.
+RUN --mount=type=bind,source=scripts,target=/mnt/scripts \
+    /mnt/scripts/php-pin.sh "${PHP_VERSION}" "${PHP_PATCH}"
 
 # --- PHP extensions WordPress needs ------------------------------------------
 # opcache ships compiled-but-disabled in the official PHP images; listing it

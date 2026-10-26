@@ -4,13 +4,13 @@
     "newest_php_only": true
   },
   "php": [
-    { "version": "8.5", "runtime": "frankenphp" },
-    { "version": "8.4", "runtime": "frankenphp" },
-    { "version": "8.3", "runtime": "frankenphp" },
-    { "version": "8.2", "runtime": "frankenphp" },
-    { "version": "8.1", "runtime": "legacy", "debian": "bookworm" },
-    { "version": "8.0", "runtime": "legacy", "debian": "bullseye" },
-    { "version": "7.4", "runtime": "legacy", "debian": "bullseye" }
+    { "version": "8.5", "patch": "8.5.12", "runtime": "frankenphp" },
+    { "version": "8.4", "patch": "8.4.27", "runtime": "frankenphp" },
+    { "version": "8.3", "patch": "8.3.36", "runtime": "frankenphp" },
+    { "version": "8.2", "patch": "8.2.35", "runtime": "frankenphp" },
+    { "version": "8.1", "patch": "8.1.34", "runtime": "legacy", "debian": "bookworm" },
+    { "version": "8.0", "patch": "8.0.30", "runtime": "legacy", "debian": "bullseye" },
+    { "version": "7.4", "patch": "7.4.33", "runtime": "legacy", "debian": "bullseye" }
   ],
   "wordpress": [
     { "branch": "7.1", "version": "7.1",    "php": ["8.5", "8.4", "8.3", "8.2", "8.1", "8.0", "7.4"] },

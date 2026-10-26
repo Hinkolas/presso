@@ -5,22 +5,30 @@
 # "Container structure".
 #
 #   docker build -f runtime/base-legacy.Dockerfile \
-#     --build-arg PHP_VERSION=8.1 --build-arg DEBIAN=bookworm \
-#     -t presso-runtime-base:php8.1 runtime
+#     --build-arg PHP_VERSION=8.1 --build-arg PHP_PATCH=8.1.34 \
+#     --build-arg DEBIAN=bookworm -t presso-runtime-base:php8.1 runtime
 # DEBIAN is bullseye for 7.4 and 8.0 (no bookworm tag), bookworm for 8.1.
+# PHP_PATCH is the exact release from internal/compat/matrix.json. These
+# branches are end of life upstream: their final releases receive no fixes.
 ARG PHP_VERSION=8.1
+ARG PHP_PATCH=8.1.34
 ARG DEBIAN=bookworm
 ARG WPCLI_VERSION=2.12.0
 
-FROM php:${PHP_VERSION}-fpm-${DEBIAN}
+FROM php:${PHP_PATCH}-fpm-${DEBIAN}
 
 # Re-declare after FROM so the values are visible in this stage.
 ARG PHP_VERSION
+ARG PHP_PATCH
 ARG WPCLI_VERSION
 
 LABEL org.opencontainers.image.title="presso-runtime-base" \
       presso.runtime.php="${PHP_VERSION}" \
+      presso.runtime.php.patch="${PHP_PATCH}" \
       presso.runtime.flavor="fpm"
+
+RUN --mount=type=bind,source=scripts,target=/mnt/scripts \
+    /mnt/scripts/php-pin.sh "${PHP_VERSION}" "${PHP_PATCH}"
 
 # --- Packages -----------------------------------------------------------------
 # bullseye left LTS in 2026-08: once the live mirrors stop serving it, apt

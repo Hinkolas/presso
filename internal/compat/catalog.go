@@ -316,6 +316,7 @@ func (c *Catalog) Pairs() []Pair {
 // Base is one base image to build: PHP plus execution layer, no WordPress.
 type Base struct {
 	PHP        string `json:"php"`
+	Patch      string `json:"patch"`
 	Runtime    string `json:"runtime"`
 	Debian     string `json:"debian"`
 	Dockerfile string `json:"dockerfile"`
@@ -337,7 +338,7 @@ func (c *Catalog) Bases() []Base {
 		if p.Runtime == RuntimeLegacy {
 			df = "runtime/base-legacy.Dockerfile"
 		}
-		out = append(out, Base{PHP: p.Version, Runtime: p.Runtime, Debian: p.Debian, Dockerfile: df})
+		out = append(out, Base{PHP: p.Version, Patch: p.Patch, Runtime: p.Runtime, Debian: p.Debian, Dockerfile: df})
 	}
 	return out
 }

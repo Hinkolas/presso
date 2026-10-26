@@ -86,9 +86,11 @@ jobs:
       - name: Build the default published runtime
         run: |
           go run ./cmd/pressod runtime-matrix > /tmp/presso-matrix.json
+          go run ./cmd/pressod runtime-matrix --bases > /tmp/presso-bases.json
           php=$(jq -r '.include[0].php' /tmp/presso-matrix.json)
           wp=$(jq -r '.include[0].wp' /tmp/presso-matrix.json)
-          docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION="$php" -t presso-runtime-base:verification runtime
+          patch=$(jq -er --arg php "$php" '.include[] | select(.php == $php) | .patch' /tmp/presso-bases.json)
+          docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION="$php" --build-arg PHP_PATCH="$patch" -t presso-runtime-base:verification runtime
           docker build -f runtime/Dockerfile --build-arg BASE_IMAGE=presso-runtime-base:verification --build-arg WP_VERSION="$wp" -t presso-runtime:release-verification runtime
       - name: Verify real runtime source and notice collection
         run: |

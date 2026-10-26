@@ -361,8 +361,11 @@ Images are built in two stages (`runtime/`, published by
 `.github/workflows/runtime.yml`):
 
 1. One **base** per PHP version, `presso-runtime-base:php{php}`.
-   `base.Dockerfile` (FrankenPHP: `dunglas/frankenphp:1-php{php}`) or
-   `base-legacy.Dockerfile` (`php:{php}-fpm-{debian}` + nginx). Both hold the
+   `base.Dockerfile` (FrankenPHP: `dunglas/frankenphp:1-php{patch}`) or
+   `base-legacy.Dockerfile` (`php:{patch}-fpm-{debian}` + nginx), where
+   `{patch}` is the exact PHP release pinned per branch in
+   `internal/compat/matrix.json`; the build fails if the image ships any
+   other release. Both hold the
    PHP extensions (mysqli, gd, imagick, intl, zip, exif, bcmath, soap,
    opcache, redis), WP-CLI, the two users (web 1000, ops 1001,
    `scripts/users.sh`), `php/presso.ini`, the web server config and
