@@ -28,7 +28,8 @@ is the initial-development phase. A tag such as `v0.1.0` is a normal release;
 - **Manage sites in one panel:** create, start, stop, restart, and delete sites;
   follow background jobs and retry failed operations.
 - **Choose a runtime:** select from the WordPress/PHP pairs published with your
-  release. Modern runtimes use FrankenPHP; legacy runtimes use nginx + PHP-FPM.
+  release. Runtimes use FrankenPHP on PHP 8.2 and newer; the nginx + PHP-FPM
+  legacy runtime is [currently disabled](#legacy-runtimes).
 - **Serve sites through a shared edge:** Caddy routes domains and manages HTTPS
   certificates. Souin provides page caching, with content-driven invalidation
   and optional cache warming.
@@ -113,28 +114,34 @@ configuration reference.
 | `HTTP_ADDR` | `127.0.0.1:7080`; the local panel must bind to loopback |
 | `INTERNAL_HTTPS_ADDR` | `:7081`; authenticated edge traffic and site callbacks |
 | `PANEL_DOMAIN` | Optional public hostname for the HTTPS panel |
-| `RUNTIME_LEGACY_ENABLED` | `true`; offer published legacy runtime pairs |
+| `RUNTIME_LEGACY_ENABLED` | `false`; offer published legacy runtime pairs (none are published) |
 | `RUNTIME_PHP_VERSIONS` | Optional allowlist within the published runtime pairs |
 | `RUNTIME_DEFAULT_WP` | Default WordPress branch; newest in the catalog if unset |
 | `SHOTS_ENABLED` | `true`; enable the shared screenshot browser |
 
 ### Legacy runtimes
 
-Legacy support is **enabled by default** for compatibility testing. The legacy
-flavor supports PHP 7.4–8.1, but only pairs selected by the release's build
-policy are published and offered. Availability is not a security-support promise.
+**The legacy runtime (nginx + PHP-FPM, PHP 7.4–8.1) is disabled.** Releases
+publish no legacy images, and `RUNTIME_LEGACY_ENABLED` defaults to `false`.
+Only WordPress 6.1 and newer can be offered, because WordPress 5.6–6.0 cannot
+run on PHP 8.2 or newer.
 
-To stop offering legacy runtimes, set:
+Why: in October 2026, PHP fixed two critical, unauthenticated remote code
+execution flaws, CVE-2026-109618 and CVE-2026-109619 ("PHP2Shell"), in 8.5.12,
+8.4.27, 8.3.36 and 8.2.35. PHP 8.1 and older are end of life and received no
+release. The legacy runtime is built on the official Docker `php` images, whose
+final 8.1.34, 8.0.30 and 7.4.33 builds remain affected. Backported fixes exist
+in distribution packages (for example deb.sury.org), but they keep the same
+version numbers and are not in those images. Disabling
+`session.upload_progress` only partially mitigates the flaws.
 
-```ini
-RUNTIME_LEGACY_ENABLED=false
-```
+The runtime code stays in the repository. Re-enabling it requires a base image
+with the backports and a check that the build actually contains them, then
+adding a legacy branch back to the build policy in `internal/compat/matrix.json`.
 
-This restricts the catalog and API selections to published FrankenPHP pairs.
-It can discourage new use of old versions and avoid additional legacy image
-downloads. It does not delete existing sites, remove downloaded images, or
-automatically reduce the resources used by running containers. Review existing
-legacy sites before disabling it. Host PHP restrictions can narrow the published
+Setting `RUNTIME_LEGACY_ENABLED=true` has no effect while the release publishes
+no legacy pairs. It does not delete existing sites, remove downloaded images,
+or change running containers. Host PHP restrictions can narrow the published
 catalog; they cannot create extra image combinations.
 
 ## Updates and recovery

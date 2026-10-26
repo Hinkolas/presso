@@ -72,10 +72,12 @@ they install. Container images are rebuilt with presso releases; there is no
 guaranteed upstream patch cadence. Host OS and Docker updates remain the host
 administrator's responsibility.
 
-Legacy runtimes are enabled by default for compatibility testing. Their
-availability does not mean that their PHP or WordPress versions receive
-upstream security maintenance. Set `RUNTIME_LEGACY_ENABLED=false` to stop
-offering legacy pairs; this does not upgrade or remove existing legacy sites.
+Each PHP branch is pinned to an exact patch release in
+`internal/compat/matrix.json`, and the image build fails if the base image ships
+a different release. The legacy runtime (PHP 7.4–8.1) is disabled because those
+end-of-life branches have no upstream fix for CVE-2026-109618 and
+CVE-2026-109619; see [Legacy runtimes](README.md#legacy-runtimes). Disabling it
+does not upgrade or remove existing legacy sites.
 
 For a vulnerability confined to an upstream component, also follow that
 project's reporting process. Report it here if presso's integration introduces

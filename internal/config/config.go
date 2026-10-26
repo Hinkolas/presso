@@ -137,7 +137,7 @@ type Runtime struct {
 	// LegacyEnabled offers the nginx + PHP-FPM runtime (PHP 7.4-8.1), which
 	// WordPress releases before 6.1 need. Off, those releases and PHP
 	// versions disappear from the UI and are rejected by the API.
-	LegacyEnabled bool `env:"RUNTIME_LEGACY_ENABLED,default=true"`
+	LegacyEnabled bool `env:"RUNTIME_LEGACY_ENABLED,default=false"`
 	// DefaultWP is the WordPress branch preselected for new sites; empty
 	// means the newest one in the matrix.
 	DefaultWP string `env:"RUNTIME_DEFAULT_WP,default="`

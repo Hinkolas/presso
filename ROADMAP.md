@@ -61,9 +61,12 @@ failed applications require explicit retry; there is no automatic rollback.
 - Experimental persistent PHP worker modes, only if WordPress/plugin
   compatibility can be demonstrated.
 
-Legacy runtimes are already enabled by default and can be disabled by a host
-administrator. Keeping old versions available is a compatibility option, not a
-commitment to maintain upstream versions indefinitely.
+The legacy runtime (nginx + PHP-FPM, PHP 7.4–8.1) is disabled because its
+official base images carry no fix for CVE-2026-109618 and CVE-2026-109619; see
+[Legacy runtimes](README.md#legacy-runtimes). Bringing it back means building
+it on packages with backported fixes and verifying them in the build. Keeping
+old versions available would remain a compatibility option, not a commitment to
+maintain upstream versions indefinitely.
 
 ## Toward v1.0.0
 

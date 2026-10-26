@@ -391,7 +391,9 @@ WordPress and PHP versions (implemented, September 2026):
   system plugin; only the execution layer differs. Sites on it are marked
   "Legacy" everywhere in the UI. `RUNTIME_LEGACY_ENABLED=false` removes the
   legacy PHP versions and the WordPress releases that need them from the
-  offer and rejects them in the API.
+  offer and rejects them in the API. The legacy runtime is currently disabled
+  and unpublished (no upstream fix for CVE-2026-109618/109619 on PHP <= 8.1;
+  see README.md "Legacy runtimes").
 - The PHP version can be changed later in settings, limited to what the
   site's WordPress release supports; moving across the 8.1/8.2 boundary swaps
   the runtime with the image. EOL PHP versions are allowed; the persistent

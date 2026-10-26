@@ -163,11 +163,35 @@ func TestResolve(t *testing.T) {
 	}
 }
 
-// TestBuildPolicy covers the shipped policy: one branch per major on its
-// newest PHP.
+// TestBuildPolicy covers the shipped policy: the newest branches on their
+// newest PHP, and nothing on the legacy runtime. PHP 8.1 and older receive no
+// upstream security fixes and the official images carry no backports, so no
+// legacy pair is published even where the server enables the legacy switch.
 func TestBuildPolicy(t *testing.T) {
 	on := mustCatalog(t, Options{LegacyEnabled: true})
-	off := mustCatalog(t, Options{LegacyEnabled: false})
+	for _, p := range on.Pairs() {
+		if p.Runtime != RuntimeFrankenPHP {
+			t.Errorf("published legacy pair %s", p.Tag)
+		}
+	}
+	if p := on.Pairs(); len(p) != 2 || p[0].Tag != "php8.5-wp7.1" || p[1].Tag != "php8.5-wp6.9.7" {
+		t.Fatalf("pairs: %+v", p)
+	}
+	if b := on.Bases(); len(b) != 1 || b[0].PHP != "8.5" {
+		t.Fatalf("bases: %+v", b)
+	}
+	if _, err := on.Resolve("5.9", ""); !errors.Is(err, ErrWPUnsupported) {
+		t.Fatalf("5.9 is unpublished: %v", err)
+	}
+}
+
+// TestLegacyBuildPolicy covers a policy that publishes a legacy branch, as
+// the shipped one did before PHP 8.1 lost its security fixes.
+func TestLegacyBuildPolicy(t *testing.T) {
+	m := *Default
+	m.Build = Build{Branches: []string{"7.1", "6.9", "5.9"}, NewestPHPOnly: true}
+	on := mustCatalogOn(t, &m, Options{LegacyEnabled: true})
+	off := mustCatalogOn(t, &m, Options{LegacyEnabled: false})
 
 	want := map[string][2]string{"7.1": {"8.5", RuntimeFrankenPHP}, "6.9": {"8.5", RuntimeFrankenPHP}, "5.9": {"8.1", RuntimeLegacy}}
 	for wp, w := range want {

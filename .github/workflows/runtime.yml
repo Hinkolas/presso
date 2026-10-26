@@ -14,8 +14,9 @@
 # patch release per branch in matrix.json ("patch"); a PHP security release
 # means bumping that pin, and the base build fails if the image disagrees.
 #
-# Pull requests (and dispatches with push=false) build two sample pairs, one
-# per flavor, on amd64 only and smoke-test them without pushing.
+# Pull requests (and dispatches with push=false) build sample pairs, one per
+# published flavor, on amd64 only and smoke-test them without pushing. The
+# legacy flavor is currently unpublished (README.md "Legacy runtimes").
 name: runtime
 
 on:
@@ -39,11 +40,11 @@ on:
         type: string
         required: true
       legacy:
-        description: Include the nginx + PHP-FPM versions (7.4, 8.0, 8.1)
+        description: Include the nginx + PHP-FPM versions (7.4, 8.0, 8.1) the build policy publishes
         type: boolean
         default: true
       push:
-        description: Push to ghcr.io (false = build the two samples only)
+        description: Push to ghcr.io (false = build the samples only)
         type: boolean
         default: true
 
@@ -55,7 +56,7 @@ env:
   IMAGE: ghcr.io/hinkolas/presso-runtime
   BASE_IMAGE: ghcr.io/hinkolas/presso-runtime-base
   RELEASE: ${{ inputs.release }}
-  SAMPLE_TAGS: php8.5-wp7.1 php8.1-wp5.9.16
+  SAMPLE_TAGS: php8.5-wp7.1
 
 jobs:
   matrix:

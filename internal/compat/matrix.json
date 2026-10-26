@@ -1,6 +1,6 @@
 {
   "build": {
-    "branches": ["7.1", "6.9", "5.9"],
+    "branches": ["7.1", "6.9"],
     "newest_php_only": true
   },
   "php": [
