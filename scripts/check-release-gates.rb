@@ -9,7 +9,7 @@ root = File.expand_path('..', __dir__)
 release = YAML.load_file(File.join(__dir__, '../.github/workflows/release.yml'))['jobs']
 verify = YAML.load_file(File.join(__dir__, '../.github/workflows/verify.yml'))['jobs']
 runtime = YAML.load_file(File.join(__dir__, '../.github/workflows/runtime.yml'))['jobs']
-required = %w[validate-tag verify source-release binary edge edge-merge runtime]
+required = %w[validate-tag verify source-release binary images images-merge runtime]
 raise 'publish must require all artifacts and verification' unless (required - release.fetch('publish').fetch('needs')).empty?
 raise 'verification must require tag validation' unless Array(release.fetch('verify')['needs']).include?('validate-tag')
 raise 'tag workflow must use the engine version validator' unless release.fetch('validate-tag').fetch('steps').any? { |s| s.fetch('run', '').include?('go run ./cmd/release-version') }
@@ -19,7 +19,7 @@ task_block = File.read(File.join(root, 'Taskfile.yml'))[/^  release:tag:\n.*?(?=
 task = YAML.load(task_block).fetch('release:tag')
 raise 'tag task must use the engine version validator' unless task.fetch('preconditions').any? { |s| s.fetch('sh').include?('go run ./cmd/release-version') }
 raise 'runtime publishing must validate its version' unless runtime.fetch('matrix').fetch('steps').any? { |s| s.fetch('run', '').include?('if [ "$push" = true ]; then go run ./cmd/release-version "$RELEASE"') }
-%w[binary edge runtime].each do |name|
+%w[binary images runtime].each do |name|
   raise "#{name} can publish before verification" unless Array(release.fetch(name)['needs']).include?('verify')
   raise "#{name} can publish before source preparation" unless Array(release.fetch(name)['needs']).include?('source-release')
 end
@@ -120,7 +120,7 @@ puts 'Distribution license and notice copies match.'
 
 # Every image build loads locally. Only the source-verifying wrapper may push
 # new payloads; merge jobs may publish indexes of those already checked images.
-[[release, 'edge'], [runtime, 'base'], [runtime, 'image']].each do |jobs, name|
+[[release, 'images'], [runtime, 'base'], [runtime, 'image']].each do |jobs, name|
   steps = jobs.fetch(name).fetch('steps')
   builds = steps.select { |step| step.fetch('uses', '').start_with?('docker/build-push-action@') }
   raise "#{name} has no local image build" if builds.empty?
@@ -131,6 +131,12 @@ puts 'Distribution license and notice copies match.'
   commands = steps.map { |step| step['run'] }.compact
   raise "#{name} omits verified source publication" unless commands.any? { |cmd| cmd.include?('scripts/compliance/release.py image') && cmd.include?('--push') }
   raise "#{name} directly pushes an unchecked image" if commands.any? { |cmd| cmd.match?(/docker\s+(push|buildx\s+build)/) }
+end
+# Every platform image the engine pulls is built, source-verified and merged.
+platform = Dir.glob(File.join(root, 'build/*.Dockerfile')).map { |f| File.basename(f, '.Dockerfile') } - ['pressod']
+%w[images images-merge].each do |name|
+  built = release.fetch(name).fetch('strategy').fetch('matrix').fetch('image')
+  raise "#{name} does not cover every platform image: #{(platform - built).join(', ')}" unless (platform - built).empty? && (built - platform).empty?
 end
 raise 'base publication does not require public sources' unless Array(runtime.fetch('base')['needs']).include?('source-release')
 raise 'runtime verification bypasses final indexes' unless Array(runtime.fetch('verify')['needs']).include?('image-merge')

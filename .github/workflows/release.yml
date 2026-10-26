@@ -1,7 +1,8 @@
 # Cuts a release from a version tag (v0.1.0, v0.2.0-rc.1, ...). One tag names
-# everything: the pressod binary on the GitHub release, the edge image and the
-# runtime images on ghcr.io all carry it, and the engine derives its image
-# references from its own version (see docs/orchestration.md "Release and update").
+# everything: the pressod binary on the GitHub release, the platform images
+# (edge, MariaDB, Valkey, browser; build/*.Dockerfile) and the runtime images
+# on ghcr.io all carry it, and the engine derives its image references from
+# its own version (see docs/orchestration.md "Release and update").
 #
 # The GitHub release is created as a draft by goreleaser and published by the
 # last job, after every image has been pushed and smoke-tested. Hosts poll
@@ -22,7 +23,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  EDGE_IMAGE: ghcr.io/hinkolas/presso-edge
+  # Platform images are published as $REGISTRY/presso-<image>:<tag>.
+  REGISTRY: ghcr.io/hinkolas
 
 jobs:
   validate-tag:
@@ -81,11 +83,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRESSO_PUBLISH_SOURCES: "1"
 
-  edge:
+  # One job per platform image and architecture, built natively. Sources are
+  # verified and published before the per-arch image is pushed, then the
+  # image is smoke-tested the way pressod starts it (build/smoke.sh).
+  images:
     needs: [verify, source-release]
     strategy:
       fail-fast: false
       matrix:
+        image: [edge, mariadb, valkey, browser]
+        arch: [amd64, arm64]
         include:
           - {arch: amd64, runner: ubuntu-latest}
           - {arch: arm64, runner: ubuntu-24.04-arm}
@@ -104,29 +111,32 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: build
-          file: build/edge.Dockerfile
-          tags: presso-edge:built
+          file: build/${{ matrix.image }}.Dockerfile
+          tags: presso-${{ matrix.image }}:built
           load: true
-          cache-from: type=gha,scope=edge-${{ matrix.arch }}
-          cache-to: type=gha,scope=edge-${{ matrix.arch }},mode=max
-      - name: Verify and publish sources before the edge image
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }},mode=max
+      - name: Verify and publish sources before the image
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ matrix.image }}
           ARCH: ${{ matrix.arch }}
         run: |
-          python3 scripts/compliance/release.py image --image presso-edge:built \
-            --target "$EDGE_IMAGE:$GITHUB_REF_NAME-$ARCH" --release "$GITHUB_REF_NAME" \
-            --output /tmp/edge-source-assets --push
-      - name: Smoke-test the documented edge image
+          python3 scripts/compliance/release.py image --image "presso-$IMAGE:built" \
+            --target "$REGISTRY/presso-$IMAGE:$GITHUB_REF_NAME-$ARCH" --release "$GITHUB_REF_NAME" \
+            --output "/tmp/$IMAGE-source-assets" --push
+      - name: Smoke-test the published image
         env:
+          IMAGE: ${{ matrix.image }}
           ARCH: ${{ matrix.arch }}
-        run: |
-          set -euo pipefail
-          docker run --rm "$EDGE_IMAGE:$GITHUB_REF_NAME-$ARCH" caddy version
-          docker run --rm "$EDGE_IMAGE:$GITHUB_REF_NAME-$ARCH" caddy list-modules | grep -q '^http.handlers.cache$'
+        run: build/smoke.sh "$IMAGE" "$REGISTRY/presso-$IMAGE:$GITHUB_REF_NAME-$ARCH"
 
-  edge-merge:
-    needs: [edge]
+  images-merge:
+    needs: [images]
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [edge, mariadb, valkey, browser]
     runs-on: ubuntu-latest
     steps:
       - uses: docker/setup-buildx-action@v3
@@ -135,7 +145,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: docker buildx imagetools create -t "$EDGE_IMAGE:$GITHUB_REF_NAME" "$EDGE_IMAGE:$GITHUB_REF_NAME-amd64" "$EDGE_IMAGE:$GITHUB_REF_NAME-arm64"
+      - env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          ref="$REGISTRY/presso-$IMAGE:$GITHUB_REF_NAME"
+          docker buildx imagetools create -t "$ref" "$ref-amd64" "$ref-arm64"
 
   runtime:
     needs: [verify, source-release]
@@ -145,7 +159,7 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [validate-tag, verify, source-release, binary, edge, edge-merge, runtime]
+    needs: [validate-tag, verify, source-release, binary, images, images-merge, runtime]
     runs-on: ubuntu-latest
     steps:
       - name: Publish the draft release

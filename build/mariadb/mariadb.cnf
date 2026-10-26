@@ -1,0 +1,12 @@
+# presso-mariadb server defaults, read after Alpine's own files. pressod adds
+# per-installation options (character set, connection limit) as arguments.
+[client-server]
+socket = /run/mysqld/mysqld.sock
+
+[mysqld]
+# Alpine's package disables networking; sites and pressod connect over TCP.
+skip-networking = 0
+port = 3306
+bind-address = 0.0.0.0
+skip-name-resolve
+datadir = /var/lib/mysql

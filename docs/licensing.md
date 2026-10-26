@@ -99,7 +99,7 @@ and notices. Oxymel's pinned revision declares MIT in `composer.json` without
 a standalone license file; its declaration, author attribution, and an
 explicitly identified MIT supplement are retained together.
 The Apache license and presso notice accompany the system plugin under
-`/opt/presso/mu-plugins/` and the engine/edge images under
+`/opt/presso/mu-plugins/` and the engine and platform images under
 `/usr/share/licenses/presso/`. Copies under `build/` and `runtime/mu-plugins/`
 support their separate Docker build contexts; release checks keep them in sync
 with the root `LICENSE` and `NOTICE`.
@@ -107,15 +107,32 @@ with the root `LICENSE` and `NOTICE`.
 The runtime-base images also include the original presso license and notice
 under `/usr/share/licenses/presso/`, since they are published independently.
 
+## Platform images
+
+Besides the edge, presso publishes the shared services the engine runs with
+every release, built from `build/*.Dockerfile` out of distribution packages:
+
+| Image | Contents | Main license |
+| --- | --- | --- |
+| `presso-mariadb` | MariaDB server and client from Alpine, jemalloc, su-exec | GPL-2.0 (MariaDB) |
+| `presso-valkey` | Valkey server and CLI from Alpine | BSD-3-Clause (Valkey) |
+| `presso-browser` | Chromium's headless shell from Debian stable, socat, fonts | BSD-3-Clause and others (Chromium) |
+
+Like the runtime and edge images, each one is published only after its
+source bundle: the Alpine recipes and distfiles or Debian source packages of
+every installed package, plus presso's entrypoint scripts and configuration.
+Presso's own files in these images (under `/usr/local/bin/presso-*` and
+`/etc/presso/`) are Apache-2.0. An operator who points `MARIADB_IMAGE`,
+`VALKEY_IMAGE` or `SHOTS_IMAGE` at another image takes on that image's terms.
+
 ## Valkey server and Redis protocol clients
 
-The default cache server is `valkey/valkey:8.1.10-alpine`, pulled directly from
-upstream by the engine. Valkey's server license is BSD-3-Clause; its
-[versioned source and notices](https://github.com/valkey-io/valkey/tree/8.1.10)
-and [full COPYING file](https://raw.githubusercontent.com/valkey-io/valkey/8.1.10/COPYING)
+The default cache server is `presso-valkey`, Valkey 9.0 from Alpine's package.
+Valkey's server license is BSD-3-Clause; its
+[source and notices](https://github.com/valkey-io/valkey/tree/9.0.4)
+and [full COPYING file](https://raw.githubusercontent.com/valkey-io/valkey/9.0.4/COPYING)
 include both Valkey contributors' and inherited Redis copyright notices.
-The container's other packages retain their own terms. Presso does not
-republish this image as part of its own runtime or edge images.
+The image's source bundle carries Alpine's exact recipe and upstream archive.
 
 The server change removes Redis 7.4's RSALv2/SSPLv1 from the default deployment.
 It does not change the GPLv3 license of Redis Object Cache, the BSD license of

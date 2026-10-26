@@ -43,6 +43,16 @@ tasks:
     cmds:
       - docker build -t presso-edge:dev -f build/edge.Dockerfile build
 
+  build:services:
+    desc: Build the presso-mariadb, presso-valkey and presso-browser :dev images
+    cmds:
+      - for image in mariadb valkey browser; do docker build -t "presso-$image:dev" -f "build/$image.Dockerfile" build; done
+
+  smoke:services:
+    desc: Smoke-test the locally built platform images (task build:edge build:services first)
+    cmds:
+      - for image in edge mariadb valkey browser; do build/smoke.sh "$image" "presso-$image:dev"; done
+
   build:image:
     desc: Build the pressod:dev image from this checkout (needs docker)
     cmds:

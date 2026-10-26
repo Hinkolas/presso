@@ -1,0 +1,6 @@
+#!/bin/sh
+# Starts Chromium's headless shell with the flags pressod passes (DevTools on
+# container loopback, rendering, host mapping). The Debian wrapper in
+# /usr/bin does not exec, so call the binary directly and let it receive
+# signals as PID 1's only child.
+exec /usr/lib/chromium/chromium-headless-shell "$@"

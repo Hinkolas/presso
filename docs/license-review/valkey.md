@@ -1,5 +1,12 @@
 # Valkey backend verification
 
+> **Superseded image (2026-10-26).** The default server is now presso's own
+> `presso-valkey` image: Valkey 9.0.4 from Alpine 3.24's package, published
+> with each release after its source bundle (`build/valkey.Dockerfile`). The
+> BSD-3-Clause and client findings below still apply; the image, version and
+> digests describe the September selection. The integration tests and the
+> release smoke test exercise the new image (`build/smoke.sh valkey`).
+
 Date: 2026-09-08. This supplements the earlier inventory in `inventory.json`;
 that historical file still records the Redis image inspected before this change.
 This is a functional/backend licensing record, not clearance of every package
