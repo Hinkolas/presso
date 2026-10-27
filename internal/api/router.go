@@ -135,6 +135,7 @@ func NewRouter(d Deps) http.Handler {
 				r.Get("/system/runtime", sh.runtime)
 				r.Get("/system/status", sh.status)
 				r.With(RequireAdmin).Post("/system/actions/{action}", sh.action)
+				r.With(RequireAdmin).Put("/system/update/settings", sh.updateSettings)
 
 				if d.Sites != nil {
 					siteH := &siteHandlers{sites: d.Sites, st: d.Store}

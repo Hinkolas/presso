@@ -5,12 +5,17 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"github.com/Hinkolas/presso/internal/control"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Hinkolas/presso/internal/auth"
+	"github.com/Hinkolas/presso/internal/config"
+	"github.com/Hinkolas/presso/internal/control"
+	"github.com/Hinkolas/presso/internal/jobs"
+	"github.com/Hinkolas/presso/internal/testdb"
+	"github.com/Hinkolas/presso/internal/update"
 )
 
 func TestPanelGuard(t *testing.T) {
@@ -65,6 +70,12 @@ func TestSystemActionsWithoutUpdater(t *testing.T) {
 	if res, _ := a.do(http.MethodPost, "/v1/system/actions/update", member, nil); res.StatusCode != http.StatusForbidden {
 		t.Fatalf("member: %d", res.StatusCode)
 	}
+	if res, _ := a.do(http.MethodPut, "/v1/system/update/settings", member, map[string]any{"channel": "beta"}); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("member settings: %d", res.StatusCode)
+	}
+	if res, _ := a.do(http.MethodPut, "/v1/system/update/settings", admin, map[string]any{"channel": "beta"}); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("settings without updater: %d", res.StatusCode)
+	}
 	// No update service wired in the test router → unknown action.
 	if res, _ := a.do(http.MethodPost, "/v1/system/actions/update", admin, nil); res.StatusCode != http.StatusNotFound {
 		t.Fatalf("status %d", res.StatusCode)
@@ -116,6 +127,44 @@ func TestForwardedHeadersRequireVerifiedEdge(t *testing.T) {
 		}
 		if !trusted && (remote != "172.18.0.4:1000" || isHTTPS(req)) {
 			t.Fatalf("spoofed forwarding trusted: %s", remote)
+		}
+	}
+}
+
+func TestUpdateSettingsEndpoint(t *testing.T) {
+	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"tag_name":"v0.3.0-rc.1","prerelease":true},{"tag_name":"v0.2.0"}]`))
+	}))
+	defer feed.Close()
+	st := testdb.New(t)
+	authSvc := auth.New(st, auth.Config{})
+	cfg := &config.API{Base: config.Base{DataDir: t.TempDir()}, Update: config.Update{Check: true, Interval: time.Hour, Repo: "acme/presso", APIBase: feed.URL}}
+	upd := update.New(update.Deps{Config: cfg, Store: st, Jobs: jobs.New(st, nil, 1)})
+	srv := httptest.NewServer(StripAPIPrefix(NewRouter(Deps{Auth: authSvc, Store: st, DB: st.DB, Version: "test", Config: cfg, Update: upd})))
+	defer srv.Close()
+	a := &testAPI{t: t, srv: srv, st: st}
+	ctx := context.Background()
+	if _, err := auth.CreateUser(ctx, st, "admin@example.com", "A", "hunter2hunter2", auth.RoleAdmin); err != nil {
+		t.Fatal(err)
+	}
+	admin, _ := a.login("admin@example.com", "hunter2hunter2")
+
+	res, body := a.do(http.MethodPut, "/v1/system/update/settings", admin, map[string]any{"channel": "beta", "auto_update": true})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("settings: %d %v", res.StatusCode, body)
+	}
+	st1, _ := body["update"].(map[string]any)
+	if st1["channel"] != "beta" || st1["auto_update"] != true || st1["latest"] != "v0.3.0-rc.1" || st1["prerelease"] != true {
+		t.Fatalf("status after beta: %v", st1)
+	}
+	// Partial update keeps the other field.
+	_, body = a.do(http.MethodPut, "/v1/system/update/settings", admin, map[string]any{"auto_update": false})
+	if st2, _ := body["update"].(map[string]any); st2["channel"] != "beta" || st2["auto_update"] != false {
+		t.Fatalf("partial update: %v", st2)
+	}
+	for _, bad := range []map[string]any{{"channel": "nightly"}, {"channel": "beta", "extra": 1}} {
+		if res, body := a.do(http.MethodPut, "/v1/system/update/settings", admin, bad); res.StatusCode != http.StatusBadRequest {
+			t.Fatalf("%v: %d %v", bad, res.StatusCode, body)
 		}
 	}
 }

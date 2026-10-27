@@ -5,7 +5,9 @@
 // therefore what updates the runtimes: after the new binary boots it
 // computes different image references for every site and recreates them.
 //
-// Three pieces live here: the checker (polls GitHub for the latest release),
+// Three pieces live here: the checker (polls GitHub for the newest release
+// on the admin's channel, stable or beta, and starts the update itself when
+// automatic updates are on),
 // the engine.update job (downloads and verifies the new binary, swaps it in
 // place and asks the process to re-exec itself) and the engine.rollout job
 // (moves every site to the images of the running release; enqueued on the
@@ -46,14 +48,17 @@ const (
 const (
 	kvEngineVersion = "engine.version"
 	kvLatest        = "update.latest"
+	kvSettings      = "update.settings"
+	// kvAutoAttempt is the release the last automatic update went for.
+	kvAutoAttempt = "update.auto_attempt"
 )
 
 // createdBySystem marks jobs the engine enqueues on its own.
 const createdBySystem = "system"
 
 var (
-	// ErrUnavailable: this build or host cannot self-update (dev build, not
-	// Linux, inside a container, binary not writable, checks disabled).
+	// ErrUnavailable: this build or host cannot self-update (dev build,
+	// inside a container, binary not writable).
 	ErrUnavailable = errors.New("update: self-update is not available on this host")
 	// ErrCurrent: no newer release is known.
 	ErrCurrent = errors.New("update: already running the latest release")
@@ -95,14 +100,26 @@ type Status struct {
 	// why not when it cannot.
 	Supported bool   `json:"supported"`
 	Reason    string `json:"unsupported_reason,omitempty"`
-	// Latest is the newest published release known ("" before the first
-	// successful check); Available is true when it is newer than Current.
+	// Channel and AutoUpdate are the admin's settings. Checks reports whether
+	// the background check runs (UPDATE_CHECK); automatic updates need it.
+	Channel    string `json:"channel"`
+	AutoUpdate bool   `json:"auto_update"`
+	Checks     bool   `json:"checks"`
+	// Latest is the newest published release on the channel ("" before the
+	// first successful check); Available is true when it is newer than
+	// Current. Ahead is true when Current is newer than Latest, which happens
+	// after switching from beta back to stable: presso never downgrades.
 	Latest      string     `json:"latest"`
+	Prerelease  bool       `json:"prerelease"`
 	Available   bool       `json:"available"`
+	Ahead       bool       `json:"ahead"`
 	URL         string     `json:"url"`
 	PublishedAt *time.Time `json:"published_at"`
 	CheckedAt   *time.Time `json:"checked_at"`
 	Error       string     `json:"error"`
+	// ErrorKind classifies Error: offline, not_found, rate_limited,
+	// unavailable, invalid or no_release.
+	ErrorKind string `json:"error_kind,omitempty"`
 	// JobID is the queued or running engine.update / engine.rollout job.
 	JobID   *uuid.UUID `json:"job_id"`
 	JobKind string     `json:"job_kind,omitempty"`
@@ -119,11 +136,14 @@ type Service struct {
 	exe   string
 	now   func() time.Time
 
-	mu        sync.Mutex
-	latest    *release
-	checkedAt time.Time
-	checkErr  string
-	lastCheck time.Time
+	mu             sync.Mutex
+	latest         *release
+	checkedAt      time.Time
+	checkErr       string
+	checkKind      string
+	lastCheck      time.Time
+	prefs          Settings
+	settingsLoaded bool
 
 	restart chan struct{}
 }
@@ -168,9 +188,6 @@ func (s *Service) supported() (string, error) {
 	if os.Getenv("PRESSO_IN_CONTAINER") != "" {
 		return "", fmt.Errorf("%w: pressod runs in a container; pull a newer image instead", ErrUnavailable)
 	}
-	if s.cfg != nil && !s.cfg.Update.Check {
-		return "", fmt.Errorf("%w: UPDATE_CHECK is disabled", ErrUnavailable)
-	}
 	exe, err := s.executable()
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrUnavailable, err)
@@ -199,7 +216,11 @@ func (s *Service) executable() (string, error) {
 
 // Status assembles the API view.
 func (s *Service) Status(ctx context.Context) Status {
-	out := Status{Current: version.Version, ReleaseBuild: version.Release() != ""}
+	prefs := s.settings(ctx)
+	out := Status{
+		Current: version.Version, ReleaseBuild: version.Release() != "",
+		Channel: prefs.Channel, AutoUpdate: prefs.AutoUpdate, Checks: s.cfg != nil && s.cfg.Update.Check,
+	}
 	if _, err := s.supported(); err != nil {
 		out.Reason = reasonOf(err)
 	} else {
@@ -208,17 +229,19 @@ func (s *Service) Status(ctx context.Context) Status {
 	s.mu.Lock()
 	if s.latest != nil {
 		out.Latest, out.URL = s.latest.Tag, s.latest.URL
+		out.Prerelease = version.IsPrerelease(s.latest.Tag)
 		if !s.latest.PublishedAt.IsZero() {
 			t := s.latest.PublishedAt
 			out.PublishedAt = &t
 		}
 		out.Available = newer(s.latest.Tag, version.Version)
+		out.Ahead = newer(version.Version, s.latest.Tag)
 	}
 	if !s.checkedAt.IsZero() {
 		t := s.checkedAt
 		out.CheckedAt = &t
 	}
-	out.Error = s.checkErr
+	out.Error, out.ErrorKind = s.checkErr, s.checkKind
 	s.mu.Unlock()
 	if job := s.activeJob(ctx); job != nil {
 		id := job.ID
@@ -248,8 +271,8 @@ func (s *Service) activeJob(ctx context.Context) *store.Job {
 	return nil
 }
 
-// StartUpdate enqueues engine.update towards the latest known release (a
-// fresh check runs first when none is known).
+// StartUpdate enqueues engine.update towards the newest known release on the
+// channel (a fresh check runs first when none is known).
 func (s *Service) StartUpdate(ctx context.Context, by string) (store.Job, error) {
 	if _, err := s.supported(); err != nil {
 		return store.Job{}, err

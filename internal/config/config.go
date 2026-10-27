@@ -178,10 +178,16 @@ type Panel struct {
 }
 
 // Update configures the self-update check against GitHub releases. Check=false
-// disables it entirely (air-gapped hosts); APIBase is overridable so the whole
-// flow can be exercised against a local fake feed.
+// stops the background check and with it automatic updates (air-gapped
+// hosts); checking and updating by hand still work. The channel and automatic
+// updates are settings in the panel; Channel (UPDATE_CHANNEL, stable or beta)
+// is only the channel a host starts on before the setting is first saved
+// (install.sh --channel), empty meaning the running build's channel.
+// APIBase is overridable so the whole flow can be exercised against a local
+// fake feed.
 type Update struct {
 	Check    bool          `env:"UPDATE_CHECK,default=true"`
+	Channel  string        `env:"UPDATE_CHANNEL,default="`
 	Interval time.Duration `env:"UPDATE_CHECK_INTERVAL,default=6h"`
 	Repo     string        `env:"UPDATE_REPO,default=Hinkolas/presso"`
 	APIBase  string        `env:"UPDATE_API_URL,default=https://api.github.com"`
@@ -323,13 +329,14 @@ func (a *API) Validate() error {
 			return fmt.Errorf("PANEL_DOMAIN: %q is not a valid hostname", a.Panel.Domain)
 		}
 	}
-	if a.Update.Check {
-		if a.Update.Interval < time.Minute {
-			return fmt.Errorf("UPDATE_CHECK_INTERVAL: must be at least 1m")
-		}
-		if !strings.Contains(a.Update.Repo, "/") || !strings.HasPrefix(a.Update.APIBase, "http") {
-			return fmt.Errorf("UPDATE_REPO must be owner/name and UPDATE_API_URL an http(s) URL")
-		}
+	if a.Update.Check && a.Update.Interval < time.Minute {
+		return fmt.Errorf("UPDATE_CHECK_INTERVAL: must be at least 1m")
+	}
+	if a.Update.Channel != "" && a.Update.Channel != "stable" && a.Update.Channel != "beta" {
+		return fmt.Errorf("UPDATE_CHANNEL: must be stable or beta")
+	}
+	if !strings.Contains(a.Update.Repo, "/") || !strings.HasPrefix(a.Update.APIBase, "http") {
+		return fmt.Errorf("UPDATE_REPO must be owner/name and UPDATE_API_URL an http(s) URL")
 	}
 	if a.CronInterval <= 0 || a.StatsInterval <= 0 || a.MetricsRetention <= 0 {
 		return fmt.Errorf("CRON_INTERVAL, STATS_INTERVAL, METRICS_RETENTION: must be positive")

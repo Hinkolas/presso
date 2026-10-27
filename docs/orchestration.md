@@ -196,9 +196,24 @@ certificate-authenticated edge requests. Administration and DevTools have no
 Docker port publications and are reached through Docker exec/attach.
 
 
-Update (`internal/update`): the checker polls `/repos/<repo>/releases/latest`
-every `UPDATE_CHECK_INTERVAL`, persists the result in `platform_kv` and
-publishes `system.update`. `POST /v1/system/actions/update` enqueues the
+Update (`internal/update`): the checker reads the 30 most recent releases
+(`/repos/<repo>/releases`) every `UPDATE_CHECK_INTERVAL` and keeps the
+highest release tag of the admin's channel: stable skips alpha/beta/rc
+releases, beta offers them as well as stable ones. Drafts and tags that are
+not engine releases (the `sources-<version>` prereleases) are skipped. The
+channel and automatic updates (off by default) are set under Settings →
+Updates (`PUT /v1/system/update/settings`) and kept in `platform_kv`; before
+they are first saved, the channel is `UPDATE_CHANNEL` (written by
+`install.sh --channel`) or the running build's. A failed check keeps the last
+known release and reports an error kind (offline, not_found, rate_limited,
+unavailable, invalid, no_release). Switching from beta back to stable never
+downgrades: the status reports `ahead` until a newer stable release exists.
+The result is persisted with its channel in `platform_kv` and published as
+`system.update`. With automatic updates on, the background check starts the
+update itself, once per release: a failed automatic update is not retried
+for the same release. `UPDATE_CHECK=false` stops the background check and
+automatic updates; checking and updating by hand still work.
+`POST /v1/system/actions/update` enqueues the
 global `engine.update` job: check → drain (the runner stops accepting site
 jobs and waits for running ones, since a restart fails unfinished jobs) →
 download + SHA-256 verify + `pressod version` probe → best-effort pre-pull of

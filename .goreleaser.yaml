@@ -107,7 +107,8 @@ release:
     curl -fsSL https://github.com/Hinkolas/presso/releases/download/{{ .Tag }}/install.sh | sudo bash -s -- --version {{ .Tag }}
     ```
 
-    The panel's **System → Updates** uses the stable release feed; for prereleases,
-    select a version explicitly with the installer above. Images for this release:
+    In the panel, **Settings → Updates** offers it on the stable channel, or on the
+    beta channel for prereleases; the installer also takes `--channel beta`.
+    Images for this release:
     `ghcr.io/hinkolas/presso-edge:{{ .Tag }}` and
     `ghcr.io/hinkolas/presso-runtime:{{ .Tag }}-php<php>-wp<wp>`.

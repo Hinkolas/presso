@@ -94,13 +94,18 @@ func TestNewer(t *testing.T) {
 	}
 }
 
-// feed serves a GitHub-shaped releases/latest plus the assets of one release.
+// feed serves a GitHub-shaped release list plus the assets of one release
+// (tag). extra adds more entries to the list, newest first as GitHub orders
+// them; status and header replace the answer to simulate feed errors.
 type feed struct {
 	srv     *httptest.Server
 	tag     string
 	archive []byte
 	sums    string
 	draft   bool
+	extra   []map[string]any
+	status  int
+	header  map[string]string
 	hits    int
 }
 
@@ -119,26 +124,42 @@ func newFeed(t *testing.T, tag string, binary []byte) *feed {
 	sum := sha256.Sum256(f.archive)
 	f.sums = hex.EncodeToString(sum[:]) + "  " + archiveName + "\n" + strings.Repeat("0", 64) + "  other.tar.gz\n"
 	mux := http.NewServeMux()
-	mux.HandleFunc("/repos/acme/presso/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/acme/presso/releases", func(w http.ResponseWriter, r *http.Request) {
 		f.hits++
-		if f.draft {
-			http.NotFound(w, r)
+		if r.URL.Query().Get("per_page") == "" {
+			http.Error(w, "per_page missing", http.StatusBadRequest)
+			return
+		}
+		for k, v := range f.header {
+			w.Header().Set(k, v)
+		}
+		if f.status != 0 {
+			w.WriteHeader(f.status)
+			_, _ = w.Write([]byte(`{"message":"simulated"}`))
 			return
 		}
 		base := f.srv.URL + "/dl/"
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		list := append([]map[string]any{}, f.extra...)
+		list = append(list, map[string]any{
 			"tag_name": f.tag, "html_url": "https://example.com/" + f.tag, "published_at": "2026-09-08T10:00:00Z",
+			"draft": f.draft, "prerelease": version.IsPrerelease(f.tag),
 			"assets": []map[string]string{
 				{"name": archiveName, "browser_download_url": base + archiveName},
 				{"name": sumsName, "browser_download_url": base + sumsName},
 			},
 		})
+		_ = json.NewEncoder(w).Encode(list)
 	})
 	mux.HandleFunc("/dl/"+archiveName, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(f.archive) })
 	mux.HandleFunc("/dl/"+sumsName, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(f.sums)) })
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f
+}
+
+// ghRelease is one extra entry of the fake list.
+func ghRelease(tag string, draft, prerelease bool) map[string]any {
+	return map[string]any{"tag_name": tag, "html_url": "https://example.com/" + tag, "draft": draft, "prerelease": prerelease, "published_at": "2026-09-09T10:00:00Z"}
 }
 
 func testConfig(t *testing.T, feedURL string) *config.API {
@@ -476,5 +497,223 @@ func TestRolloutWaitsForFailuresAndReportsQueueRejection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// writableExe is a stand-in executable in a writable directory, so
+// supported() passes.
+func writableExe(t *testing.T) string {
+	t.Helper()
+	exe := filepath.Join(t.TempDir(), "pressod")
+	if err := os.WriteFile(exe, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return exe
+}
+
+func TestChannels(t *testing.T) {
+	setVersion(t, "v0.1.0")
+	f := newFeed(t, "v0.2.0", []byte("bin"))
+	// GitHub lists newest first: an unpublished draft, the release candidate
+	// with its separate source release, then the stable release.
+	f.extra = []map[string]any{
+		ghRelease("v0.4.0", true, false),
+		ghRelease("sources-v0.3.0-rc.1", false, true),
+		ghRelease("v0.3.0-rc.1", false, true),
+		ghRelease("v0.2.1-beta.1", false, false), // suffix wins over a missing flag
+		ghRelease("not-a-release", false, false),
+	}
+	st := testdb.New(t)
+	hub := events.New()
+	svc := New(Deps{Config: testConfig(t, f.srv.URL), Store: st, Hub: hub, Jobs: jobs.New(st, hub, 1), Executable: writableExe(t)})
+	ctx := context.Background()
+
+	status, err := svc.Check(ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Channel != ChannelStable || status.Latest != "v0.2.0" || status.Prerelease || !status.Available || status.AutoUpdate {
+		t.Fatalf("stable: %+v", status)
+	}
+
+	beta := ChannelBeta
+	status, err = svc.UpdateSettings(ctx, SettingsPatch{Channel: &beta})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Channel != ChannelBeta || status.Latest != "v0.3.0-rc.1" || !status.Prerelease || !status.Available {
+		t.Fatalf("beta: %+v", status)
+	}
+	// Persisted with the channel: a fresh service reads beta and the beta
+	// result, and ignores nothing else.
+	svc2 := New(Deps{Config: testConfig(t, f.srv.URL), Store: st, Jobs: jobs.New(st, hub, 1)})
+	svc2.load(ctx)
+	if s2 := svc2.Status(ctx); s2.Channel != ChannelBeta || s2.Latest != "v0.3.0-rc.1" {
+		t.Fatalf("reloaded: %+v", s2)
+	}
+
+	// Back to stable while running the release candidate: nothing to offer,
+	// presso never downgrades, and the status says it is ahead.
+	setVersion(t, "v0.3.0-rc.1")
+	stable := ChannelStable
+	status, err = svc.UpdateSettings(ctx, SettingsPatch{Channel: &stable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Latest != "v0.2.0" || status.Available || !status.Ahead {
+		t.Fatalf("stable after beta: %+v", status)
+	}
+	if _, err := svc.StartUpdate(ctx, "u"); !errors.Is(err, ErrCurrent) {
+		t.Fatalf("downgrade offered: %v", err)
+	}
+	// A stored stable result is not loaded while the channel is beta.
+	_, _ = svc.UpdateSettings(ctx, SettingsPatch{Channel: &beta})
+	_ = st.SetKV(ctx, store.SetKVParams{Key: kvLatest, Value: []byte(`{"channel":"stable","latest":{"tag":"v9.9.9"}}`), UpdatedAt: time.Now()})
+	svc3 := New(Deps{Config: testConfig(t, f.srv.URL), Store: st, Jobs: jobs.New(st, hub, 1)})
+	svc3.load(ctx)
+	if s3 := svc3.Status(ctx); s3.Latest != "" {
+		t.Fatalf("result of another channel loaded: %+v", s3)
+	}
+
+	bogus := "nightly"
+	if _, err := svc.UpdateSettings(ctx, SettingsPatch{Channel: &bogus}); !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("unknown channel: %v", err)
+	}
+}
+
+func TestDefaultChannelFollowsBuild(t *testing.T) {
+	for v, want := range map[string]string{"v0.2.0": ChannelStable, "v0.3.0-beta.2": ChannelBeta, "v0.0.0-dev": ChannelStable} {
+		setVersion(t, v)
+		st := testdb.New(t)
+		svc := New(Deps{Config: testConfig(t, "http://127.0.0.1:1"), Store: st, Jobs: jobs.New(st, nil, 1)})
+		if got := svc.Status(context.Background()).Channel; got != want {
+			t.Errorf("%s: channel %s, want %s", v, got, want)
+		}
+	}
+	// UPDATE_CHANNEL (install.sh --channel) wins over the build, and a saved
+	// setting wins over both.
+	setVersion(t, "v0.2.0")
+	st := testdb.New(t)
+	cfg := testConfig(t, "http://127.0.0.1:1")
+	cfg.Update.Channel = ChannelBeta
+	svc := New(Deps{Config: cfg, Store: st, Jobs: jobs.New(st, nil, 1)})
+	if got := svc.Status(context.Background()).Channel; got != ChannelBeta {
+		t.Fatalf("UPDATE_CHANNEL ignored: %s", got)
+	}
+	stable := ChannelStable
+	if _, err := svc.UpdateSettings(context.Background(), SettingsPatch{Channel: &stable}); err != nil {
+		t.Fatal(err)
+	}
+	svc = New(Deps{Config: cfg, Store: st, Jobs: jobs.New(st, nil, 1)})
+	if got := svc.Status(context.Background()).Channel; got != ChannelStable {
+		t.Fatalf("saved setting lost to UPDATE_CHANNEL: %s", got)
+	}
+}
+
+func TestCheckErrorKinds(t *testing.T) {
+	setVersion(t, "v0.1.0")
+	cases := []struct {
+		name   string
+		setup  func(f *feed)
+		feedTo string
+		kind   string
+	}{
+		{"not found", func(f *feed) { f.status = http.StatusNotFound }, "", kindNotFound},
+		{"rate limited", func(f *feed) {
+			f.status, f.header = http.StatusForbidden, map[string]string{"X-RateLimit-Remaining": "0"}
+		}, "", kindRateLimited},
+		{"too many requests", func(f *feed) { f.status = http.StatusTooManyRequests }, "", kindRateLimited},
+		{"server error", func(f *feed) { f.status = http.StatusBadGateway }, "", kindUnavailable},
+		{"only drafts", func(f *feed) { f.draft = true }, "", kindNoRelease},
+		{"offline", nil, "http://127.0.0.1:1", kindOffline},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFeed(t, "v0.2.0", []byte("bin"))
+			if c.setup != nil {
+				c.setup(f)
+			}
+			url := f.srv.URL
+			if c.feedTo != "" {
+				url = c.feedTo
+			}
+			st := testdb.New(t)
+			svc := New(Deps{Config: testConfig(t, url), Store: st, Jobs: jobs.New(st, nil, 1)})
+			status, err := svc.Check(context.Background(), true)
+			if err == nil || status.ErrorKind != c.kind || status.Error == "" {
+				t.Fatalf("err %v, status %+v", err, status)
+			}
+		})
+	}
+	// Invalid JSON.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("<html>")) }))
+	defer srv.Close()
+	st := testdb.New(t)
+	svc := New(Deps{Config: testConfig(t, srv.URL), Store: st, Jobs: jobs.New(st, nil, 1)})
+	if status, _ := svc.Check(context.Background(), true); status.ErrorKind != kindInvalid {
+		t.Fatalf("invalid feed: %+v", status)
+	}
+}
+
+func TestManualUpdatesWithoutBackgroundChecks(t *testing.T) {
+	setVersion(t, "v0.1.0")
+	f := newFeed(t, "v0.2.0", []byte("bin"))
+	st := testdb.New(t)
+	cfg := testConfig(t, f.srv.URL)
+	cfg.Update.Check = false
+	svc := New(Deps{Config: cfg, Store: st, Jobs: jobs.New(st, nil, 1), Executable: writableExe(t)})
+	ctx := context.Background()
+	svc.Run(ctx) // returns at once: no background loop
+	if f.hits != 0 {
+		t.Fatalf("background check ran: %d hits", f.hits)
+	}
+	status := svc.Status(ctx)
+	if !status.Supported || status.Checks {
+		t.Fatalf("status: %+v", status)
+	}
+	if _, err := svc.StartUpdate(ctx, "u"); err != nil {
+		t.Fatalf("manual update: %v", err)
+	}
+}
+
+func TestAutoUpdate(t *testing.T) {
+	setVersion(t, "v0.1.0")
+	f := newFeed(t, "v0.2.0", []byte("bin"))
+	st := testdb.New(t)
+	svc := New(Deps{Config: testConfig(t, f.srv.URL), Store: st, Jobs: jobs.New(st, nil, 1), Executable: writableExe(t)})
+	ctx := context.Background()
+	status, err := svc.Check(ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Off by default.
+	svc.autoUpdate(ctx, status)
+	if svc.activeJob(ctx) != nil {
+		t.Fatal("automatic update ran while off")
+	}
+	on := true
+	if status, err = svc.UpdateSettings(ctx, SettingsPatch{AutoUpdate: &on}); err != nil || !status.AutoUpdate {
+		t.Fatalf("enable: %+v %v", status, err)
+	}
+	svc.autoUpdate(ctx, status)
+	job := svc.activeJob(ctx)
+	if job == nil || job.Kind != JobUpdate || job.CreatedBy != createdBySystem || !strings.Contains(job.Args, "v0.2.0") {
+		t.Fatalf("automatic update job: %+v", job)
+	}
+	// Once per release: after that job failed, the same release is not
+	// started again on its own.
+	_ = st.FinishJob(ctx, store.FinishJobParams{ID: job.ID, Status: jobs.StatusFailed, Error: "x", UpdatedAt: time.Now()})
+	svc.autoUpdate(ctx, svc.Status(ctx))
+	if svc.activeJob(ctx) != nil {
+		t.Fatal("failed automatic update retried for the same release")
+	}
+	// A newer release is.
+	f.tag = "v0.3.0"
+	if status, err = svc.Check(ctx, true); err != nil || status.Latest != "v0.3.0" {
+		t.Fatalf("recheck: %+v %v", status, err)
+	}
+	svc.autoUpdate(ctx, status)
+	if j := svc.activeJob(ctx); j == nil || !strings.Contains(j.Args, "v0.3.0") {
+		t.Fatalf("next release: %+v", j)
 	}
 }
