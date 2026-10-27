@@ -232,6 +232,12 @@ Decision: pending.
   hit nor a check that Valkey is connected. Edge hit/miss/bypass metrics come
   from the access log's `Cache-Status` response header. Admin and REST
   responses can therefore report `cached: true` while bypassing the page cache.
+- Traffic metrics read the shared edge's completed access records. The Logs
+  tab reads the site's runtime container output, so it does not include
+  cache hits or failures returned by the edge before a request reaches PHP.
+  Proxy diagnostic records are excluded from metrics: a failed request can
+  produce both a diagnostic and an access record, but counts only once.
+- Health probes (`/-/ping` and `/-/fpm-ping`) stay out of runtime access logs.
 - Sampling profiler (Excimer/Tideways) optional.
 - PHP error log, access log, slow query log exported per site.
 - Health endpoint for the orchestrator.
