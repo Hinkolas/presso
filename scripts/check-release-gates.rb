@@ -12,6 +12,8 @@ runtime = YAML.load_file(File.join(__dir__, '../.github/workflows/runtime.yml'))
 required = %w[validate-tag verify source-release binary images images-merge runtime]
 raise 'publish must require all artifacts and verification' unless (required - release.fetch('publish').fetch('needs')).empty?
 raise 'verification must require tag validation' unless Array(release.fetch('verify')['needs']).include?('validate-tag')
+# Inputs only narrow verification (pull request scoping, layer caching).
+raise 'release verification must run with full defaults' if release.fetch('verify').key?('with')
 raise 'tag workflow must use the engine version validator' unless release.fetch('validate-tag').fetch('steps').any? { |s| s.fetch('run', '').include?('go run ./cmd/release-version') }
 # Older Psych versions cannot parse go-task's colon-bearing flow scalars in
 # unrelated tasks (for example [build:web]); inspect the release block alone.

@@ -265,14 +265,24 @@ listener on 7080; `task nuke` deletes presso-managed containers and volumes.
 `task check` runs Go vet/tests and frontend checks/lint. `task build` builds the
 UI and embeds it in `bin/pressod`. CI additionally runs Linux race tests,
 installer checks, a clean frontend build, and Docker integration tests.
-For pushes and pull requests that change only the root user guides or Markdown
-under `docs/`, a small change-detection job runs and skips the expensive checks.
-Code/configuration, license/source-access files, and runtime vendoring records
-still require full CI. Manual CI runs and release tags always verify everything.
-See [release verification](docs/release-verification.md) for release test evidence.
 
-To prepare a release, make the repository public and wait for CI on the
-committed changes to pass, then run
+`main` is protected. Work happens on semantic branches (`feat/`, `fix/`,
+`chore/`, ...) and lands through a pull request, which needs the `ci-result`
+check to pass. CI runs only for pull requests into `main`, plus a weekly and
+any manually dispatched run on `main`; a branch without a pull request runs
+nothing.
+Pull requests that change only the root user guides or Markdown under `docs/`
+skip the expensive checks. Other pull requests reuse cached Docker layers and
+collect image sources (the slowest check) only when an image, the compat
+matrix, the compliance scripts, a workflow, or a license/source-access file
+changed. The weekly and manual runs verify everything without the cache, which
+catches upstream package changes and refreshes it; release tags always verify
+everything. `WP_VERSION=7.1 docker buildx bake --load` builds the same images
+locally. See [release verification](docs/release-verification.md) for release
+test evidence.
+
+To prepare a release, make the repository public, merge the changes through
+pull requests whose CI passed, then run
 `task release:tag V=v0.1.0-rc.1` with an unused version. This creates and pushes
 the tag. The workflow first publishes a separate `sources-<version>` prerelease
 with matching source bundles and third-party notices. It verifies anonymous

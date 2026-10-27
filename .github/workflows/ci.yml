@@ -1,16 +1,30 @@
+# Verification for pull requests into main, which is protected: changes land
+# through semantic branches (feat/, fix/, chore/, ...) and a pull request
+# whose "ci-result" check passed. Pushes to branches run nothing on their own.
+#
+# Pull requests reuse Docker layers cached by earlier runs and collect image
+# sources only when an image or collection input changed (scripts/ci_changes.py).
+# The weekly run and manual dispatches verify everything without reading the
+# cache, which catches upstream package changes and refreshes the layers
+# pull requests start from. Release tags run verify.yml in full on their own.
 name: ci
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+  schedule:
+    - cron: '23 3 * * 1'
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
       run_verify: ${{ steps.scope.outputs.run_verify }}
+      sources: ${{ steps.scope.outputs.sources }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,3 +38,29 @@ jobs:
     # successful, explicit docs-only result may skip this reusable workflow.
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.run_verify != 'false') }}
     uses: ./.github/workflows/verify.yml
+    with:
+      sources: ${{ needs.changes.outputs.sources != 'false' }}
+      cache: ${{ github.event_name == 'pull_request' && 'use' || 'refresh' }}
+
+  # The one check branch protection requires: jobs inside verify.yml are
+  # named per run, and a skipped docs-only verification must still pass.
+  result:
+    name: ci-result
+    needs: [changes, verify]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          RUN_VERIFY: ${{ needs.changes.outputs.run_verify }}
+          VERIFY: ${{ needs.verify.result }}
+        run: |
+          if [ "$CHANGES" != success ]; then
+            echo "::error::change detection $CHANGES"
+            exit 1
+          fi
+          case "$VERIFY" in
+            success) ;;
+            skipped) [ "$RUN_VERIFY" = false ] || { echo "::error::verification was skipped"; exit 1; } ;;
+            *) echo "::error::verification $VERIFY"; exit 1 ;;
+          esac
