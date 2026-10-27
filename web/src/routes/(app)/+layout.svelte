@@ -34,7 +34,7 @@
 	type NavItem = { href: string; label: string; icon: IconName; match: (p: string) => boolean };
 	const primary: NavItem[] = [
 		{
-			href: resolve('/'),
+			href: resolve('/(app)'),
 			label: 'Sites',
 			icon: 'sites',
 			match: (p) => p === '/' || p.startsWith('/sites')
@@ -42,7 +42,7 @@
 	];
 	// Settings also owns the job history (System's Activity tab and /jobs/{id}).
 	const system: NavItem = {
-		href: resolve('/settings/system'),
+		href: resolve('/(app)/settings/system'),
 		label: 'Settings',
 		icon: 'settings',
 		match: (p) => p.startsWith('/settings') || p.startsWith('/jobs')
@@ -147,7 +147,7 @@
 	const firstName = $derived((user?.name || user?.email || '').split(/[\s@]+/)[0] || 'Account');
 
 	const accountItems: MenuItem[] = [
-		{ label: 'Account security', icon: 'user', href: resolve('/account') },
+		{ label: 'Account security', icon: 'user', href: resolve('/(app)/account') },
 		{ label: 'Sign out', icon: 'logout', onclick: signOut }
 	];
 </script>
@@ -199,7 +199,7 @@
 		aria-label="Navigation"
 	>
 		<div class="flex h-9 items-center justify-between px-2">
-			<a href={resolve('/')} class="flex items-center" aria-label="presso home">
+			<a href={resolve('/(app)')} class="flex items-center" aria-label="presso home">
 				<Wordmark />
 			</a>
 			<Button

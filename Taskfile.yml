@@ -160,6 +160,24 @@ tasks:
 
   # --- Checks ---
 
+  check:secrets:
+    desc: Scan all local Git history and publishable files (requires Gitleaks 8.30.1)
+    cmds:
+      - python3 scripts/check_secrets.py
+
+  check:deps:
+    desc: Check Go and npm advisories (requires govulncheck 1.9.0 and installed web dependencies)
+    cmds:
+      - go mod verify
+      - govulncheck ./cmd/... ./internal/... ./migrations/...
+      - npm --prefix web audit --audit-level=low
+
+  check:security:
+    desc: Run credential and dependency checks (requires Gitleaks and govulncheck)
+    cmds:
+      - task: check:secrets
+      - task: check:deps
+
   test:
     desc: Run the Go test suite (SQLite in temp dirs; nothing to start)
     cmds:
@@ -179,7 +197,7 @@ tasks:
       - npm run lint
 
   check:
-    desc: Everything CI runs
+    desc: Run Go tests, vet, and frontend checks
     cmds:
       - task: vet
       - task: test

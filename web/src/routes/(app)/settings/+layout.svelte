@@ -13,13 +13,13 @@
 	type Section = { href: string; label: string; icon: IconName; match: string };
 	const sections: Section[] = [
 		{
-			href: resolve('/settings/system'),
+			href: resolve('/(app)/settings/system'),
 			label: 'System',
 			icon: 'system',
 			match: '/settings/system'
 		},
 		{
-			href: resolve('/settings/updates'),
+			href: resolve('/(app)/settings/updates'),
 			label: 'Updates',
 			icon: 'refresh',
 			match: '/settings/updates'

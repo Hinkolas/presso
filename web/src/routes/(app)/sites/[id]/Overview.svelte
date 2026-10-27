@@ -155,7 +155,7 @@
 			onJob(res.job);
 			deleteOpen = false;
 			// The card on the Sites page shows the teardown and then goes away.
-			await goto(resolve('/'));
+			await goto(resolve('/(app)'));
 		} catch (err) {
 			deleteError = errorText(err);
 		} finally {

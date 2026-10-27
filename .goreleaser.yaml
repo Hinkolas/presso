@@ -39,6 +39,9 @@ archives:
       - LICENSE
       - NOTICE
       - docs/licensing.md
+      - docs/dependencies.md
+      - docs/public-release.md
+      - docs/publication-audit.md
       - src: compliance-output/binary_{{ .Arch }}/THIRD_PARTY_LICENSES.txt
         dst: THIRD_PARTY_LICENSES.txt
       - src: compliance-output/binary_{{ .Arch }}/SOURCE_BUNDLE

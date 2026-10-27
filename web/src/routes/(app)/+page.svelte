@@ -60,7 +60,7 @@
 	afterNavigate(() => {
 		if (!page.url.searchParams.has('new')) return;
 		openCreateSite();
-		replaceState(resolve('/'), {});
+		replaceState(resolve('/(app)'), {});
 	});
 
 	type Filter = 'all' | SiteStatus;

@@ -3,8 +3,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
 	import { api, ApiError, errorText } from '$lib/api/client';
 	import { safeNext } from '$lib/safe-next';
 	import { setUser } from '$lib/state/session.svelte';
@@ -36,7 +34,8 @@
 				password
 			});
 			setUser(res.session.user);
-			await goto(resolve(next as Pathname));
+			// safeNext accepts only a same-origin path; the panel is served at /.
+			await goto(next);
 		} catch (err) {
 			message =
 				err instanceof ApiError && err.status >= 500

@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a problem from a test installation, including RC installation failures.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use a disposable test host. For security issues, follow [SECURITY.md](https://github.com/Hinkolas/presso/blob/main/SECURITY.md).
+        Remove passwords, tokens, AUTH_SECRET, private keys, real domains/IPs, and customer data from everything you submit.
+  - type: input
+    id: version
+    attributes:
+      label: Release or commit
+      placeholder: v0.1.0-rc.1
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Test environment
+      description: Host distribution/version, CPU architecture, Docker version, and fresh install or upgrade.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include sanitized installer options if installation failed.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Include only relevant error messages. Never attach the environment file, a database dump, or a complete host diagnostic archive.
+      render: text

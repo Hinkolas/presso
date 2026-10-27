@@ -1,6 +1,7 @@
 # Checks and tests for pull requests into main, which is protected: changes
 # land through semantic branches (feat/, fix/, chore/, ...) and a pull request
-# whose "ci-result" check passed. Pushing a branch runs nothing on its own.
+# whose "ci-result" check passed. Feature-branch pushes run nothing on their
+# own; security.yml also scans main pushes and runs on a weekly schedule.
 #
 # Image builds, source collection and the Docker integration tests live in
 # image-verification.yml, which release tags run before publishing anything
@@ -21,7 +22,7 @@ jobs:
     outputs:
       run_verify: ${{ steps.scope.outputs.run_verify }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - id: scope
@@ -34,11 +35,15 @@ jobs:
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.run_verify != 'false') }}
     uses: ./.github/workflows/verify.yml
 
+  security:
+    # Secret scans must also run for documentation-only pull requests.
+    uses: ./.github/workflows/security.yml
+
   # The one check branch protection requires: jobs inside verify.yml are
   # named per run, and a skipped docs-only verification must still pass.
   result:
     name: ci-result
-    needs: [changes, verify]
+    needs: [changes, verify, security]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -46,9 +51,14 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           RUN_VERIFY: ${{ needs.changes.outputs.run_verify }}
           VERIFY: ${{ needs.verify.result }}
+          SECURITY: ${{ needs.security.result }}
         run: |
           if [ "$CHANGES" != success ]; then
             echo "::error::change detection $CHANGES"
+            exit 1
+          fi
+          if [ "$SECURITY" != success ]; then
+            echo "::error::security verification $SECURITY"
             exit 1
           fi
           case "$VERIFY" in

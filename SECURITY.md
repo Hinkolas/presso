@@ -82,3 +82,19 @@ does not upgrade or remove existing legacy sites.
 For a vulnerability confined to an upstream component, also follow that
 project's reporting process. Report it here if presso's integration introduces
 or materially changes the exposure.
+
+## Repository checks
+
+Every pull request, including documentation-only changes, runs Gitleaks over
+the available Git history and publishable working files, plus Go and npm
+advisory checks. Releases require the same checks; weekly scans check for newly
+published advisories. Scanner output is redacted and is not uploaded as an
+artifact. These checks do not replace a security review or scan the packages
+inside every container image.
+
+Keep credentials in ignored local environment files or deployment secret
+storage. Never commit engine databases, site backups, management certificates,
+or real customer data. If a real credential is committed, revoke or rotate it
+first, even if the repository is still private. Deleting it in a later commit
+does not remove it from Git history. Coordinate any history cleanup before
+publication; see the [maintainer checklist](docs/public-release.md).
