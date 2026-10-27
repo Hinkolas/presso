@@ -82,6 +82,10 @@ http {
 		location = /wp-content/debug.log { return 404; }
 		location ~ /\. { return 404; }
 
+		# Presso supplies wp-config.php. This wizard skips its Valkey settings;
+		# reject it before PHP, including requests with PATH_INFO.
+		location ~ ^/wp-admin/setup-config\.php(/|$) { return 404; }
+
 		# Never execute PHP under uploads (docs/runtime.md section 8): a compromised
 		# request that manages to drop a .php file there gains nothing.
 		# Case-insensitive, with path-info (x.php/foo) covered.

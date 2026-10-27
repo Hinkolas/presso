@@ -227,6 +227,11 @@ Decision: pending.
 
 ### 10. Observability
 - Per-request timing and query count to structured logs (sampling in prod).
+  `presso=req` records are informational. Their `cached` boolean reports
+  WordPress's external object-cache flag; it is neither an edge page-cache
+  hit nor a check that Valkey is connected. Edge hit/miss/bypass metrics come
+  from the access log's `Cache-Status` response header. Admin and REST
+  responses can therefore report `cached: true` while bypassing the page cache.
 - Sampling profiler (Excimer/Tideways) optional.
 - PHP error log, access log, slow query log exported per site.
 - Health endpoint for the orchestrator.
@@ -385,6 +390,14 @@ settings UI exposes (`PHP_MEMORY_LIMIT`, `PHP_UPLOAD_MAX_FILESIZE`,
 `PHP_OPCACHE_MEMORY`, `PHP_OPCACHE_REVALIDATE_FREQ`, `PHP_TIMEZONE`). Nothing
 is rendered per site in the FrankenPHP flavor: the static Caddyfile reads the
 variables with inline defaults, and wp-config.php reads `PRESSO_*` directly.
+
+Both web servers return 404 for `/wp-admin/setup-config.php`, including its
+PATH_INFO variants, before PHP runs. Presso supplies the configuration file,
+so this wizard is unused. It loads WordPress without that file and would
+otherwise initialize the object-cache drop-in without the Valkey connection
+settings, producing a misleading localhost connection error. WP-CLI site
+installation and normal WordPress admin routes are unaffected.
+
 The cache module reads `PRESSO_CACHE` (on|off), `PRESSO_CACHE_TTL` (seconds)
 and `PRESSO_CACHE_SWR` (on|off); the engine recreates the container when the
 operator changes them, so the emitted Cache-Control never lags the setting.
