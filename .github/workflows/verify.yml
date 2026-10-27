@@ -103,10 +103,19 @@ jobs:
         uses: docker/bake-action@v6
         env:
           CACHE: ${{ inputs.cache != 'off' && 'gha' || '' }}
+          # The builder's storage is pruned below; skip the build record export.
+          DOCKER_BUILD_RECORD_UPLOAD: false
+          DOCKER_BUILD_SUMMARY: false
         with:
           source: .
           load: true
           no-cache: ${{ inputs.cache == 'refresh' }}
+      # The images are loaded into Docker and the layers exported to the
+      # cache, so the builder's second copy only costs runner disk.
+      - name: Free the builder's storage
+        run: |
+          docker buildx prune --all --force >/dev/null
+          df -h /
       - name: Verify real image source and notice collection
         if: ${{ inputs.sources }}
         run: |
