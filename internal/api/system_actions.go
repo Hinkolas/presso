@@ -103,8 +103,31 @@ func (h *systemHandlers) action(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PUT /v1/system/update/settings: {"channel": "stable"|"beta",
+// "auto_update": bool}; either field may be omitted. Answers with the update
+// status, rechecked when the channel changed.
+func (h *systemHandlers) updateSettings(w http.ResponseWriter, r *http.Request) {
+	if h.update == nil {
+		writeError(w, http.StatusNotFound, codeNotFound, "self-update is not wired on this engine")
+		return
+	}
+	var in update.SettingsPatch
+	if err := decodeJSON(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, codeBadRequest, err.Error())
+		return
+	}
+	st, err := h.update.UpdateSettings(r.Context(), in)
+	if err != nil {
+		writeUpdateError(r.Context(), w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"update": st})
+}
+
 func writeUpdateError(ctx context.Context, w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, update.ErrInvalidSettings):
+		writeError(w, http.StatusBadRequest, codeBadRequest, strings.TrimPrefix(err.Error(), update.ErrInvalidSettings.Error()+": "))
 	case errors.Is(err, update.ErrUnavailable):
 		writeError(w, http.StatusConflict, codeUpdateUnavailable, err.Error())
 	case errors.Is(err, update.ErrCurrent):

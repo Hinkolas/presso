@@ -5,9 +5,9 @@
 # its own version (see docs/orchestration.md "Release and update").
 #
 # The GitHub release is created as a draft by goreleaser and published by the
-# last job, after every image has been pushed and smoke-tested. Hosts poll
-# /releases/latest, which never returns drafts, so an update is only ever
-# offered once all of its parts exist.
+# last job, after every image has been pushed and smoke-tested. Hosts read
+# the release list, where drafts are invisible without a token and skipped
+# anyway, so an update is only ever offered once all of its parts exist.
 name: release
 
 on:

@@ -421,7 +421,7 @@ server alone), `/-/fpm-ping` in the FPM flavor (php-fpm itself), and `SELECT
 
 Core upgrade = new image tag. Images are published per engine release as
 `ghcr.io/hinkolas/presso-runtime:<release>-php<php>-wp<wp>`, so updating the
-engine (System → Updates) is what moves sites: the rollout job recreates the
+engine (Settings → Updates) is what moves sites: the rollout job recreates the
 container with the same volume and the recreate job runs `wp core update-db`.
 Rollback is not automated; restoring a previous image alone cannot undo a
 database upgrade. Backup and restore tooling is deferred to the roadmap.

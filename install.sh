@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # presso installer: one command on a fresh Linux host.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash -s -- --version v0.1.0-rc.1
+#   curl -fsSL https://raw.githubusercontent.com/Hinkolas/presso/main/install.sh | sudo bash -s -- --channel beta
 #
 # What it does: installs Docker when missing (get.docker.com), downloads the
 # pressod release binary for this CPU, verifies its checksum, writes
@@ -9,10 +9,13 @@
 # systemd unit, starts the service and creates the first admin account.
 # Re-running upgrades the binary and restarts the service; configuration and
 # data are left alone. Later upgrades normally happen from the panel
-# (System → Updates); this script is the way back when that is not possible.
+# (Settings → Updates); this script is the way back when that is not possible.
 #
 # Options (after `bash -s --`):
-#   --version vX.Y.Z      explicit release (required to select a prerelease)
+#   --channel stable|beta newest release of the channel (default stable; beta
+#                         also offers alpha/beta/rc releases). A fresh install
+#                         keeps following it; change it under Settings → Updates
+#   --version vX.Y.Z      explicit release instead of a channel
 #   --panel-domain HOST   serve the panel at https://HOST through the edge
 #   --acme-email EMAIL    contact e-mail for Let's Encrypt
 #   --email EMAIL         first admin's e-mail (asked interactively otherwise)
@@ -29,7 +32,7 @@ UNIT=/etc/systemd/system/presso.service
 DATA_DIR=/var/lib/presso
 PORT=7080
 
-VERSION="" PANEL_DOMAIN="" ACME_EMAIL="" ADMIN_EMAIL="" YES=0 UNINSTALL=0 PURGE=0
+VERSION="" CHANNEL="" PANEL_DOMAIN="" ACME_EMAIL="" ADMIN_EMAIL="" YES=0 UNINSTALL=0 PURGE=0
 
 # --- output helpers ----------------------------------------------------------
 if [ -t 2 ]; then
@@ -67,16 +70,22 @@ confirm() { # confirm "Question?" → 0 yes / 1 no (yes when --yes)
 while [ $# -gt 0 ]; do
   case "$1" in
     --version)      VERSION="$2"; shift 2 ;;
+    --channel)      CHANNEL="$2"; shift 2 ;;
     --panel-domain) PANEL_DOMAIN="$2"; shift 2 ;;
     --acme-email)   ACME_EMAIL="$2"; shift 2 ;;
     --email)        ADMIN_EMAIL="$2"; shift 2 ;;
     --yes|-y)       YES=1; shift ;;
     --uninstall)    UNINSTALL=1; shift ;;
     --purge)        PURGE=1; shift ;;
-    -h|--help)      sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1 (see --help)" ;;
   esac
 done
+case "$CHANNEL" in
+  ""|stable|beta) ;;
+  *) die "--channel must be stable or beta" ;;
+esac
+[ -z "$CHANNEL" ] || [ -z "$VERSION" ] || die "use either --channel or --version, not both"
 
 # --- preflight ---------------------------------------------------------------
 [ "$(id -u)" = 0 ] || die "run as root: curl -fsSL … | sudo bash"
@@ -156,13 +165,34 @@ fi
 
 # --- release -----------------------------------------------------------------
 step "Resolving the release"
-if [ -z "$VERSION" ]; then
-  latest=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API/repos/$REPO/releases/latest" 2>/dev/null || true)
-  VERSION=$(printf '%s' "$latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)
-  [ -n "$VERSION" ] || die "no published release found for $REPO (a release is published only once all of its images are built; try again in a few minutes or pass --version)"
-fi
 # Kept identical to internal/version.ReleasePattern by the release checks.
 release_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$'
+# highest_release: the highest release tag on stdin (one per line), ordered
+# like the engine: x.y.z, then alpha < beta < rc < the release itself.
+highest_release() {
+  grep -E "$release_pattern" | awk '{
+    v = substr($0, 2); stage = 3; n = 0
+    if (index(v, "-")) {
+      split(substr(v, index(v, "-") + 1), s, ".")
+      stage = (s[1] == "alpha") ? 0 : (s[1] == "beta") ? 1 : 2; n = s[2]
+      v = substr(v, 1, index(v, "-") - 1)
+    }
+    split(v, p, ".")
+    printf "%d %d %d %d %d %s\n", p[1], p[2], p[3], stage, n, $0
+  }' | sort -k1,1n -k2,2n -k3,3n -k4,4n -k5,5n | tail -n1 | awk '{print $6}'
+}
+if [ -z "$VERSION" ]; then
+  if [ "$CHANNEL" = beta ]; then
+    # Drafts are not listed without a token; source-bundle releases
+    # (sources-vX.Y.Z) do not match the release pattern.
+    list=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API/repos/$REPO/releases?per_page=30" 2>/dev/null || true)
+    VERSION=$(printf '%s' "$list" | grep -o '"tag_name": *"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/' | highest_release || true)
+  else
+    latest=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API/repos/$REPO/releases/latest" 2>/dev/null || true)
+    VERSION=$(printf '%s' "$latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)
+  fi
+  [ -n "$VERSION" ] || die "no published ${CHANNEL:-stable} release found for $REPO (a release is published only once all of its images are built; try again in a few minutes, or pass --channel beta or --version)"
+fi
 [[ "$VERSION" =~ $release_pattern ]] || die "not a release tag: $VERSION (use vX.Y.Z or vX.Y.Z-{alpha,beta,rc}.N)"
 if [[ "$VERSION" == v0.* ]]; then
   say "Initial development (0.x): not recommended for production workloads."
@@ -175,6 +205,11 @@ fi
 if [[ "$VERSION" == v0.* || "$VERSION" == *-* ]]; then
   say "Breaking changes and data loss are possible. No automated backups or rollback."
   say "Managed WordPress/plugin security updates are planned, not available yet."
+fi
+# The channel a fresh install follows: as asked, else the release's own.
+if [ -z "$CHANNEL" ]; then
+  CHANNEL=stable
+  [[ "$VERSION" != *-* ]] || CHANNEL=beta
 fi
 ARCHIVE="pressod_${VERSION}_linux_${ARCH}.tar.gz"
 SUMS="pressod_${VERSION}_checksums.txt"
@@ -225,6 +260,7 @@ AUTH_SECRET="$secret"
 LOG_FORMAT="json"
 PANEL_DOMAIN="$PANEL_DOMAIN"
 ACME_EMAIL="$ACME_EMAIL"
+UPDATE_CHANNEL="$CHANNEL"
 EOT
   umask 022
   ok "wrote $ENV_FILE"
@@ -303,5 +339,5 @@ if [ -n "$PASSWORD" ]; then
   say "  Password: $PASSWORD   ${dim}(shown once; change it under Account security)${reset}"
 fi
 say "  Logs:     journalctl -u presso -f"
-say "  Upgrade:  System → Updates in the panel, or re-run this script"
+say "  Upgrade:  Settings → Updates in the panel, or re-run this script"
 say "  Rollback: $BIN.previous is the last binary; or: install.sh --version vX.Y.Z"
