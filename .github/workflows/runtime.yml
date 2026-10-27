@@ -27,6 +27,7 @@ on:
         type: string
         required: true
   pull_request:
+    branches: [main]
     paths:
       - runtime/**
       - scripts/compliance/**
@@ -290,15 +291,17 @@ jobs:
           tags: presso-runtime-base:php${{ matrix.php }}
           load: true
           cache-from: type=gha,scope=base-php${{ matrix.php }}-ubuntu-latest
-      - uses: docker/build-push-action@v6
-        with:
-          context: runtime
-          file: runtime/Dockerfile
-          build-args: |
-            BASE_IMAGE=presso-runtime-base:php${{ matrix.php }}
-            WP_VERSION=${{ matrix.wp }}
-          tags: presso-runtime:${{ matrix.tag }}
-          load: true
+      # Docker's own builder: buildx's container builder cannot use the
+      # base just loaded into the local image store.
+      - name: Build the WordPress layer
+        env:
+          PHP: ${{ matrix.php }}
+          WP: ${{ matrix.wp }}
+          PAIR: ${{ matrix.tag }}
+        run: |
+          docker buildx build --builder "$(docker context show)" -f runtime/Dockerfile \
+            --build-arg BASE_IMAGE="presso-runtime-base:php$PHP" --build-arg WP_VERSION="$WP" \
+            -t "presso-runtime:$PAIR" runtime
       - name: Rehearse source and notice packaging without publication
         env:
           PAIR: ${{ matrix.tag }}
