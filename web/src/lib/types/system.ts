@@ -44,17 +44,32 @@ export type UpdateStatus = {
 	/** Whether this process can replace its own binary; `unsupported_reason` says why not. */
 	supported: boolean;
 	unsupported_reason?: string;
-	/** Newest published release known; "" before the first successful check. */
+	/** The admin's settings: the release channel and automatic updates. */
+	channel: UpdateChannel;
+	auto_update: boolean;
+	/** Whether the background check runs (UPDATE_CHECK); automatic updates need it. */
+	checks: boolean;
+	/** Newest published release on the channel; "" before the first successful check. */
 	latest: string;
+	/** `latest` is an alpha, beta or rc release. */
+	prerelease: boolean;
 	available: boolean;
+	/** The running version is newer than `latest` (back on stable after beta): no downgrade. */
+	ahead: boolean;
 	url: string;
 	published_at: string | null;
 	checked_at: string | null;
 	error: string;
+	error_kind?: UpdateErrorKind;
 	/** Queued or running engine.update / engine.rollout job. */
 	job_id: string | null;
 	job_kind?: string;
 };
+
+export type UpdateChannel = 'stable' | 'beta';
+
+export type UpdateErrorKind =
+	'offline' | 'not_found' | 'rate_limited' | 'unavailable' | 'invalid' | 'no_release';
 
 export type SystemMeta = { version: string };
 

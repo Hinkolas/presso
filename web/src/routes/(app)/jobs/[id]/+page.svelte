@@ -97,21 +97,21 @@
 {#if error && !job}
 	<PageHeader
 		title="Job"
-		back={{ href: resolve('/system') + '?tab=activity', label: 'Activity' }}
+		back={{ href: resolve('/settings/system') + '?tab=activity', label: 'Activity' }}
 	/>
 	<Alert>{error}</Alert>
 {:else if !job}
 	<PageHeader
 		title="Job"
 		subtitle="Loading."
-		back={{ href: resolve('/system') + '?tab=activity', label: 'Activity' }}
+		back={{ href: resolve('/settings/system') + '?tab=activity', label: 'Activity' }}
 	/>
 	<div aria-busy="true"><Skeleton plate class="h-40" /></div>
 {:else}
 	<PageHeader
 		{title}
 		subtitle={timing}
-		back={{ href: resolve('/system') + '?tab=activity', label: 'Activity' }}
+		back={{ href: resolve('/settings/system') + '?tab=activity', label: 'Activity' }}
 	>
 		<div class="flex flex-wrap items-center gap-3">
 			<StatusPill status={job.status} soft />
