@@ -14,9 +14,10 @@
 # patch release per branch in matrix.json ("patch"); a PHP security release
 # means bumping that pin, and the base build fails if the image disagrees.
 #
-# Pull requests (and dispatches with push=false) build sample pairs, one per
-# published flavor, on amd64 only and smoke-test them without pushing. The
-# legacy flavor is currently unpublished (README.md "Legacy runtimes").
+# Dispatches with push=false build sample pairs, one per published flavor, on
+# amd64 only and smoke-test them without pushing; pull requests do not run
+# this workflow. The legacy flavor is currently unpublished (README.md
+# "Legacy runtimes").
 name: runtime
 
 on:
@@ -26,14 +27,6 @@ on:
         description: Release tag the images are published under (e.g. v0.1.0)
         type: string
         required: true
-  pull_request:
-    branches: [main]
-    paths:
-      - runtime/**
-      - scripts/compliance/**
-      - docs/licensing.md
-      - internal/compat/matrix.json
-      - .github/workflows/runtime.yml
   workflow_dispatch:
     inputs:
       release:
@@ -265,7 +258,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: runtime/scripts/smoke.sh "$IMAGE:$RELEASE-${{ matrix.tag }}"
 
-  # --- Pull requests: build and smoke-test one sample per flavor -------------
+  # --- Rehearsal: build and smoke-test one sample per flavor ----------------
 
   sample:
     needs: matrix

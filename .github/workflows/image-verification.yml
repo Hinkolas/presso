@@ -1,0 +1,75 @@
+# Image verification: builds every image the engine runs from this checkout
+# (docker-bake.hcl), collects and verifies their source bundles, smoke-tests
+# the platform images and runs the Docker integration tests against them.
+#
+# This is the heavy part of verification and is not run for pull requests
+# (ci.yml covers vet, tests, the frontend and the compliance tooling). The
+# release workflow requires it before anything is published, so a failure
+# only means deleting the tag, fixing the cause and tagging again. Dispatch it
+# by hand to rehearse a release:
+#
+#   gh workflow run image-verification.yml --ref main
+name: image-verification
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Verify source helper ownership on Linux
+        run: PRESSO_TEST_DOCKER=1 python3 -m unittest discover -s scripts/compliance -p 'test_alpine_helper.py' -v
+      - name: Resolve the default published runtime
+        run: |
+          set -euo pipefail
+          go run ./cmd/pressod runtime-matrix > /tmp/presso-matrix.json
+          go run ./cmd/pressod runtime-matrix --bases > /tmp/presso-bases.json
+          php=$(jq -r '.include[0].php' /tmp/presso-matrix.json)
+          {
+            echo "PHP_VERSION=$php"
+            echo "PHP_PATCH=$(jq -er --arg php "$php" '.include[] | select(.php == $php) | .patch' /tmp/presso-bases.json)"
+            echo "WP_VERSION=$(jq -r '.include[0].wp' /tmp/presso-matrix.json)"
+          } >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v3
+      # The platform images and the runtime, in parallel and without a layer
+      # cache, so verification sees the packages a release would ship.
+      - name: Build the verification images
+        uses: docker/bake-action@v6
+        env:
+          # The builder's storage is pruned below; skip the build record export.
+          DOCKER_BUILD_RECORD_UPLOAD: false
+          DOCKER_BUILD_SUMMARY: false
+        with:
+          source: .
+          load: true
+      # The images are loaded into Docker, so the builder's second copy of
+      # every layer only costs runner disk, which source collection needs.
+      - name: Free the builder's storage
+        run: |
+          docker buildx prune --all --force >/dev/null
+          df -h /
+      - name: Verify real image source and notice collection
+        run: |
+          set -euo pipefail
+          for image in edge mariadb valkey browser runtime; do
+            python3 scripts/compliance/collect.py image "presso-$image:release-verification" --out "/tmp/$image-compliance"
+            python3 scripts/compliance/collect.py verify "/tmp/$image-compliance"
+            rm -rf "/tmp/$image-compliance"
+          done
+      - name: Smoke-test the platform images
+        run: |
+          set -euo pipefail
+          for image in edge mariadb valkey browser; do
+            build/smoke.sh "$image" "presso-$image:release-verification"
+          done
+      - run: docker pull curlimages/curl:latest
+      - run: go test -tags integration -count=1 -timeout 10m ./internal/integration ./internal/platform

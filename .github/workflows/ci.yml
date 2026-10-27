@@ -1,18 +1,14 @@
-# Verification for pull requests into main, which is protected: changes land
-# through semantic branches (feat/, fix/, chore/, ...) and a pull request
-# whose "ci-result" check passed. Pushes to branches run nothing on their own.
+# Checks and tests for pull requests into main, which is protected: changes
+# land through semantic branches (feat/, fix/, chore/, ...) and a pull request
+# whose "ci-result" check passed. Pushing a branch runs nothing on its own.
 #
-# Pull requests reuse Docker layers cached by earlier runs and collect image
-# sources only when an image or collection input changed (scripts/ci_changes.py).
-# The weekly run and manual dispatches verify everything without reading the
-# cache, which catches upstream package changes and refreshes the layers
-# pull requests start from. Release tags run verify.yml in full on their own.
+# Image builds, source collection and the Docker integration tests live in
+# image-verification.yml, which release tags run before publishing anything
+# and which can be dispatched by hand before tagging.
 name: ci
 on:
   pull_request:
     branches: [main]
-  schedule:
-    - cron: '23 3 * * 1'
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       run_verify: ${{ steps.scope.outputs.run_verify }}
-      sources: ${{ steps.scope.outputs.sources }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,9 +33,6 @@ jobs:
     # successful, explicit docs-only result may skip this reusable workflow.
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.run_verify != 'false') }}
     uses: ./.github/workflows/verify.yml
-    with:
-      sources: ${{ needs.changes.outputs.sources != 'false' }}
-      cache: ${{ github.event_name == 'pull_request' && 'use' || 'refresh' }}
 
   # The one check branch protection requires: jobs inside verify.yml are
   # named per run, and a skipped docs-only verification must still pass.
