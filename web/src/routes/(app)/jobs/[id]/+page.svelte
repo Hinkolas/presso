@@ -97,26 +97,29 @@
 {#if error && !job}
 	<PageHeader
 		title="Job"
-		back={{ href: resolve('/settings/system') + '?tab=activity', label: 'Activity' }}
+		back={{ href: resolve('/(app)/settings/system') + '?tab=activity', label: 'Activity' }}
 	/>
 	<Alert>{error}</Alert>
 {:else if !job}
 	<PageHeader
 		title="Job"
 		subtitle="Loading."
-		back={{ href: resolve('/settings/system') + '?tab=activity', label: 'Activity' }}
+		back={{ href: resolve('/(app)/settings/system') + '?tab=activity', label: 'Activity' }}
 	/>
 	<div aria-busy="true"><Skeleton plate class="h-40" /></div>
 {:else}
 	<PageHeader
 		{title}
 		subtitle={timing}
-		back={{ href: resolve('/settings/system') + '?tab=activity', label: 'Activity' }}
+		back={{ href: resolve('/(app)/settings/system') + '?tab=activity', label: 'Activity' }}
 	>
 		<div class="flex flex-wrap items-center gap-3">
 			<StatusPill status={job.status} soft />
 			{#if job.site_id}
-				<a href={resolve(`/sites/${job.site_id}`)} class="text-xs text-ink-2 hover:text-ink">
+				<a
+					href={resolve('/(app)/sites/[id]', { id: job.site_id })}
+					class="text-xs text-ink-2 hover:text-ink"
+				>
 					Open site
 				</a>
 			{/if}

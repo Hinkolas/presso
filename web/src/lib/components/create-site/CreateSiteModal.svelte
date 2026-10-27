@@ -202,7 +202,7 @@
 			// The new card on the Sites page carries the progress; open the
 			// site itself for the full timeline.
 			createSite.justCreated = res.site.id;
-			if (page.url.pathname !== resolve('/')) await goto(resolve('/'));
+			if (page.url.pathname !== resolve('/(app)')) await goto(resolve('/(app)'));
 		} catch (err) {
 			const target = stepForServerError(err instanceof ApiError ? err.code : '');
 			step = target.step;

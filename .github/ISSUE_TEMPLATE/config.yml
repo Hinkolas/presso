@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/Hinkolas/presso/security/advisories/new
+    about: Follow SECURITY.md. Do not post vulnerability details in a public issue.
+  - name: Contribution policy
+    url: https://github.com/Hinkolas/presso/blob/main/CONTRIBUTING.md
+    about: Bug reports are welcome; external pull requests and patches are currently paused.

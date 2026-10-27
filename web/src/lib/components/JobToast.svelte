@@ -162,7 +162,7 @@
 		{/snippet}
 		<JobTimeline {job} />
 		{#snippet footer()}
-			<Button size="sm" href={resolve(`/jobs/${job.id}`)}>Open job</Button>
+			<Button size="sm" href={resolve('/(app)/jobs/[id]', { id: job.id })}>Open job</Button>
 			{#if canRetry}
 				<Button size="sm" variant="primary" icon="refresh" onclick={retry} busy={retrying}>
 					Retry

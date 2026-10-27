@@ -152,13 +152,15 @@
 				<tr class="transition-colors hover:bg-sunken/60">
 					<td class={td}>
 						<a
-							href={resolve(`/jobs/${j.id}`)}
+							href={resolve('/(app)/jobs/[id]', { id: j.id })}
 							class="font-medium text-ink hover:text-brand"
 							title={j.kind}>{verb(j.kind)}</a
 						>
 						<div class="mt-0.5 text-xs text-ink-2">
 							{#if s}
-								<a href={resolve(`/sites/${s.id}`)} class="hover:text-ink">{s.name}</a>
+								<a href={resolve('/(app)/sites/[id]', { id: s.id })} class="hover:text-ink"
+									>{s.name}</a
+								>
 							{:else if j.site_id}
 								<span class="font-mono">{j.site_id.slice(0, 8)}</span>
 							{:else}
@@ -187,7 +189,7 @@
 							variant="ghost"
 							size="sm"
 							icon="chevron-right"
-							href={resolve(`/jobs/${j.id}`)}
+							href={resolve('/(app)/jobs/[id]', { id: j.id })}
 							aria-label="Open job"
 						/>
 					</td>

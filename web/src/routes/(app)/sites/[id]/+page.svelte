@@ -90,7 +90,7 @@
 
 	function setTab(t: Tab) {
 		const search = t === 'overview' ? '' : `?tab=${t}`;
-		goto(resolve(`/sites/${id}${search}`), { replaceState: true, noScroll: true, keepFocus: true });
+		goto(resolve('/(app)/sites/[id]', { id }) + search, { replace: true, reset: false });
 	}
 
 	function onJob(job: Job) {
@@ -120,17 +120,17 @@
 	<title>{site?.name ?? 'Site'} · presso</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Sites" class="mb-4" />
+<BackLink href={resolve('/(app)')} label="Sites" class="mb-4" />
 
 {#if deleted}
 	<Alert tone="info">
 		This site has been deleted.
-		<a href={resolve('/')} class="underline underline-offset-2">Back to sites</a>
+		<a href={resolve('/(app)')} class="underline underline-offset-2">Back to sites</a>
 	</Alert>
 {:else if notFound}
 	<Alert>
 		There is no site with this id.
-		<a href={resolve('/')} class="underline underline-offset-2">Back to sites</a>
+		<a href={resolve('/(app)')} class="underline underline-offset-2">Back to sites</a>
 	</Alert>
 {:else if error && !site}
 	<Alert>{error}</Alert>

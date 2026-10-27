@@ -10,9 +10,11 @@ release = YAML.load_file(File.join(__dir__, '../.github/workflows/release.yml'))
 verify = YAML.load_file(File.join(__dir__, '../.github/workflows/verify.yml'))['jobs']
 runtime = YAML.load_file(File.join(__dir__, '../.github/workflows/runtime.yml'))['jobs']
 image_verification = YAML.load_file(File.join(__dir__, '../.github/workflows/image-verification.yml'))['jobs']
-required = %w[validate-tag verify verify-images source-release binary images images-merge runtime]
+security = YAML.load_file(File.join(__dir__, '../.github/workflows/security.yml'))['jobs']
+ci = YAML.load_file(File.join(__dir__, '../.github/workflows/ci.yml'))['jobs']
+required = %w[validate-tag verify verify-images security source-release binary images images-merge runtime]
 raise 'publish must require all artifacts and verification' unless (required - release.fetch('publish').fetch('needs')).empty?
-{ 'verify' => 'verify.yml', 'verify-images' => 'image-verification.yml' }.each do |name, file|
+{ 'verify' => 'verify.yml', 'verify-images' => 'image-verification.yml', 'security' => 'security.yml' }.each do |name, file|
   job = release.fetch(name)
   raise "#{name} must require tag validation" unless Array(job['needs']).include?('validate-tag')
   raise "#{name} must run ./.github/workflows/#{file}" unless job['uses'] == "./.github/workflows/#{file}"
@@ -30,7 +32,22 @@ raise 'runtime publishing must validate its version' unless runtime.fetch('matri
   raise "#{name} can publish before verification" unless Array(release.fetch(name)['needs']).include?('verify')
   raise "#{name} can publish before source preparation" unless Array(release.fetch(name)['needs']).include?('source-release')
 end
-[[verify, %w[go install-script web compliance]], [image_verification, %w[integration]]].each do |jobs, names|
+raise 'PR result must require security checks' unless Array(ci.fetch('result')['needs']).include?('security')
+raise 'PR security must use the shared workflow' unless ci.fetch('security')['uses'] == './.github/workflows/security.yml'
+raise 'PR security must run for docs-only changes' if ci.fetch('security').key?('if') || ci.fetch('security').key?('needs')
+result_script = ci.fetch('result').fetch('steps').map { |s| s.fetch('run', '') }.join("\n")
+raise 'PR result must reject failed security' unless result_script.include?('"$SECURITY" != success')
+# Exercise the actual result script: security cannot pass via a docs-only
+# skip or a failed/cancelled/skipped reusable workflow.
+%w[true false].each do |run_verify|
+  %w[success failure cancelled skipped].each do |state|
+    env = {'CHANGES' => 'success', 'RUN_VERIFY' => run_verify,
+           'VERIFY' => run_verify == 'true' ? 'success' : 'skipped', 'SECURITY' => state}
+    _, _, status = Open3.capture3(env, 'bash', '-c', result_script)
+    raise "PR result mishandles security=#{state}, verify=#{run_verify}" unless status.success? == (state == 'success')
+  end
+end
+[[verify, %w[go install-script web compliance]], [image_verification, %w[integration]], [security, %w[secrets dependencies]]].each do |jobs, names|
   names.each do |name|
     raise "missing required #{name} verification" unless jobs.key?(name)
     raise "#{name} can be conditionally skipped" if jobs[name].key?('if') || jobs[name]['continue-on-error']

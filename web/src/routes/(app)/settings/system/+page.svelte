@@ -30,11 +30,9 @@
 	);
 	function setTab(t: Tab) {
 		const search = t === 'overview' ? '' : `?tab=${t}`;
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved path plus query
-		goto(resolve('/settings/system') + search, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
+		goto(resolve('/(app)/settings/system') + search, {
+			replace: true,
+			reset: false
 		});
 	}
 
@@ -188,7 +186,7 @@
 					<span class="size-2 rounded-full bg-brand"></span>
 					presso <span class="text-ink num">{update.latest}</span> is available.
 					<a
-						href={resolve('/settings/updates')}
+						href={resolve('/(app)/settings/updates')}
 						class="font-medium text-ink underline decoration-rule-strong hover:decoration-ink"
 						>Go to Updates</a
 					>

@@ -27,7 +27,7 @@
 
 	let { site, hour }: { site: Site; hour?: MetricsResponse } = $props();
 
-	const href = $derived(resolve(`/sites/${site.id}`));
+	const href = $derived(resolve('/(app)/sites/[id]', { id: site.id }));
 	const m = $derived(site.metrics_1h);
 	const shown = $derived(shownStatus(site));
 	const running = $derived(site.status === 'running');

@@ -1,0 +1,19 @@
+name: Feature idea
+description: Suggest an improvement after checking ROADMAP.md.
+body:
+  - type: markdown
+    attributes:
+      value: Suggestions are welcome. They do not establish a delivery date or an invitation to submit a patch; see CONTRIBUTING.md.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe what you are trying to do. Remove private host and customer information.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Suggested improvement and alternatives
+    validations:
+      required: true

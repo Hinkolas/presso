@@ -239,7 +239,7 @@ must not be mounted into Valkey; [upstream documents the incompatibility](https:
 
 ## Local development
 
-Requirements: Go 1.26, Node.js 22, Docker Engine or Docker Desktop,
+Requirements: Go 1.26.10+, Node.js 22.17+, Docker Engine or Docker Desktop,
 [Task](https://taskfile.dev), and [jq](https://jqlang.org). [sqlc](https://sqlc.dev) is needed when changing SQL
 queries or the schema.
 
@@ -267,11 +267,13 @@ UI and embeds it in `bin/pressod`.
 
 `main` is protected. Work happens on semantic branches (`feat/`, `fix/`,
 `chore/`, ...) and lands through a pull request, which needs the `ci-result`
-check to pass. CI runs only for pull requests into `main` (and on manual
+check to pass. CI runs for pull requests into `main` (and on manual
 dispatch): Linux race tests, installer checks, a clean frontend build, the
 compliance tooling and a real source bundle for the engine binary. Pull
 requests that change only the root user guides or Markdown under `docs/` skip
-those checks.
+those checks. Secret scanning and dependency advisory checks always run,
+including on documentation-only pull requests. They also run on pushes to
+`main`, weekly, and before publishing a release.
 
 Image builds, image source collection, smoke tests and the Docker integration
 tests run in the image verification workflow, which every release tag runs
@@ -282,7 +284,8 @@ before anything is published. Run it by hand before tagging with
 See [release verification](docs/release-verification.md) for release test
 evidence.
 
-To prepare a release, make the repository public, merge the changes through
+Follow the [public-release checklist](docs/public-release.md) before changing
+repository visibility or cutting the first RC. To prepare a release, make the repository public, merge the changes through
 pull requests whose CI passed, optionally rehearse with the image verification
 workflow, then run
 `task release:tag V=v0.1.0-rc.1` with an unused version. This creates and pushes
@@ -311,6 +314,8 @@ space. See [licensing and source access](docs/licensing.md) for downloads and re
 - [ROADMAP.md](ROADMAP.md): planned work, deferred features, and longer-term ideas.
 - [SECURITY.md](SECURITY.md): security scope, updates, and private reporting.
 - [CONTRIBUTING.md](CONTRIBUTING.md): the current contribution policy.
+- [docs/dependencies.md](docs/dependencies.md): dependency inventory and notice generation.
+- [docs/public-release.md](docs/public-release.md): publication, security checks, and VPS RC testing.
 - [docs/orchestration.md](docs/orchestration.md), [docs/runtime.md](docs/runtime.md), and
   [docs/harness.md](docs/harness.md): technical design notes, including historical proposals;
   these are not a list of shipped features.

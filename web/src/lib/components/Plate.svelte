@@ -19,7 +19,7 @@
 
 	let { site }: { site: Site } = $props();
 
-	const href = $derived(resolve(`/sites/${site.id}`));
+	const href = $derived(resolve('/(app)/sites/[id]', { id: site.id }));
 	const m = $derived(site.metrics_1h);
 	const shown = $derived(shownStatus(site));
 	const wp = $derived(branchOf(site.wp_version ?? ''));

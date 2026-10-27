@@ -3,7 +3,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
 	import { api } from '$lib/api/client';
 	import { openCreateSite } from '$lib/state/create-site.svelte';
 	import { sites as liveSites } from '$lib/state/live.svelte';
@@ -47,16 +46,21 @@
 	});
 
 	const sections: Entry[] = [
-		{ id: 'nav-sites', title: 'Sites', icon: 'sites', href: resolve('/') },
+		{ id: 'nav-sites', title: 'Sites', icon: 'sites', href: resolve('/(app)') },
 		{
 			id: 'nav-jobs',
 			title: 'Activity',
 			icon: 'jobs',
-			href: resolve('/settings/system') + '?tab=activity'
+			href: resolve('/(app)/settings/system') + '?tab=activity'
 		},
-		{ id: 'nav-system', title: 'System', icon: 'system', href: resolve('/settings/system') },
-		{ id: 'nav-updates', title: 'Updates', icon: 'refresh', href: resolve('/settings/updates') },
-		{ id: 'nav-account', title: 'Account security', icon: 'user', href: resolve('/account') }
+		{ id: 'nav-system', title: 'System', icon: 'system', href: resolve('/(app)/settings/system') },
+		{
+			id: 'nav-updates',
+			title: 'Updates',
+			icon: 'refresh',
+			href: resolve('/(app)/settings/updates')
+		},
+		{ id: 'nav-account', title: 'Account security', icon: 'user', href: resolve('/(app)/account') }
 	];
 
 	const all = $derived.by<Entry[]>(() => {
@@ -70,7 +74,7 @@
 				title: s.name,
 				detail: s.primary_domain,
 				status: s.status,
-				href: resolve(`/sites/${s.id}`)
+				href: resolve('/(app)/sites/[id]', { id: s.id })
 			}));
 		const nav = [...sections];
 		if (isAdmin())
@@ -94,8 +98,7 @@
 		if (e.onselect) e.onselect();
 		else if (!e.href) return;
 		else if (e.external) window.open(e.href, '_blank', 'noopener');
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- hrefs are resolved above
-		else goto(e.href as Pathname);
+		else goto(e.href);
 	}
 
 	function onKey(ev: KeyboardEvent) {

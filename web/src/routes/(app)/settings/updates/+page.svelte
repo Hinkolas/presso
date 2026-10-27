@@ -388,7 +388,7 @@
 									>{showDetails ? 'Hide details' : 'Show details'}</button
 								>
 								<a
-									href={resolve(`/jobs/${engineJob.id}`)}
+									href={resolve('/(app)/jobs/[id]', { id: engineJob.id })}
 									class="text-ink-2 underline decoration-rule-strong hover:text-ink">Open the job</a
 								>
 							</div>
@@ -405,8 +405,9 @@
 							? `: ${failedUpdate.error}`
 							: '.'}
 						Nothing was replaced unless the job got past “Install binary”.
-						<a href={resolve(`/jobs/${failedUpdate.id}`)} class="font-medium underline"
-							>See what happened</a
+						<a
+							href={resolve('/(app)/jobs/[id]', { id: failedUpdate.id })}
+							class="font-medium underline">See what happened</a
 						>
 					</Alert>
 				{/if}

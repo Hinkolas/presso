@@ -1,6 +1,6 @@
 module github.com/Hinkolas/presso
 
-go 1.26.1
+go 1.26.10
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20260714215040-dc233986426f
