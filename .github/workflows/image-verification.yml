@@ -22,8 +22,8 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Verify source helper ownership on Linux
@@ -39,11 +39,11 @@ jobs:
             echo "PHP_PATCH=$(jq -er --arg php "$php" '.include[] | select(.php == $php) | .patch' /tmp/presso-bases.json)"
             echo "WP_VERSION=$(jq -r '.include[0].wp' /tmp/presso-matrix.json)"
           } >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # The platform images and the runtime, in parallel and without a layer
       # cache, so verification sees the packages a release would ship.
       - name: Build the verification images
-        uses: docker/bake-action@5be5f02ff8819ecd3092ea6b2e6261c31774f2b4 # v6
+        uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
         env:
           # The builder's storage is pruned below; skip the build record export.
           DOCKER_BUILD_RECORD_UPLOAD: false
