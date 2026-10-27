@@ -52,6 +52,11 @@
 	@blocked path /wp-config.php /wp-content/debug.log /.git*
 	respond @blocked 404
 
+	# Presso supplies wp-config.php. The unused configuration wizard skips
+	# that file and boots the cache drop-in without the Valkey settings.
+	@setupconfig path /wp-admin/setup-config.php /wp-admin/setup-config.php/*
+	respond @setupconfig 404
+
 	# Static files straight from disk, everything else through index.php.
 	php_server
 }

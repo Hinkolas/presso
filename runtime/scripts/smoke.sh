@@ -9,7 +9,7 @@ set -euo pipefail
 image=$1
 name="presso-smoke-$$"
 fail() { echo "smoke: FAIL: $*" >&2; docker logs "$name" >&2 || true; exit 1; }
-cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; }
+cleanup() { docker rm -fv "$name" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 docker run -d --name "$name" -p 127.0.0.1:0:8080 --tmpfs /tmp \
@@ -28,7 +28,7 @@ done
 [ "$status" = healthy ] || fail "not healthy after 60s ($status)"
 
 expect() { # method path want-code [want-body]
-	local got opt=()
+	local got opt=(-X "$1")
 	[ "$1" = HEAD ] && opt=(-I)
 	got=$(curl -s -m 10 ${opt[@]+"${opt[@]}"} -o /tmp/smoke-body -w '%{http_code}' "$base$2")
 	[ "$got" = "$3" ] || fail "$1 $2: want $3, got $got"
@@ -43,6 +43,22 @@ if [ "$flavor" = fpm ]; then expect GET /-/fpm-ping 200 pong; fi
 expect HEAD /wp-config.php 404
 expect HEAD /wp-content/debug.log 404
 expect HEAD /.git/config 404
+
+# Reproduce the managed-site layout: the drop-in exists, but setup-config.php
+# skips wp-config.php and would try Redis on localhost without its settings.
+# A server-level 404 must be returned before WordPress boots, for
+# every method and even when query strings or PATH_INFO are present.
+docker exec "$name" cp /opt/presso/dropins/object-cache.php /var/www/html/wp-content/object-cache.php
+expect GET /wp-admin/setup-config.php 404
+expect HEAD /wp-admin/setup-config.php 404
+expect POST /wp-admin/setup-config.php 404
+expect GET '/wp-admin/setup-config.php?step=1' 404
+expect GET /wp-admin/setup-config.php/extra 404
+if docker logs "$name" 2>&1 | grep -q 'RedisException'; then
+	fail "configuration wizard attempted a Redis connection"
+fi
+docker exec "$name" rm /var/www/html/wp-content/object-cache.php
+
 # WordPress itself: no database yet, so the install screen or an error page
 # rendered by PHP; anything but an nginx/Caddy-level failure.
 code=$(curl -s -m 30 -o /dev/null -w '%{http_code}' "$base/")
