@@ -48,8 +48,13 @@ jobs:
     needs: validate-tag
     uses: ./.github/workflows/verify.yml
 
+  # Image builds, source collection and the Docker integration tests.
+  verify-images:
+    needs: validate-tag
+    uses: ./.github/workflows/image-verification.yml
+
   source-release:
-    needs: [verify]
+    needs: [verify, verify-images]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -159,7 +164,7 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [validate-tag, verify, source-release, binary, images, images-merge, runtime]
+    needs: [validate-tag, verify, verify-images, source-release, binary, images, images-merge, runtime]
     runs-on: ubuntu-latest
     steps:
       - name: Publish the draft release

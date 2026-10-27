@@ -9,11 +9,16 @@ root = File.expand_path('..', __dir__)
 release = YAML.load_file(File.join(__dir__, '../.github/workflows/release.yml'))['jobs']
 verify = YAML.load_file(File.join(__dir__, '../.github/workflows/verify.yml'))['jobs']
 runtime = YAML.load_file(File.join(__dir__, '../.github/workflows/runtime.yml'))['jobs']
-required = %w[validate-tag verify source-release binary images images-merge runtime]
+image_verification = YAML.load_file(File.join(__dir__, '../.github/workflows/image-verification.yml'))['jobs']
+required = %w[validate-tag verify verify-images source-release binary images images-merge runtime]
 raise 'publish must require all artifacts and verification' unless (required - release.fetch('publish').fetch('needs')).empty?
-raise 'verification must require tag validation' unless Array(release.fetch('verify')['needs']).include?('validate-tag')
-# Inputs only narrow verification (pull request scoping, layer caching).
-raise 'release verification must run with full defaults' if release.fetch('verify').key?('with')
+{ 'verify' => 'verify.yml', 'verify-images' => 'image-verification.yml' }.each do |name, file|
+  job = release.fetch(name)
+  raise "#{name} must require tag validation" unless Array(job['needs']).include?('validate-tag')
+  raise "#{name} must run ./.github/workflows/#{file}" unless job['uses'] == "./.github/workflows/#{file}"
+  raise "#{name} must run with its defaults" if job.key?('with')
+  raise "source preparation can start before #{name}" unless Array(release.fetch('source-release')['needs']).include?(name)
+end
 raise 'tag workflow must use the engine version validator' unless release.fetch('validate-tag').fetch('steps').any? { |s| s.fetch('run', '').include?('go run ./cmd/release-version') }
 # Older Psych versions cannot parse go-task's colon-bearing flow scalars in
 # unrelated tasks (for example [build:web]); inspect the release block alone.
@@ -25,14 +30,20 @@ raise 'runtime publishing must validate its version' unless runtime.fetch('matri
   raise "#{name} can publish before verification" unless Array(release.fetch(name)['needs']).include?('verify')
   raise "#{name} can publish before source preparation" unless Array(release.fetch(name)['needs']).include?('source-release')
 end
-%w[go install-script web integration compliance].each do |name|
-  raise "missing required #{name} verification" unless verify.key?(name)
-  raise "#{name} can be conditionally skipped" if verify[name].key?('if') || verify[name]['continue-on-error']
-  verify[name].fetch('steps').each do |step|
-    raise "#{name} ignores a failed check" if step['continue-on-error']
+[[verify, %w[go install-script web compliance]], [image_verification, %w[integration]]].each do |jobs, names|
+  names.each do |name|
+    raise "missing required #{name} verification" unless jobs.key?(name)
+    raise "#{name} can be conditionally skipped" if jobs[name].key?('if') || jobs[name]['continue-on-error']
+    jobs[name].fetch('steps').each do |step|
+      raise "#{name} ignores a failed check" if step['continue-on-error']
+      raise "#{name} has a conditional step" if step.key?('if')
+    end
   end
 end
-integration_checks = verify.fetch('integration').fetch('steps').map { |step| step['run'] }.compact
+integration_checks = image_verification.fetch('integration').fetch('steps').map { |step| step['run'] }.compact
+raise 'image source bundles are not a release prerequisite' unless integration_checks.any? { |command|
+  %w[edge mariadb valkey browser runtime].all? { |image| command.include?(image) } && command.include?('collect.py image') && command.include?('collect.py verify')
+}
 raise 'Valkey integration tests are not a release prerequisite' unless integration_checks.any? { |command|
   command.include?('go test -tags integration') && command.include?('./internal/integration') && command.include?('./internal/platform')
 }

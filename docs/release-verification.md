@@ -54,10 +54,14 @@ The subsequent Valkey change also passed the production cache spec/ACL/restart
 test and the WordPress lifecycle test with real object-cache persistence and
 selective flushing. See [the Valkey record](license-review/valkey.md).
 
-The integration tests require a Docker daemon and these locally built tags:
-`presso-edge:release-verification` and `presso-runtime:release-verification`.
-The reusable workflow builds both from this checkout, selecting the runtime
-from `pressod runtime-matrix`. It also obtains the browser and curl test images.
+The integration tests require a Docker daemon and locally built
+`presso-{edge,mariadb,valkey,browser,runtime}:release-verification` tags.
+The image verification workflow (`.github/workflows/image-verification.yml`,
+run by release tags and by hand) builds them from this checkout with
+`docker-bake.hcl`, selecting the runtime from `pressod runtime-matrix`, and
+also collects their source bundles and smoke-tests the platform images. Pull
+request CI does not build images. Locally:
+`WP_VERSION=7.1 docker buildx bake --load`.
 
 ```sh
 go test ./internal/... ./cmd/...
