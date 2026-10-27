@@ -54,6 +54,12 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             collect.checked_path('/etc/passwd')
 
+    def test_notice_file_names(self):
+        for name in ('m@v1/LICENSE', 'm@v1/UNLICENSE', 'COPYING.LIB', 'licenses/MIT.txt', 'NOTICE.md'):
+            self.assertTrue(collect.NOTICE.search(name), name)
+        for name in ('unlicensed.go', 'README.md', 'notices.go'):
+            self.assertFalse(collect.NOTICE.search(name), name)
+
     def test_split_bundle_round_trip_and_checksums(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

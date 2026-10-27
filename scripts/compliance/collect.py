@@ -23,7 +23,7 @@ import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-NOTICE = re.compile(r"(^|/)(licen[cs]es?|copying|copyright|notice|authors|patents)([._/-]|$)", re.I)
+NOTICE = re.compile(r"(^|/)((un)?licen[cs]es?|copying|copyright|notice|authors|patents)([._/-]|$)", re.I)
 
 # Install tools in the disposable container as root, then drop to the caller's
 # numeric UID/GID before touching its bind mount. Native Linux preserves these
