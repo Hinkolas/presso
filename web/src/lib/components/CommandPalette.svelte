@@ -52,9 +52,10 @@
 			id: 'nav-jobs',
 			title: 'Activity',
 			icon: 'jobs',
-			href: resolve('/system') + '?tab=activity'
+			href: resolve('/settings/system') + '?tab=activity'
 		},
-		{ id: 'nav-system', title: 'System', icon: 'system', href: resolve('/system') },
+		{ id: 'nav-system', title: 'System', icon: 'system', href: resolve('/settings/system') },
+		{ id: 'nav-updates', title: 'Updates', icon: 'refresh', href: resolve('/settings/updates') },
 		{ id: 'nav-account', title: 'Account security', icon: 'user', href: resolve('/account') }
 	];
 

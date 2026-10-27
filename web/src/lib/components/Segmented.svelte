@@ -8,6 +8,7 @@
 		value = $bindable(),
 		size = 'md',
 		iconOnly = false,
+		disabled = false,
 		label,
 		onchange
 	}: {
@@ -15,6 +16,7 @@
 		value: T;
 		size?: 'sm' | 'md';
 		iconOnly?: boolean;
+		disabled?: boolean;
 		label?: string;
 		onchange?: (v: T) => void;
 	} = $props();
@@ -23,7 +25,7 @@
 <div
 	class="inline-flex items-center gap-0.5 border border-rule-strong bg-surface {size === 'sm'
 		? 'h-9 rounded-control-sm p-[3px]'
-		: 'h-11 rounded-control p-1'}"
+		: 'h-11 rounded-control p-1'} {disabled ? 'opacity-50' : ''}"
 	role="tablist"
 	aria-label={label}
 >
@@ -34,6 +36,7 @@
 			aria-selected={value === o.value}
 			aria-label={iconOnly ? o.label : undefined}
 			title={iconOnly ? o.label : undefined}
+			{disabled}
 			onclick={() => {
 				value = o.value;
 				onchange?.(o.value);
@@ -42,7 +45,7 @@
 				? 'w-10'
 				: 'px-3.5'} {value === o.value
 				? 'bg-ink text-surface'
-				: 'text-ink-2 hover:bg-sunken hover:text-ink'}"
+				: 'text-ink-2 enabled:hover:bg-sunken enabled:hover:text-ink'} disabled:cursor-not-allowed"
 		>
 			{#if o.icon}<Icon name={o.icon} size={size === 'sm' ? 16 : 18} />{/if}
 			{#if !iconOnly}{o.label}{/if}

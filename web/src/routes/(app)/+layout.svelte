@@ -1,5 +1,6 @@
-<!-- App shell: a sidebar with Sites up top and, pinned to the bottom, System
-     (platform health sits on its row) and the account card; a topbar for the
+<!-- App shell: a sidebar with Sites up top and, pinned to the bottom,
+     Settings (platform health and updates sit on its row) and the account
+     card; a topbar for the
      breadcrumb and search; the page below. One event stream is opened here
      and shared by every page. -->
 <script lang="ts">
@@ -39,12 +40,12 @@
 			match: (p) => p === '/' || p.startsWith('/sites')
 		}
 	];
-	// System also owns the job history (its Activity tab and /jobs/{id}).
+	// Settings also owns the job history (System's Activity tab and /jobs/{id}).
 	const system: NavItem = {
-		href: resolve('/system'),
-		label: 'System',
-		icon: 'system',
-		match: (p) => p.startsWith('/system') || p.startsWith('/jobs')
+		href: resolve('/settings/system'),
+		label: 'Settings',
+		icon: 'settings',
+		match: (p) => p.startsWith('/settings') || p.startsWith('/jobs')
 	};
 
 	const siteCount = $derived.by(() => {
@@ -58,10 +59,10 @@
 		return n;
 	});
 
-	// Platform health for the dot on the System row: every component reported
-	// ok. A dropped event stream is surfaced here too, since the data on screen
-	// may be stale until it reconnects. Running jobs show there as well, since
-	// the job history is a tab of System.
+	// Platform health for the dot on the Settings row: every component
+	// reported ok. A dropped event stream is surfaced here too, since the data
+	// on screen may be stale until it reconnects. Running jobs show there as
+	// well, since the job history is part of Settings → System.
 	const platformState = $derived.by(() => {
 		if (!live.connected && live.generation > 0) return 'offline';
 		const comps = live.platform;
@@ -83,9 +84,12 @@
 	const crumbs = $derived.by(() => {
 		const p = page.url.pathname;
 		if (p.startsWith('/sites/')) return ['Sites', sites.get(page.params.id ?? '')?.name ?? 'Site'];
-		if (p.startsWith('/jobs/')) return ['System', 'Activity', 'Job'];
-		if (p.startsWith('/system')) {
-			return page.url.searchParams.get('tab') === 'activity' ? ['System', 'Activity'] : ['System'];
+		if (p.startsWith('/jobs/')) return ['Settings', 'System', 'Activity', 'Job'];
+		if (p.startsWith('/settings/updates')) return ['Settings', 'Updates'];
+		if (p.startsWith('/settings')) {
+			return page.url.searchParams.get('tab') === 'activity'
+				? ['Settings', 'System', 'Activity']
+				: ['Settings', 'System'];
 		}
 		if (p.startsWith('/account')) return ['Account security'];
 		return ['Sites'];
@@ -164,14 +168,14 @@
 		<span class="flex-1">{item.label}</span>
 		{#if item.label === 'Sites' && siteCount}
 			<span class="text-sm text-ink-3 num">{siteCount}</span>
-		{:else if item.label === 'System' && platformState && platformState !== 'ok'}
+		{:else if item.label === 'Settings' && platformState && platformState !== 'ok'}
 			<span
 				class="size-2 rounded-full {platformState === 'error' ? 'bg-danger' : 'breathe bg-busy'}"
 				title={platformTitle}
 			></span>
-		{:else if item.label === 'System' && runningJobs}
+		{:else if item.label === 'Settings' && runningJobs}
 			<span class="size-2 breathe rounded-full bg-busy" title="{runningJobs} running"></span>
-		{:else if item.label === 'System' && live.update?.available}
+		{:else if item.label === 'Settings' && live.update?.available}
 			<span class="size-2 rounded-full bg-brand" title="presso {live.update.latest} is available"
 			></span>
 		{/if}
