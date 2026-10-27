@@ -2,6 +2,15 @@ name: verify
 
 on:
   workflow_call:
+    inputs:
+      sources:
+        description: Collect and verify the image source bundles (the slowest check)
+        type: boolean
+        default: true
+      cache:
+        description: "Docker layer cache: off, use (read and write) or refresh (write only)"
+        type: string
+        default: "off"
 
 permissions:
   contents: read
@@ -77,16 +86,32 @@ jobs:
           go-version-file: go.mod
       - name: Verify source helper ownership on Linux
         run: PRESSO_TEST_DOCKER=1 python3 -m unittest discover -s scripts/compliance -p 'test_alpine_helper.py' -v
-      - name: Build verification platform images
+      - name: Resolve the default published runtime
         run: |
           set -euo pipefail
-          for image in edge mariadb valkey browser; do
-            docker build -f "build/$image.Dockerfile" -t "presso-$image:release-verification" build
-          done
-      - name: Verify real platform image source and notice collection
+          go run ./cmd/pressod runtime-matrix > /tmp/presso-matrix.json
+          go run ./cmd/pressod runtime-matrix --bases > /tmp/presso-bases.json
+          php=$(jq -r '.include[0].php' /tmp/presso-matrix.json)
+          {
+            echo "PHP_VERSION=$php"
+            echo "PHP_PATCH=$(jq -er --arg php "$php" '.include[] | select(.php == $php) | .patch' /tmp/presso-bases.json)"
+            echo "WP_VERSION=$(jq -r '.include[0].wp' /tmp/presso-matrix.json)"
+          } >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v3
+      # docker-bake.hcl: the platform images and the runtime, in parallel.
+      - name: Build the verification images
+        uses: docker/bake-action@v6
+        env:
+          CACHE: ${{ inputs.cache != 'off' && 'gha' || '' }}
+        with:
+          source: .
+          load: true
+          no-cache: ${{ inputs.cache == 'refresh' }}
+      - name: Verify real image source and notice collection
+        if: ${{ inputs.sources }}
         run: |
           set -euo pipefail
-          for image in edge mariadb valkey browser; do
+          for image in edge mariadb valkey browser runtime; do
             python3 scripts/compliance/collect.py image "presso-$image:release-verification" --out "/tmp/$image-compliance"
             python3 scripts/compliance/collect.py verify "/tmp/$image-compliance"
             rm -rf "/tmp/$image-compliance"
@@ -97,18 +122,5 @@ jobs:
           for image in edge mariadb valkey browser; do
             build/smoke.sh "$image" "presso-$image:release-verification"
           done
-      - name: Build the default published runtime
-        run: |
-          go run ./cmd/pressod runtime-matrix > /tmp/presso-matrix.json
-          go run ./cmd/pressod runtime-matrix --bases > /tmp/presso-bases.json
-          php=$(jq -r '.include[0].php' /tmp/presso-matrix.json)
-          wp=$(jq -r '.include[0].wp' /tmp/presso-matrix.json)
-          patch=$(jq -er --arg php "$php" '.include[] | select(.php == $php) | .patch' /tmp/presso-bases.json)
-          docker build -f runtime/base.Dockerfile --build-arg PHP_VERSION="$php" --build-arg PHP_PATCH="$patch" -t presso-runtime-base:verification runtime
-          docker build -f runtime/Dockerfile --build-arg BASE_IMAGE=presso-runtime-base:verification --build-arg WP_VERSION="$wp" -t presso-runtime:release-verification runtime
-      - name: Verify real runtime source and notice collection
-        run: |
-          python3 scripts/compliance/collect.py image presso-runtime:release-verification --out /tmp/runtime-compliance
-          python3 scripts/compliance/collect.py verify /tmp/runtime-compliance
       - run: docker pull curlimages/curl:latest
       - run: go test -tags integration -count=1 -timeout 10m ./internal/integration ./internal/platform
