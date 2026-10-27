@@ -65,6 +65,7 @@ http {
 
 		# Liveness probe used by health.php; never reaches PHP.
 		location = /-/ping {
+			access_log off;
 			default_type text/plain;
 			return 200 "ok";
 		}

@@ -59,7 +59,13 @@ func TestAggregator(t *testing.T) {
 	}
 	agg.Ingest(line(200, 0.200, "presso; fwd=uri-miss; stored", "s.localhost"), at)
 	agg.Ingest(line(302, 0.005, "", "s.localhost"), at)
-	agg.Ingest(line(500, 1.5, "presso; fwd=uri-miss", "S.LOCALHOST:443"), at)
+	// A proxy failure also emits a diagnostic record. It describes the same
+	// request as the access log and must not inflate requests or 5xx counts.
+	diagnostic := `{"level":"error","logger":"http.log.error.log0","msg":"dial tcp 127.0.0.1:1: connect: connection refused","request":{"host":"s.localhost","method":"GET","uri":"/"},"duration":0.001,"status":502}`
+	if agg.Ingest(diagnostic, at) {
+		t.Error("proxy diagnostic counted as an additional request")
+	}
+	agg.Ingest(line(502, 1.5, "presso; fwd=uri-miss", "S.LOCALHOST:443"), at)
 	if agg.Ingest(line(200, 0.1, "", "unknown.example"), at) {
 		t.Fatal("unknown host counted")
 	}
@@ -120,6 +126,31 @@ func TestAggregator(t *testing.T) {
 	all, _ := st.ListRequestMetrics(ctx, store.ListRequestMetricsParams{SiteID: site.ID, Bucket: now.Add(-time.Hour)})
 	if len(all) != 2 {
 		t.Fatalf("all scopes: %d rows", len(all))
+	}
+}
+
+func TestAggregatorAccessLogIdentity(t *testing.T) {
+	for _, tc := range []struct {
+		name, logger, message string
+		want                  bool
+	}{
+		{"default access logger", "http.log.access", "handled request", true},
+		{"named access logger", "http.log.access.log0", "handled request", true},
+		{"proxy diagnostic", "http.log.error.log0", "dial tcp: connection refused", false},
+		{"unrelated request record", "http.handlers.reverse_proxy", "handled request", false},
+		{"lookalike logger", "http.log.accessibility", "handled request", false},
+		{"unrelated access message", "http.log.access.log0", "server starting", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			agg := NewAggregator(nil)
+			agg.SetHosts(map[string]uuid.UUID{"s.localhost": uuid.New()})
+			// Completed 5xx access records use error severity too; severity
+			// alone cannot distinguish them from proxy diagnostic records.
+			record := fmt.Sprintf(`{"level":"error","logger":%q,"msg":%q,"request":{"host":"s.localhost","method":"GET","uri":"/"},"duration":0.01,"status":502}`, tc.logger, tc.message)
+			if got := agg.Ingest(record, time.Now().UTC()); got != tc.want {
+				t.Fatalf("Ingest() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

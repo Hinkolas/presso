@@ -151,6 +151,12 @@ func (a *Aggregator) Ingest(line string, at time.Time) bool {
 	if err := json.Unmarshal([]byte(line), &e); err != nil || e.Request.Host == "" {
 		return false
 	}
+	// Proxy failures emit a diagnostic error record and a completed access
+	// record, both with request/status fields. Count only the access record
+	// so one failed request contributes one error and one duration sample.
+	if e.Msg != "handled request" || (e.Logger != "http.log.access" && !strings.HasPrefix(e.Logger, "http.log.access.")) {
+		return false
+	}
 	if isWarmer(e.Request.Headers) {
 		return false
 	}

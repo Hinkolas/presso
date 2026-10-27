@@ -39,10 +39,17 @@ expect() { # method path want-code [want-body]
 }
 
 expect GET /-/ping 200 ok
+expect GET '/-/ping?health=1' 200 ok
 if [ "$flavor" = fpm ]; then expect GET /-/fpm-ping 200 pong; fi
+if docker logs "$name" 2>&1 | grep -E '"uri"[[:space:]]*:[[:space:]]*"/-/(ping|fpm-ping)' >/dev/null; then
+	fail "health probe appeared in the access log"
+fi
+echo "smoke: ok health probes omitted from access log"
 expect HEAD /wp-config.php 404
 expect HEAD /wp-content/debug.log 404
 expect HEAD /.git/config 404
+docker logs "$name" 2>&1 | grep -E '"uri"[[:space:]]*:[[:space:]]*"/wp-config.php"' >/dev/null \
+	|| fail "normal requests missing from access log"
 
 # Reproduce the managed-site layout: the drop-in exists, but setup-config.php
 # skips wp-config.php and would try Redis on localhost without its settings.
