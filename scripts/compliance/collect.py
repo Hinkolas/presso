@@ -137,7 +137,13 @@ class Bundle:
         if dest.exists() and digest(dest) != digest(src):
             raise ValueError(f"conflicting material: {name}")
         if src.resolve() != dest.resolve():
-            shutil.copyfile(src, dest)
+            dest.unlink(missing_ok=True)
+            # Downloads are never modified once cached, so a link saves a
+            # second copy of every source archive (gigabytes for Chromium).
+            try:
+                os.link(src, dest)
+            except OSError:
+                shutil.copyfile(src, dest)
         self.records.append({'path': name, 'sha256': digest(dest), 'size': dest.stat().st_size, 'url': url})
         return name
 
